@@ -1,0 +1,8 @@
+import { BookingStatus, PaymentStatus, Role } from "@prisma/client";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { money, shortDate } from "@/lib/format";
+import { getConsultantDashboard } from "@/lib/queries";
+import { requireUser } from "@/lib/session";
+export const dynamic="force-dynamic";
+export default async function ConsultantDashboard(){const u=await requireUser([Role.CONSULTANT]);const p=await getConsultantDashboard(u.id);if(!p)return <DashboardShell mode="consultant" title="Complete seu perfil"><p className="panel">Seu perfil profissional ainda não existe. Conclua o onboarding.</p></DashboardShell>;const revenue=p.bookings.filter(b=>b.payment?.status===PaymentStatus.APPROVED).reduce((s,b)=>s+(b.payment?.amountCents??0),0);const upcoming=p.bookings.filter(b=>b.status===BookingStatus.CONFIRMED&&b.startsAt>new Date());return <DashboardShell mode="consultant" title={`Olá, ${p.user.name.split(" ")[0]}.`}><div className="grid grid-4"><div className="metric"><span>Visualizações</span><strong>{p.profileViews.length}</strong></div><div className="metric"><span>Favoritos</span><strong>{p.favorites.length}</strong></div><div className="metric"><span>Conversas</span><strong>{p.bookings.length}</strong></div><div className="metric"><span>Ganhos brutos</span><strong>{money(revenue)}</strong></div></div><section className="section" style={{paddingBottom:0}}><span className="eyebrow">Próximas consultas</span><div className="list" style={{marginTop:20}}>{upcoming.map(b=><div className="list-row" key={b.id}><div><strong>{b.customer.name}</strong><p>{shortDate(b.startsAt)} · {b.topics.join(", ")}</p></div><span className="status">CONFIRMADA</span></div>)}</div></section></DashboardShell>}
+

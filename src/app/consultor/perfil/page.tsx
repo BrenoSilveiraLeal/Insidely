@@ -1,0 +1,3 @@
+import Link from "next/link";import { Role } from "@prisma/client";import { DashboardShell } from "@/components/dashboard-shell";import { getConsultantDashboard } from "@/lib/queries";import { requireUser } from "@/lib/session";
+export const dynamic="force-dynamic";export default async function Page(){const u=await requireUser([Role.CONSULTANT]);const p=await getConsultantDashboard(u.id);return <DashboardShell mode="consultant" title="Perfil público"><div className="panel"><span className="eyebrow">Prévia</span><h2>{p?.headline}</h2><p>{p?.bio}</p>{p&&<Link className="button button-dark" href={`/profissional/${p.id}`}>Abrir perfil público</Link>}</div></DashboardShell>}
+

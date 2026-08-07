@@ -1,0 +1,3 @@
+import { Role } from "@prisma/client";import { DashboardShell } from "@/components/dashboard-shell";import { ProfessionalCard } from "@/components/cards";import { getViewerDashboard } from "@/lib/queries";import { requireUser } from "@/lib/session";
+export const dynamic="force-dynamic";export default async function Page(){const u=await requireUser([Role.USER,Role.ADMIN]);const d=await getViewerDashboard(u.id);return <DashboardShell mode="user" title="Favoritos"><div className="grid grid-3">{d?.favorites.map((f,i)=><ProfessionalCard key={f.id} profile={f.professionalProfile} index={i}/>)}</div></DashboardShell>}
+

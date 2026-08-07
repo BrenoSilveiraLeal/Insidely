@@ -1,0 +1,3 @@
+import { Role } from "@prisma/client";import { DashboardShell } from "@/components/dashboard-shell";import { getViewerDashboard } from "@/lib/queries";import { requireUser } from "@/lib/session";
+export const dynamic="force-dynamic";export default async function Page(){const u=await requireUser([Role.USER,Role.ADMIN]);const d=await getViewerDashboard(u.id);const done=d?.customerBookings.filter(b=>b.review)??[];return <DashboardShell mode="user" title="Avaliações"><div className="list">{done.map(b=><div className="list-row" key={b.id}><div><strong>{b.professional.user.name}</strong><p>{b.review?.comment}</p></div><span className="rating">★ {b.review?.rating}</span></div>)}</div></DashboardShell>}
+
