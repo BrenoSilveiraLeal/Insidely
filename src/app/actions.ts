@@ -98,10 +98,13 @@ export async function updatePrivacyAction(formData: FormData) {
   revalidatePath("/consultor/privacidade");
 }
 
-export async function submitVerificationAction() {
-  const user = await requireUser([Role.CONSULTANT]); const profile = await prisma.professionalProfile.findUnique({ where: { userId: user.id } }); if (!profile) return;
-  await prisma.$transaction([prisma.verification.create({ data: { professionalProfileId: profile.id, method: "Autodeclaração + documento (simulado)", status: VerificationStatus.PENDING } }), prisma.professionalProfile.update({ where: { id: profile.id }, data: { verificationStatus: VerificationStatus.PENDING } })]);
-  revalidatePath("/consultor/verificacao");
+export async function submitVerificationAction(formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]); const profile = await prisma.professionalProfile.findUnique({ where: { userId: user.id } });
+  if (!profile || profile.verificationStatus === VerificationStatus.PENDING || profile.verificationStatus === VerificationStatus.VERIFIED) return;
+  const methods: Record<string, string> = { company_email: "E-mail corporativo", employment_document: "Documento de vínculo profissional", professional_reference: "Referência profissional verificável" };
+  const method = methods[String(formData.get("method") || "")] ?? methods.company_email;
+  await prisma.$transaction([prisma.verification.create({ data: { professionalProfileId: profile.id, method, status: VerificationStatus.PENDING } }), prisma.professionalProfile.update({ where: { id: profile.id }, data: { verificationStatus: VerificationStatus.PENDING } })]);
+  revalidatePath("/consultor/perfil"); revalidatePath("/consultor/verificacao");
 }
 
 export async function reviewVerificationAction(verificationId: string, decision: "VERIFIED" | "REJECTED") {
