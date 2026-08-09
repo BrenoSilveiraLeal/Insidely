@@ -1,4 +1,4 @@
-# INSIDELY V2
+# INSIDELY
 
 MVP acadêmico completo para decisões de carreira baseadas em conversas contextualizadas com profissionais. O projeto é um repositório Next.js convencional e independente, pronto para VS Code, GitHub e Vercel — sem dependência de `*.chatgpt.site`.
 
