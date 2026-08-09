@@ -2,6 +2,8 @@
 
 MVP acadêmico completo para decisões de carreira baseadas em conversas contextualizadas com profissionais. O projeto é um repositório Next.js convencional e independente, pronto para VS Code, GitHub e Vercel — sem dependência de `*.chatgpt.site`.
 
+Aplicação publicada: [insidely.vercel.app](https://insidely.vercel.app)
+
 ## Stack
 
 - Next.js 16 (App Router), React 19 e TypeScript estrito
@@ -105,4 +107,3 @@ docs/                 auditoria, Design System e relatório de validação
 ## Transparência
 
 Este é um MVP acadêmico. Empresas citadas não patrocinam nem mantêm vínculo com a Insidely. Experiências e avaliações do seed são fictícias. O produto não promete contratação, não divulga documentos de verificação e proíbe informações confidenciais ou dados pessoais de terceiros.
-
