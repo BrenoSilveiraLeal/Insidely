@@ -32,14 +32,12 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
         });
       };
 
-      // A introdução de "como funciona" já tem animação própria com Motion.
-      // Não a animamos duas vezes, pois isso deixava o espaço ocupado sem texto visível.
-      reveal(".problem-heading, .brand-truth-inner blockquote, .truth-heading, .trust-grid > div:first-child, .reviews-grid > div, .final-copy", { y: 44, duration: .82 });
-      reveal(".question-list article, .trust-card", { x: 28, y: 0, duration: .6 });
+      // O hero e "como funciona" têm movimento próprio. As entradas abaixo ficam
+      // reservadas aos pontos em que ajudam a guiar a leitura, sem animar a página toda.
+      reveal(".problem-heading", { y: 52, duration: .84 });
+      reveal(".question-list article", { x: 42, y: 0, duration: .7 });
       reveal(".people-section .section-head, .company-section .section-head, .profession-section .section-head", { y: 26, duration: .62 });
-      reveal(".professional-card, .company-card, .profession-card", { y: 26, duration: .56 });
-      reveal(".brand-truth-inner > .eyebrow, .brand-truth-inner > .button", { y: 22, duration: .55 });
-      reveal(".final-symbol", { scale: .9, y: 28, duration: .78 });
+      reveal(".professional-card, .company-card, .profession-card", { y: 38, duration: .68 });
     }, scope);
 
     return () => context.revert();
