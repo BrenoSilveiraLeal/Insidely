@@ -58,6 +58,17 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
           .from(trustSection.querySelectorAll(".trust-card"), { autoAlpha: 0, x: 46, y: 16, duration: .62, stagger: .16 }, "-=.42");
       }
 
+      const finalCta = scope.current?.querySelector<HTMLElement>(".final-cta");
+      if (finalCta) {
+        const finalTimeline = gsap.timeline({
+          defaults: { ease: "power3.out" },
+          scrollTrigger: { trigger: finalCta, start: "top 74%", once: true },
+        });
+        finalTimeline
+          .from(finalCta.querySelectorAll(".final-copy > *"), { autoAlpha: 0, y: 38, duration: .64, stagger: .12 })
+          .from(finalCta.querySelector(".final-symbol"), { autoAlpha: 0, x: 62, scale: .88, duration: .82 }, "-=.56");
+      }
+
       reveal(".people-section .section-head, .company-section .section-head, .profession-section .section-head", { y: 26, duration: .62 });
       reveal(".professional-card, .company-card, .profession-card", { y: 38, duration: .68 });
     }, scope);
