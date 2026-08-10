@@ -8,12 +8,11 @@ import { getHomeData } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-const realQuestions = [
-  ["ambiente dinâmico", "As prioridades mudam toda semana?"],
-  ["muita autonomia", "Quem dá contexto quando você trava?"],
-  ["cultura forte", "Discordar é seguro dentro do time?"],
-  ["crescimento rápido", "Existe mentoria ou só cobrança?"],
-  ["perfil flexível", "Existe desvio de função na prática?"],
+const hiddenQuestions = [
+  ["01", "Como é uma terça-feira comum, não o dia da entrevista?"],
+  ["02", "A liderança dá contexto ou só cobra a entrega?"],
+  ["03", "O crescimento acontece ou fica apenas no discurso?"],
+  ["04", "O que você gostaria de saber antes de entrar?"],
 ];
 
 export default async function Home() {
@@ -22,7 +21,7 @@ export default async function Home() {
     <InsideHero/>
     <section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
 
-    <section className="truth-section"><div className="container truth-grid"><div className="truth-heading"><span className="eyebrow">Toda vaga deixa coisas de fora</span><h2>Palavras bonitas.<br/><span>Perguntas reais.</span></h2><p>Descrição de cargo, página de carreira e entrevista contam a versão oficial. Uma decisão importante também precisa do contexto que só aparece numa conversa.</p></div><div className="truth-list">{realQuestions.map(([claim, question], index)=><article key={claim}><span>{String(index+1).padStart(2,"0")}</span><div><s>{claim}</s><h3>{question}</h3></div><Eye size={22}/></article>)}</div></div></section>
+    <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list">{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p><ArrowRight size={21}/></article>)}</div></div></section>
 
     <StoryMotion/>
 

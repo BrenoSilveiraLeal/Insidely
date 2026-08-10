@@ -12,7 +12,7 @@ A primeira reconstrução comunicava a proposta e oferecia navegação pública,
 - movimento e transições abaixo da ambição editorial da referência visual;
 - ausência de pacote convencional para VS Code, GitHub, PostgreSQL e Vercel.
 
-## Decisões do V2
+## Decisões da versão atual
 
 1. Repositório Next.js independente, sem código ou configuração de Sites.
 2. PostgreSQL como fonte de verdade e Prisma para schema, migração e seed.
@@ -22,4 +22,3 @@ A primeira reconstrução comunicava a proposta e oferecia navegação pública,
 6. Transação para bloquear horário e criar consulta; pagamento explicitamente simulado.
 7. Painéis distintos para usuário, consultor e administrador.
 8. Design System editorial próprio, inspirado em princípios de ritmo, escala, cor e movimento — sem copiar identidade, texto ou composição da referência.
-

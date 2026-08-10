@@ -1,4 +1,4 @@
-# Design System V2
+# Design System da Insidely
 
 ## Direção
 
@@ -43,4 +43,3 @@ Títulos usam uma pilha rounded do sistema; texto usa uma pilha sans nativa. Iss
 - `StoryMotion`: narrativa editorial por scroll.
 - `DashboardShell`: estrutura consistente para os três papéis.
 - `AuthForm`: formulários progressivos com mensagens de erro acessíveis.
-
