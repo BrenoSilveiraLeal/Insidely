@@ -21,13 +21,20 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
             y: 34,
             duration: .72,
             ease: "power3.out",
-            scrollTrigger: { trigger: element, start: "top 86%", once: true },
+            scrollTrigger: {
+              trigger: element,
+              start: "top 86%",
+              toggleActions: "play reverse play reverse",
+              invalidateOnRefresh: true,
+            },
             ...options,
           });
         });
       };
 
-      reveal(".problem-heading, .story-intro, .brand-truth-inner blockquote, .truth-heading, .trust-grid > div:first-child, .reviews-grid > div, .final-copy", { y: 44, duration: .82 });
+      // A introdução de "como funciona" já tem animação própria com Motion.
+      // Não a animamos duas vezes, pois isso deixava o espaço ocupado sem texto visível.
+      reveal(".problem-heading, .brand-truth-inner blockquote, .truth-heading, .trust-grid > div:first-child, .reviews-grid > div, .final-copy", { y: 44, duration: .82 });
       reveal(".question-list article, .trust-card", { x: 28, y: 0, duration: .6 });
       reveal(".people-section .section-head, .company-section .section-head, .profession-section .section-head", { y: 26, duration: .62 });
       reveal(".professional-card, .company-card, .profession-card", { y: 26, duration: .56 });
