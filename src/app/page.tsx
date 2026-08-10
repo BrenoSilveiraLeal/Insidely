@@ -4,6 +4,7 @@ import { CompanyCard, ProfessionalCard, ProfessionCard } from "@/components/card
 import { InsideHero } from "@/components/inside-hero";
 import { PublicShell } from "@/components/public-shell";
 import { StoryMotion } from "@/components/story-motion";
+import { ScrollReveals } from "@/components/scroll-reveals";
 import { getHomeData } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ const hiddenQuestions = [
 export default async function Home() {
   const data = await getHomeData();
   return <PublicShell>
+    <ScrollReveals>
     <InsideHero/>
     <section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
 
@@ -38,5 +40,6 @@ export default async function Home() {
     <section className="reviews-section"><div className="container reviews-grid"><Quote className="quote-mark" size={72}/><div><span className="eyebrow">Depois da conversa</span><blockquote>A conversa trouxe clareza para transformar uma dúvida em uma decisão melhor.</blockquote><p>Pessoa da comunidade · avaliação média de {data.rating.toFixed(1)}</p></div></div></section>
 
     <section className="final-cta"><div className="container final-cta-inner"><div className="final-copy"><span className="eyebrow">Antes da próxima decisão</span><h2>Não escolha<br/>no escuro.</h2><p>Uma conversa pode não decidir por você. Mas pode fazer você decidir melhor.</p><div><Link className="button button-accent" href="/buscar">Encontrar uma experiência <ArrowRight size={17}/></Link><Link className="button button-ghost" href="/cadastro"><MessageCircleMore size={17}/> Compartilhar a minha</Link></div></div><div className="final-symbol"><Sparkles size={120}/><IdCard size={42}/></div></div></section>
+    </ScrollReveals>
   </PublicShell>;
 }
