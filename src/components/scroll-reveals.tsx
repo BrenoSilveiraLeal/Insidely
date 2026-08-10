@@ -24,7 +24,7 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
             scrollTrigger: {
               trigger: element,
               start: "top 86%",
-              toggleActions: "play reverse play reverse",
+              once: true,
               invalidateOnRefresh: true,
             },
             ...options,
