@@ -2,7 +2,8 @@ import { BookingStatus, VerificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export function getProfessionalInclude() { return {
-  user: { select: { id: true, name: true } },
+  user: { select: { id: true, name: true, image: true } },
+  privacy: true,
   experiences: { include: { company: true, profession: true }, orderBy: { isCurrent: "desc" as const } },
   reviews: { select: { rating: true } },
   availability: { where: { startsAt: { gt: new Date() }, isBooked: false }, orderBy: { startsAt: "asc" as const }, take: 4 },
@@ -46,7 +47,7 @@ export async function searchProfessionals(params: { q?: string; company?: string
 export async function getProfessional(id: string) {
   return prisma.professionalProfile.findUnique({
     where: { id },
-    include: { ...getProfessionalInclude(), privacy: true, profileViews: true, reviews: { include: { user: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 8 } },
+    include: { ...getProfessionalInclude(), profileViews: true, reviews: { include: { user: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 8 } },
   });
 }
 
@@ -77,7 +78,7 @@ export async function getConsultantDashboard(userId: string) {
 export async function getAdminData() {
   const [users, professionals, bookings, pending, reports, revenue] = await Promise.all([
     prisma.user.count(), prisma.professionalProfile.count(), prisma.booking.count(),
-    prisma.verification.findMany({ where: { status: VerificationStatus.PENDING }, include: { professionalProfile: { include: { user: true, experiences: { include: { company: true } } } } }, orderBy: { createdAt: "asc" } }),
+    prisma.verification.findMany({ where: { status: VerificationStatus.PENDING }, include: { documents: true, professionalProfile: { include: { user: true, experiences: { include: { company: true } } } } }, orderBy: { createdAt: "asc" } }),
     prisma.report.findMany({ include: { reporter: true, targetUser: true }, orderBy: { createdAt: "desc" } }),
     prisma.payment.aggregate({ where: { status: "APPROVED" }, _sum: { amountCents: true } }),
   ]);

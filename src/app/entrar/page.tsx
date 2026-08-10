@@ -1,4 +1,3 @@
 import Link from "next/link";
 import { LoginForm } from "@/components/auth-form";
-export default function LoginPage(){return <main className="auth-page"><section className="auth-art"><Link className="brand" href="/">insidely.</Link><h1>Entre com perguntas.</h1></section><section className="auth-panel"><LoginForm/></section></main>}
-
+export default async function LoginPage({searchParams}:{searchParams:Promise<{social?:string}>}){const params=await searchParams;const google=Boolean(process.env.AUTH_GOOGLE_ID&&process.env.AUTH_GOOGLE_SECRET);const linkedin=Boolean(process.env.AUTH_LINKEDIN_ID&&process.env.AUTH_LINKEDIN_SECRET);return <main className="auth-page"><section className="auth-art"><Link className="brand" href="/">insidely.</Link><h1>Entre com perguntas.</h1></section><section className="auth-panel"><LoginForm google={google} linkedin={linkedin} socialPending={params.social==="pendente"}/></section></main>}
