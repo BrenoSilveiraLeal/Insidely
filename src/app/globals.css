@@ -239,6 +239,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .inside-hero-grid{grid-template-columns:minmax(0,1.34fr) minmax(330px,.66fr)}
 .inside-hero-content{transform:translateY(-28px)}
 .inside-hero h1{margin-bottom:36px;overflow:visible;-webkit-text-stroke:2px rgba(23,32,51,.92);paint-order:stroke fill;text-shadow:0 2px 0 rgba(23,32,51,.18)}
+.inside-hero h1 .hero-line:nth-child(2){margin-bottom:.08em}
 .hero-word-outline{text-shadow:none}
 .hero-line-accent{text-shadow:0 3px 0 rgba(23,32,51,.32)}
 .career-network{z-index:0;left:43%;right:auto;bottom:-4%;width:min(62vw,900px);opacity:.46}
