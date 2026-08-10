@@ -46,6 +46,18 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
           scrollTrigger: { trigger: questionList, start: "top 78%", once: true },
         });
       }
+
+      const trustSection = scope.current?.querySelector<HTMLElement>(".trust-section");
+      if (trustSection) {
+        const trustTimeline = gsap.timeline({
+          defaults: { ease: "power3.out" },
+          scrollTrigger: { trigger: trustSection, start: "top 72%", once: true },
+        });
+        trustTimeline
+          .from(trustSection.querySelector(".trust-grid > div:first-child"), { autoAlpha: 0, x: -44, duration: .78 })
+          .from(trustSection.querySelectorAll(".trust-card"), { autoAlpha: 0, x: 46, y: 16, duration: .62, stagger: .16 }, "-=.42");
+      }
+
       reveal(".people-section .section-head, .company-section .section-head, .profession-section .section-head", { y: 26, duration: .62 });
       reveal(".professional-card, .company-card, .profession-card", { y: 38, duration: .68 });
     }, scope);
