@@ -1,4 +1,5 @@
 import { BookingStatus, VerificationStatus } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export function getProfessionalInclude() { return {
@@ -9,7 +10,7 @@ export function getProfessionalInclude() { return {
   availability: { where: { startsAt: { gt: new Date() }, isBooked: false }, orderBy: { startsAt: "asc" as const }, take: 4 },
 } as const; }
 
-export async function getHomeData() {
+async function getHomeDataUncached() {
   const [professionalCount, companyCount, completedCount, reviewAggregate, professionals, companies, professions] = await Promise.all([
     prisma.professionalProfile.count({ where: { isActive: true } }),
     prisma.company.count(),
@@ -21,6 +22,28 @@ export async function getHomeData() {
   ]);
   return { professionalCount, companyCount, completedCount, rating: reviewAggregate._avg.rating ?? 0, professionals, companies, professions };
 }
+
+// Dados editoriais públicos mudam pouco. Este cache evita uma nova conexão ao
+// banco a cada navegação, mas expira rapidamente para não deixar a home defasada.
+export const getHomeData = unstable_cache(getHomeDataUncached, ["public-home-data"], { revalidate: 120 });
+
+export const getPublicCompanies = unstable_cache(
+  () => prisma.company.findMany({ include: { _count: { select: { experiences: true } } }, orderBy: { name: "asc" } }),
+  ["public-companies"],
+  { revalidate: 300 },
+);
+
+export const getPublicProfessions = unstable_cache(
+  () => prisma.profession.findMany({ include: { _count: { select: { experiences: true } } }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
+  ["public-professions"],
+  { revalidate: 300 },
+);
+
+export const getPublicRealityChecks = unstable_cache(
+  () => prisma.realityCheck.findMany({ include: { profession: true } }),
+  ["public-reality-checks"],
+  { revalidate: 300 },
+);
 
 export async function searchProfessionals(params: { q?: string; company?: string; profession?: string; mode?: string }) {
   const q = params.q?.trim();

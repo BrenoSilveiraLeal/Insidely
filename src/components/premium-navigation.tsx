@@ -22,6 +22,14 @@ export function PremiumNavigation({ dashboardHref }: { dashboardHref: string | n
   const pathname = usePathname(); const router = useRouter(); const [activePanel, setActivePanel] = useState<ActivePanel>(null); const [mobilePath, setMobilePath] = useState<string | null>(null);
   const activeName = activePanel?.path === pathname ? activePanel.name : null; const mobileOpen = mobilePath === pathname;
   useEffect(() => { jumpToTop(); const timeout = window.setTimeout(() => { setActivePanel(null); setMobilePath(null); }, 0); return () => window.clearTimeout(timeout); }, [pathname]);
+  useEffect(() => {
+    // Depois da primeira pintura, deixa as rotas mais usadas prontas no cache
+    // do roteador. Assim o clique não começa uma navegação do zero.
+    const timeout = window.setTimeout(() => {
+      ["/buscar", "/empresas", "/profissoes", "/reality-check"].forEach((href) => router.prefetch(href));
+    }, 700);
+    return () => window.clearTimeout(timeout);
+  }, [router]);
   const goHome = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setActivePanel(null); setMobilePath(null); if (pathname === "/") { window.history.replaceState(null, "", "/#inicio"); jumpToTop(); return; } router.push("/#inicio"); };
   return <div className="header-wrap"><header className="header premium-header" aria-label="Navegação principal" onMouseLeave={() => setActivePanel(null)}>
     <Link className="brand premium-brand" href="/#inicio" onClick={goHome} aria-label="Insidely — início">inside<span>ly</span><i>.</i></Link>
