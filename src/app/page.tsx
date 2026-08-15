@@ -23,7 +23,7 @@ export default async function Home() {
     <InsideHero/>
     <section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
 
-    <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list">{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p><ArrowRight size={21}/></article>)}</div></div></section>
+    <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list">{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p></article>)}</div></div></section>
 
     <StoryMotion/>
 
