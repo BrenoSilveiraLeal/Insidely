@@ -91,6 +91,7 @@ export async function getConsultantDashboard(userId: string) {
     include: {
       ...getProfessionalInclude(),
       privacy: true,
+      availability: { where: { endsAt: { gt: new Date() } }, orderBy: { startsAt: "asc" } },
       bookings: { include: { customer: { select: { name: true } }, payment: true, conversation: { include: { messages: { include: { sender: { select: { name: true } } }, orderBy: { createdAt: "asc" } } } } }, orderBy: { startsAt: "desc" } },
       profileViews: true,
       favorites: true,

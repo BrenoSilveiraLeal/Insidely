@@ -21,6 +21,9 @@ const accountSchema = z.object({
   terms: z.literal("on", { error: "Você precisa aceitar os termos para criar sua conta." }),
 }).refine((data) => data.password === data.confirmPassword, { message: "As senhas não coincidem.", path: ["confirmPassword"] });
 
+const externalContactPattern = /(?:https?:\/\/|www\.|(?:\+?\d[\d\s().-]{7,}\d)|\b[\w.+-]+@[\w-]+\.[\w.-]+\b)/i;
+function hasExternalContact(...values: string[]) { return values.some((value) => externalContactPattern.test(value)); }
+
 export async function loginAction(_: string | undefined, formData: FormData) {
   const credentials = z.object({ email: z.string().trim().email("Informe seu e-mail."), password: z.string().min(1, "Informe sua senha.") }).safeParse(Object.fromEntries(formData));
   if (!credentials.success) return credentials.error.issues[0]?.message ?? "Informe e-mail e senha.";
@@ -69,6 +72,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
     yearsExperience: z.coerce.number().int().min(0).max(60),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return parsed.error.issues[0]?.message ?? "Preencha os campos profissionais obrigatórios.";
+  if (hasExternalContact(parsed.data.headline, parsed.data.bio, parsed.data.title)) return "Não inclua e-mail, telefone, link ou contato externo no perfil profissional.";
   const [company, profession] = await Promise.all([
     prisma.company.findUnique({ where: { id: parsed.data.companyId } }),
     prisma.profession.findUnique({ where: { id: parsed.data.professionId } }),
@@ -110,6 +114,58 @@ export async function createBookingAction(profileId: string, formData: FormData)
     return tx.booking.create({ data: { customerId: user.id, professionalProfileId: profileId, availabilityId: slot.id, startsAt: slot.startsAt, durationMinutes: duration, topics: formData.getAll("topics").map(String), goals: String(formData.get("goals") || ""), subtotalCents: subtotal, feeCents: fee, totalCents: subtotal, meetingProvider: "GOOGLE_MEET", conversation: { create: {} }, payment: { create: { amountCents: subtotal } } } });
   });
   redirect(`/checkout/${booking.id}`);
+}
+
+type FormState = { status: "success" | "error"; message: string } | undefined;
+
+function localDateToUtc(value: string, offsetMinutes: number) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) + offsetMinutes * 60_000);
+}
+
+export async function createAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const parsed = z.object({ startsAt: z.string().min(16), timezoneOffset: z.coerce.number().int().min(-840).max(840), duration: z.coerce.number().int().min(15).max(120).refine((value) => value % 15 === 0) }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: "Escolha uma data, horário e duração válidos." };
+  const startsAt = localDateToUtc(parsed.data.startsAt, parsed.data.timezoneOffset); if (!startsAt || startsAt.getTime() < Date.now() + 15 * 60_000) return { status: "error", message: "Escolha um horário com pelo menos 15 minutos de antecedência." };
+  const endsAt = new Date(startsAt.getTime() + parsed.data.duration * 60_000);
+  const profile = await prisma.professionalProfile.findUnique({ where: { userId: user.id }, select: { id: true } }); if (!profile) return { status: "error", message: "Perfil profissional não encontrado." };
+  const conflict = await prisma.availability.findFirst({ where: { professionalProfileId: profile.id, startsAt: { lt: endsAt }, endsAt: { gt: startsAt } }, select: { id: true } });
+  if (conflict) return { status: "error", message: "Você já possui um horário que se sobrepõe a este período." };
+  await prisma.availability.create({ data: { professionalProfileId: profile.id, startsAt, endsAt } });
+  revalidatePath("/consultor/agenda"); revalidatePath(`/profissional/${profile.id}`); revalidatePath("/buscar");
+  return { status: "success", message: "Horário adicionado à sua agenda." };
+}
+
+export async function removeAvailabilityAction(availabilityId: string) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const slot = await prisma.availability.findFirst({ where: { id: availabilityId, professionalProfile: { userId: user.id }, isBooked: false, startsAt: { gt: new Date() } }, select: { id: true, professionalProfileId: true } });
+  if (!slot) throw new Error("Somente horários futuros e ainda livres podem ser removidos.");
+  await prisma.availability.delete({ where: { id: slot.id } }); revalidatePath("/consultor/agenda"); revalidatePath(`/profissional/${slot.professionalProfileId}`); revalidatePath("/buscar");
+}
+
+export async function completeBookingAction(bookingId: string) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: BookingStatus.CONFIRMED, professional: { userId: user.id } }, select: { id: true, customerId: true, startsAt: true, durationMinutes: true } });
+  if (!booking || new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000) > new Date()) throw new Error("A conversa só pode ser concluída após o horário agendado.");
+  await prisma.$transaction([
+    prisma.booking.update({ where: { id: booking.id }, data: { status: BookingStatus.COMPLETED, meetingEndedAt: new Date() } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Avalie a conversa", body: "A conversa foi concluída. Sua avaliação ajuda outras pessoas a decidir melhor.", href: "/dashboard/avaliacoes" } }),
+  ]);
+  revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/avaliacoes"); revalidatePath("/dashboard/agendamentos");
+}
+
+export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.USER, Role.ADMIN]);
+  const parsed = z.object({ bookingId: z.string().min(1), rating: z.coerce.number().int().min(1).max(5), comment: z.string().trim().min(12, "Escreva ao menos 12 caracteres.").max(800) }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Revise sua avaliação." };
+  const booking = await prisma.booking.findFirst({ where: { id: parsed.data.bookingId, customerId: user.id, status: BookingStatus.COMPLETED, review: null }, select: { id: true, professionalProfileId: true } });
+  if (!booking) return { status: "error", message: "Só é possível avaliar uma conversa concluída por você, uma única vez." };
+  await prisma.review.create({ data: { bookingId: booking.id, userId: user.id, professionalProfileId: booking.professionalProfileId, rating: parsed.data.rating, clarity: parsed.data.rating, usefulness: parsed.data.rating, contextualization: parsed.data.rating, comment: parsed.data.comment } });
+  revalidatePath("/dashboard/avaliacoes"); revalidatePath(`/profissional/${booking.professionalProfileId}`); revalidatePath("/buscar");
+  return { status: "success", message: "Avaliação publicada. Obrigado por contribuir com a comunidade." };
 }
 
 export async function payBookingAction(bookingId: string, formData: FormData) {
@@ -190,6 +246,7 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
     pixKey: z.string().trim().max(100, "A chave Pix parece longa demais.").optional(),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return parsed.error.issues[0]?.message ?? "Revise as informações do seu perfil.";
+  if (hasExternalContact(parsed.data.headline, parsed.data.bio, parsed.data.title, parsed.data.topics, parsed.data.boundaries)) return "Não inclua e-mail, telefone, link ou contato externo no perfil profissional.";
   const [profile, company, profession] = await Promise.all([
     prisma.professionalProfile.findUnique({ where: { userId: user.id }, include: { experiences: { where: { isCurrent: true }, take: 1 } } }),
     prisma.company.findUnique({ where: { id: parsed.data.companyId } }),

@@ -76,6 +76,9 @@ model User {
   twoFactorRecoveryCodes String[] @default([])
   twoFactorSetupSecret String?
   twoFactorSetupExpiresAt DateTime?
+  failedLoginAttempts  Int      @default(0)
+  lastFailedLoginAt    DateTime?
+  lockedUntil          DateTime?
   role                Role     @default(USER)
   onboardingCompleted Boolean  @default(false)
   createdAt           DateTime @default(now())
