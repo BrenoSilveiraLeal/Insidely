@@ -99,21 +99,30 @@ export async function createBookingAction(profileId: string, formData: FormData)
   const booking = await prisma.$transaction(async (tx) => {
     const locked = await tx.availability.updateMany({ where: { id: slot.id, isBooked: false }, data: { isBooked: true } });
     if (!locked.count) throw new Error("Horário já reservado");
-    return tx.booking.create({ data: { customerId: user.id, professionalProfileId: profileId, availabilityId: slot.id, startsAt: slot.startsAt, durationMinutes: duration, topics: formData.getAll("topics").map(String), goals: String(formData.get("goals") || ""), subtotalCents: subtotal, feeCents: fee, totalCents: subtotal, conversation: { create: {} }, payment: { create: { amountCents: subtotal } } } });
+    return tx.booking.create({ data: { customerId: user.id, professionalProfileId: profileId, availabilityId: slot.id, startsAt: slot.startsAt, durationMinutes: duration, topics: formData.getAll("topics").map(String), goals: String(formData.get("goals") || ""), subtotalCents: subtotal, feeCents: fee, totalCents: subtotal, meetingProvider: "GOOGLE_MEET", conversation: { create: {} }, payment: { create: { amountCents: subtotal } } } });
   });
   redirect(`/checkout/${booking.id}`);
 }
 
 export async function payBookingAction(bookingId: string, formData: FormData) {
   const user = await requireUser();
+  if (formData.get("recordingConsent") !== "on") throw new Error("Confirme as regras de presença e gravação antes de continuar.");
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, customerId: user.id, status: BookingStatus.PENDING_PAYMENT } });
   if (!booking) throw new Error("Consulta inválida ou já processada");
   await prisma.$transaction([
     prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.APPROVED, paidAt: new Date(), provider: `SIMULATED_${String(formData.get("paymentMethod") || "PIX").toUpperCase()}`, providerRef: `SIM-${Date.now()}` } }),
-    prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED } }),
-    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "Pagamento demonstrativo aprovado. Seu horário está reservado.", href: "/dashboard/agendamentos" } }),
+    prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED, customerRecordingConsent: true } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "Pagamento demonstrativo aprovado. A sala do Google Meet será liberada 15 minutos antes do horário.", href: "/dashboard/agendamentos" } }),
   ]);
   redirect("/dashboard/agendamentos?confirmado=1");
+}
+
+export async function updateConsultantRecordingConsentAction(bookingId: string, formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, professional: { userId: user.id } } });
+  if (!booking) throw new Error("Consulta não encontrada.");
+  await prisma.booking.update({ where: { id: booking.id }, data: { consultantRecordingConsent: formData.get("recordingConsent") === "on" } });
+  revalidatePath("/consultor/consultas");
 }
 
 export async function sendMessageAction(conversationId: string, formData: FormData) {

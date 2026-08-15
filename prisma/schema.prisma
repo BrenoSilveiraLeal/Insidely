@@ -251,6 +251,13 @@ model Booking {
   subtotalCents         Int
   feeCents              Int
   totalCents            Int
+  meetingProvider       String        @default("GOOGLE_MEET")
+  meetingUrl            String?
+  customerRecordingConsent   Boolean  @default(false)
+  consultantRecordingConsent Boolean  @default(false)
+  customerJoinedAt      DateTime?
+  consultantJoinedAt    DateTime?
+  meetingEndedAt        DateTime?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 

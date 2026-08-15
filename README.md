@@ -20,7 +20,7 @@ Aplicação publicada: [insidely.vercel.app](https://insidely.vercel.app)
 - Perfis com privacidade pública, protegida ou pseudônima
 - Cadastro, login, logout, onboarding e autorização por papel
 - Favoritos, horários, agendamento atômico e checkout demonstrativo persistente
-- Consultas, pagamentos simulados, conversas, mensagens, avaliações e notificações
+- Consultas, pagamentos simulados por PIX/cartão, conversas por Google Meet, mensagens, avaliações e notificações
 - Painel do usuário, painel do consultor e painel administrativo
 - Privacidade granular, solicitação/aprovação de verificação e fila de denúncias
 - Reality Checks por profissão
@@ -52,7 +52,7 @@ Todos usam a senha `Demo@123`:
 | Consultor | `consultor@insidely.com` |
 | Admin | `admin@insidely.com` |
 
-Os dados são fictícios e identificados como demonstrativos. O checkout altera estados reais no banco, mas não processa cartão nem dinheiro.
+Os dados são fictícios e identificados como demonstrativos. O checkout altera estados reais no banco, mas não processa cartão nem dinheiro. A sala de Meet, os registros de presença e a gravação seguem preparados para integração; não há chamada real criada sem as credenciais do Google Workspace.
 
 ## Banco de dados
 
