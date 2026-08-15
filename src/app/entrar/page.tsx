@@ -7,7 +7,7 @@ const socialMessages: Record<string, string> = {
 	config: "Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY para usar Google.",
 	callback: "O callback do Google/Supabase falhou. Verifique as Redirect URLs no Supabase Auth.",
 	profile: "Sua conta Google foi autenticada, mas n foi poss sincronizar seu perfil no Supabase. Tente novamente.",
-	error: "N foi poss concluir o login Google pelo Supabase. Tente novamente.",
+	error: "Não foi possível concluir o login Google pelo Supabase. Tente novamente.",
 };
 
 export default async function LoginPage({searchParams}:{searchParams:Promise<{social?:string}>}){
