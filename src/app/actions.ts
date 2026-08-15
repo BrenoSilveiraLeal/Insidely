@@ -2,7 +2,7 @@
 
 import { hash } from "bcryptjs";
 import { put } from "@vercel/blob";
-import { BookingStatus, PaymentStatus, Role, VerificationStatus } from "@prisma/client";
+import { BookingStatus, PaymentStatus, Role, Seniority, VerificationStatus, WorkMode } from "@prisma/client";
 import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,9 +11,21 @@ import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
+const termsVersion = "2026-08";
+const accountSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome completo."),
+  email: z.string().trim().email("Informe um e-mail válido."),
+  password: z.string().min(8, "A senha precisa ter ao menos 8 caracteres.").regex(/[a-z]/, "Use ao menos uma letra minúscula na senha.").regex(/[A-Z]/, "Use ao menos uma letra maiúscula na senha.").regex(/[0-9]/, "Use ao menos um número na senha."),
+  confirmPassword: z.string(),
+  role: z.enum(["USER", "CONSULTANT"]),
+  terms: z.literal("on", { error: "Você precisa aceitar os termos para criar sua conta." }),
+}).refine((data) => data.password === data.confirmPassword, { message: "As senhas não coincidem.", path: ["confirmPassword"] });
+
 export async function loginAction(_: string | undefined, formData: FormData) {
+  const credentials = z.object({ email: z.string().trim().email("Informe seu e-mail."), password: z.string().min(1, "Informe sua senha.") }).safeParse(Object.fromEntries(formData));
+  if (!credentials.success) return credentials.error.issues[0]?.message ?? "Informe e-mail e senha.";
   try {
-    await signIn("credentials", { email: formData.get("email"), password: formData.get("password"), redirectTo: "/dashboard" });
+    await signIn("credentials", { email: credentials.data.email.toLowerCase(), password: credentials.data.password, redirectTo: "/continuar" });
   } catch (error) {
     if (error instanceof AuthError) return "E-mail ou senha incorretos.";
     throw error;
@@ -29,28 +41,24 @@ export async function socialSignInAction(provider: "google" | "linkedin") {
 }
 
 export async function registerAction(_: string | undefined, formData: FormData) {
-  const parsed = z.object({
-    name: z.string().trim().min(2, "Informe seu nome."),
-    email: z.string().trim().email("Informe um e-mail válido."),
-    password: z.string().min(8, "A senha precisa ter ao menos 8 caracteres."),
-    confirmPassword: z.string(),
-    role: z.enum(["USER", "CONSULTANT"]),
-    terms: z.literal("on"),
-  }).refine((data) => data.password === data.confirmPassword, { message: "As senhas não coincidem." }).safeParse(Object.fromEntries(formData));
+  const parsed = accountSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return parsed.error.issues[0]?.message ?? "Revise os campos obrigatórios.";
   const email = parsed.data.email.toLowerCase();
   if (await prisma.user.findUnique({ where: { email } })) return "Este e-mail já está cadastrado.";
-  await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash: await hash(parsed.data.password, 12), role: parsed.data.role as Role } });
+  const acceptedAt = new Date();
+  await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash: await hash(parsed.data.password, 12), role: parsed.data.role as Role, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
   await signIn("credentials", { email, password: parsed.data.password, redirectTo: "/onboarding" });
 }
 
 export async function logoutAction() { await signOut({ redirectTo: "/" }); }
 
 export async function completeOnboardingAction(_: string | undefined, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser(undefined, { allowIncomplete: true });
   const role = (formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER);
+  if (formData.get("terms") !== "on") return "Você precisa aceitar os termos da plataforma para concluir o cadastro.";
+  const acceptedAt = new Date();
   if (role === Role.USER) {
-    await prisma.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true } });
+    await prisma.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
     redirect("/dashboard");
   }
   const parsed = z.object({
@@ -68,14 +76,16 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
     prisma.profession.findUnique({ where: { id: parsed.data.professionId } }),
   ]);
   if (!company || !profession) return "Empresa ou profissão inválida.";
-  await prisma.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true } });
   if (role === Role.CONSULTANT) {
-    await prisma.professionalProfile.upsert({ where: { userId: user.id }, update: {}, create: {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
+      await tx.professionalProfile.upsert({ where: { userId: user.id }, update: {}, create: {
       userId: user.id, headline: parsed.data.headline, bio: parsed.data.bio,
       location: parsed.data.location, region: "Brasil", workMode: "REMOTE", seniority: "MID", yearsExperience: parsed.data.yearsExperience, price30Cents: 4500, price60Cents: 8000,
       avatarSeed: user.id, topics: ["Rotina real", "Cultura", "Carreira"], boundaries: ["Dados confidenciais", "Dados pessoais"], privacyMode: "PROTECTED",
       privacy: { create: {} }, experiences: { create: { companyId: company.id, professionId: profession.id, title: parsed.data.title, area: profession.category, isCurrent: true, startedAt: new Date(), summary: "Experiência informada no onboarding." } },
-    } });
+      } });
+    });
   }
   redirect("/consultor");
 }
@@ -139,6 +149,49 @@ export async function updatePrivacyAction(formData: FormData) {
   const check = (name: string) => formData.get(name) === "on";
   await prisma.privacySettings.upsert({ where: { professionalProfileId: profile.id }, create: { professionalProfileId: profile.id, showRealName: check("showRealName"), showSurname: check("showSurname"), showPhoto: check("showPhoto"), showCurrentCompany: check("showCurrentCompany"), showCity: check("showCity"), showExactDates: check("showExactDates"), showFullHistory: check("showFullHistory"), searchableByCompany: check("searchableByCompany"), searchableByProfession: check("searchableByProfession") }, update: { showRealName: check("showRealName"), showSurname: check("showSurname"), showPhoto: check("showPhoto"), showCurrentCompany: check("showCurrentCompany"), showCity: check("showCity"), showExactDates: check("showExactDates"), showFullHistory: check("showFullHistory"), searchableByCompany: check("searchableByCompany"), searchableByProfession: check("searchableByProfession") } });
   revalidatePath("/consultor/privacidade");
+}
+
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const parsed = z.object({
+    headline: z.string().trim().min(5, "Informe um título profissional mais completo."),
+    bio: z.string().trim().min(30, "A apresentação precisa ter ao menos 30 caracteres."),
+    location: z.string().trim().min(2, "Informe sua cidade ou região."),
+    region: z.string().trim().min(2, "Informe o país ou região."),
+    workMode: z.nativeEnum(WorkMode),
+    seniority: z.nativeEnum(Seniority),
+    yearsExperience: z.coerce.number().int().min(0).max(60),
+    price30Cents: z.coerce.number().int().min(1000, "O valor mínimo da conversa é R$ 10.").max(50000),
+    price60Cents: z.coerce.number().int().min(1000, "O valor mínimo da conversa é R$ 10.").max(100000),
+    companyId: z.string().min(1, "Selecione a empresa ou experiência principal."),
+    professionId: z.string().min(1, "Selecione sua área de atuação."),
+    title: z.string().trim().min(2, "Informe seu cargo."),
+    topics: z.string().trim().min(2, "Informe pelo menos um tema de conversa."),
+    boundaries: z.string().trim().min(2, "Informe pelo menos um limite da conversa."),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return parsed.error.issues[0]?.message ?? "Revise as informações do seu perfil.";
+  const [profile, company, profession] = await Promise.all([
+    prisma.professionalProfile.findUnique({ where: { userId: user.id }, include: { experiences: { where: { isCurrent: true }, take: 1 } } }),
+    prisma.company.findUnique({ where: { id: parsed.data.companyId } }),
+    prisma.profession.findUnique({ where: { id: parsed.data.professionId } }),
+  ]);
+  if (!profile || !company || !profession) return "Não foi possível validar a empresa ou a área escolhida.";
+  const list = (value: string) => [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))].slice(0, 8);
+  const topics = list(parsed.data.topics); const boundaries = list(parsed.data.boundaries);
+  if (!topics.length || !boundaries.length) return "Separe os itens por vírgula e informe pelo menos um de cada tipo.";
+  await prisma.$transaction(async (tx) => {
+    await tx.professionalProfile.update({ where: { id: profile.id }, data: {
+      headline: parsed.data.headline, bio: parsed.data.bio, location: parsed.data.location, region: parsed.data.region,
+      workMode: parsed.data.workMode, seniority: parsed.data.seniority, yearsExperience: parsed.data.yearsExperience,
+      price30Cents: parsed.data.price30Cents, price60Cents: parsed.data.price60Cents, topics, boundaries,
+    } });
+    const current = profile.experiences[0];
+    const experienceData = { companyId: company.id, professionId: profession.id, title: parsed.data.title, area: profession.category, isCurrent: true, summary: "Experiência atualizada pelo consultor." };
+    if (current) await tx.employmentExperience.update({ where: { id: current.id }, data: experienceData });
+    else await tx.employmentExperience.create({ data: { professionalProfileId: profile.id, ...experienceData, startedAt: new Date() } });
+  });
+  revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath(`/profissional/${profile.id}`); revalidatePath("/buscar");
+  return "Perfil profissional atualizado.";
 }
 
 export async function submitVerificationAction(_: string | undefined, formData: FormData) {

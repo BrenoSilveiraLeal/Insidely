@@ -32,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, account }) {
-      if (account?.provider && account.provider !== "credentials" && token.email) {
+      if (token.email) {
         const stored = await prisma.user.findUnique({ where: { email: token.email.toLowerCase() } });
         if (stored) { token.id = stored.id; token.role = stored.role; token.onboardingCompleted = stored.onboardingCompleted; }
       } else if (user) { token.id = user.id!; token.role = user.role; token.onboardingCompleted = user.onboardingCompleted; }

@@ -28,10 +28,10 @@ export function RegisterForm({ google, linkedin }: { google: boolean; linkedin: 
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="field"><label htmlFor="name">Nome</label><input className="input" id="name" name="name" autoComplete="name" required/></div>
     <div className="field"><label htmlFor="email">E-mail</label><input className="input" id="email" name="email" type="email" autoComplete="email" required/></div>
-    <div className="field"><label htmlFor="password">Senha</label><input className="input" id="password" name="password" type="password" minLength={8} required/></div>
-    <div className="field"><label htmlFor="confirmPassword">Confirmar senha</label><input className="input" id="confirmPassword" name="confirmPassword" type="password" minLength={8} required/></div>
+    <div className="field"><label htmlFor="password">Senha</label><input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={8} required/><small>Use ao menos 8 caracteres, uma maiúscula, uma minúscula e um número.</small></div>
+    <div className="field"><label htmlFor="confirmPassword">Confirmar senha</label><input className="input" id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required/></div>
     <div className="field"><label htmlFor="role">Quero</label><select className="select" id="role" name="role"><option value="USER">Conversar com profissionais</option><option value="CONSULTANT">Compartilhar minha experiência</option></select></div>
-    <label className="check-row"><input name="terms" type="checkbox" required/><span>Li e concordo com os termos de uso e a política de privacidade.</span></label>
+    <label className="check-row"><input name="terms" type="checkbox" required/><span>Li e concordo com os <Link href="/termos" target="_blank"><u>Termos de Uso</u></Link> e a <Link href="/privacidade" target="_blank"><u>Política de Privacidade</u></Link>.</span></label>
     <button className="button button-accent button-block" disabled={pending}>{pending ? "Criando…" : "Criar conta"}</button><SocialButtons google={google} linkedin={linkedin}/><p>Já tem conta? <Link href="/entrar"><u>Entrar</u></Link></p>
   </form>;
 }

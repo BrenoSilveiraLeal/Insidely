@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { completeOnboardingAction } from "@/app/actions";
 
 type Option = { id: string; name: string };
@@ -21,7 +22,8 @@ export function OnboardingForm({ firstName, initialRole, companies, professions 
       <div className="field"><label htmlFor="yearsExperience">Anos de experiência</label><input className="input" id="yearsExperience" name="yearsExperience" type="number" min="0" max="60" required/></div>
       <div className="field"><label htmlFor="location">Localização</label><input className="input" id="location" name="location" placeholder="Cidade, UF" required/></div>
       <div className="field"><label htmlFor="bio">O que você pode contextualizar?</label><textarea className="textarea" id="bio" name="bio" minLength={30} required/></div>
-    </> : <div className="onboarding-note"><strong>Seu perfil será pessoal.</strong><span>Você poderá salvar profissionais, agendar conversas, pagar e acompanhar seus encontros.</span></div>}
+    </> : <div className="onboarding-note"><strong>Sua conta é para explorar e agendar.</strong><span>Você poderá salvar profissionais, agendar conversas, pagar e acompanhar seus encontros. Ela não aparece publicamente como um perfil profissional.</span></div>}
+    <label className="check-row"><input name="terms" type="checkbox" required/><span>Confirmo que li os <Link href="/termos" target="_blank"><u>Termos de Uso</u></Link>, a <Link href="/privacidade" target="_blank"><u>Política de Privacidade</u></Link> e as regras de conversas da plataforma.</span></label>
     <button className="button button-accent" type="submit" disabled={pending}>{pending ? "Salvando…" : "Concluir cadastro"}</button>
   </form>;
 }
