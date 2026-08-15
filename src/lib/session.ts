@@ -4,10 +4,17 @@ import { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { parseSocialSessionToken, SOCIAL_SESSION_COOKIE } from "@/lib/social-session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const userSelect = { id: true, name: true, email: true, image: true, role: true, onboardingCompleted: true } as const;
 
 export async function getAuthenticatedUser() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+  if (supabaseUser) {
+    const { data: stored } = await supabase.from("User").select("id, name, email, image, role, onboardingCompleted").eq("auth_user_id", supabaseUser.id).maybeSingle();
+    if (stored) return { ...stored, role: stored.role as Role };
+  }
   const session = await auth();
   if (session?.user?.id) {
     return prisma.user.findUnique({ where: { id: session.user.id }, select: userSelect });
