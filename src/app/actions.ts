@@ -107,6 +107,7 @@ export async function createBookingAction(profileId: string, formData: FormData)
   if (!profile) throw new Error("Perfil não encontrado");
   const slot = await prisma.availability.findFirst({ where: { id: String(formData.get("slot")), professionalProfileId: profileId, isBooked: false, startsAt: { gt: new Date() } } });
   if (!slot) throw new Error("Este horário não está mais disponível");
+  if (slot.endsAt.getTime() - slot.startsAt.getTime() < duration * 60_000) throw new Error("Este horário não comporta a duração escolhida.");
   const subtotal = duration === 60 ? profile.price60Cents : profile.price30Cents; const fee = Math.round(subtotal * 0.2);
   const booking = await prisma.$transaction(async (tx) => {
     const locked = await tx.availability.updateMany({ where: { id: slot.id, isBooked: false }, data: { isBooked: true } });
@@ -146,15 +147,60 @@ export async function removeAvailabilityAction(availabilityId: string) {
   await prisma.availability.delete({ where: { id: slot.id } }); revalidatePath("/consultor/agenda"); revalidatePath(`/profissional/${slot.professionalProfileId}`); revalidatePath("/buscar");
 }
 
+async function releaseBooking(bookingId: string, automatic = false) {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { professional: { select: { userId: true } }, payment: true } });
+  if (!booking || booking.status === BookingStatus.DISPUTED || booking.payment?.status !== PaymentStatus.HELD) return false;
+  await prisma.$transaction([
+    prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.COMPLETED, meetingEndedAt: booking.meetingEndedAt ?? new Date() } }),
+    prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.RELEASED, releasedAt: new Date() } }),
+    prisma.notification.create({ data: { userId: booking.professional.userId, title: "Repasse liberado", body: automatic ? "O prazo de confirmação terminou sem contestação. O repasse demonstrativo foi liberado." : "Os dois lados confirmaram a conversa. O repasse demonstrativo foi liberado.", href: "/consultor/ganhos" } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa concluída", body: automatic ? "O prazo de confirmação terminou sem contestação." : "Os dois lados confirmaram que a conversa aconteceu.", href: "/dashboard/avaliacoes" } }),
+  ]);
+  return true;
+}
+
+export async function releaseEligibleBookings() {
+  const bookings = await prisma.booking.findMany({ where: { status: BookingStatus.AWAITING_CONFIRMATION, startsAt: { lt: new Date() }, disputedAt: null, payment: { status: PaymentStatus.HELD } }, select: { id: true, startsAt: true, durationMinutes: true, autoReleaseAt: true } });
+  const now = Date.now();
+  await Promise.all(bookings.filter((booking) => (booking.autoReleaseAt?.getTime() ?? booking.startsAt.getTime() + (booking.durationMinutes + 24 * 60) * 60_000) <= now).map((booking) => releaseBooking(booking.id, true)));
+}
+
 export async function completeBookingAction(bookingId: string) {
   const user = await requireUser([Role.CONSULTANT]);
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: BookingStatus.CONFIRMED, professional: { userId: user.id } }, select: { id: true, customerId: true, startsAt: true, durationMinutes: true } });
   if (!booking || new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000) > new Date()) throw new Error("A conversa só pode ser concluída após o horário agendado.");
   await prisma.$transaction([
-    prisma.booking.update({ where: { id: booking.id }, data: { status: BookingStatus.COMPLETED, meetingEndedAt: new Date() } }),
-    prisma.notification.create({ data: { userId: booking.customerId, title: "Avalie a conversa", body: "A conversa foi concluída. Sua avaliação ajuda outras pessoas a decidir melhor.", href: "/dashboard/avaliacoes" } }),
+    prisma.booking.update({ where: { id: booking.id }, data: { status: BookingStatus.AWAITING_CONFIRMATION, meetingEndedAt: new Date(), autoReleaseAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Confirme sua conversa", body: "A outra pessoa informou que a conversa terminou. Confirme ou reporte um problema em até 24 horas.", href: "/dashboard/agendamentos" } }),
+    prisma.notification.create({ data: { userId: user.id, title: "Confirme sua conversa", body: "Confirme também a realização da conversa para liberar o repasse demonstrativo mais rápido.", href: "/consultor/consultas" } }),
   ]);
   revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/avaliacoes"); revalidatePath("/dashboard/agendamentos");
+}
+
+export async function confirmConversationAction(bookingId: string) {
+  const user = await requireUser();
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: BookingStatus.AWAITING_CONFIRMATION, OR: [{ customerId: user.id }, { professional: { userId: user.id } }] }, include: { professional: { select: { userId: true } } } });
+  if (!booking) throw new Error("Esta conversa não está aguardando sua confirmação.");
+  const isConsultant = booking.professional.userId === user.id;
+  const updated = await prisma.booking.update({ where: { id: booking.id }, data: isConsultant ? { consultantConfirmedAt: new Date() } : { customerConfirmedAt: new Date() } });
+  if ((isConsultant ? updated.customerConfirmedAt : updated.consultantConfirmedAt)) await releaseBooking(booking.id);
+  revalidatePath("/dashboard/agendamentos"); revalidatePath("/dashboard/avaliacoes"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos");
+}
+
+export async function disputeBookingAction(bookingId: string, formData: FormData) {
+  const user = await requireUser();
+  const description = String(formData.get("description") || "").trim();
+  if (description.length < 20 || description.length > 2000) throw new Error("Explique o problema em pelo menos 20 caracteres.");
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: { in: [BookingStatus.CONFIRMED, BookingStatus.AWAITING_CONFIRMATION] }, OR: [{ customerId: user.id }, { professional: { userId: user.id } }] }, include: { professional: { select: { userId: true } } } });
+  if (!booking) throw new Error("Não foi possível abrir uma contestação para esta conversa.");
+  await prisma.$transaction([
+    prisma.booking.update({ where: { id: booking.id }, data: { status: BookingStatus.DISPUTED, disputedAt: new Date() } }),
+    prisma.payment.update({ where: { bookingId: booking.id }, data: { status: PaymentStatus.DISPUTED } }),
+    prisma.report.create({ data: { reporterId: user.id, targetUserId: booking.professional.userId === user.id ? booking.customerId : booking.professional.userId, bookingId: booking.id, category: "CONTESTAÇÃO DE CONVERSA", description } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Pagamento em análise", body: "A conversa foi contestada. O valor permanece retido até a análise do suporte.", href: "/suporte" } }),
+    prisma.notification.create({ data: { userId: booking.professional.userId, title: "Pagamento em análise", body: "A conversa foi contestada. O valor permanece retido até a análise do suporte.", href: "/suporte" } }),
+  ]);
+  revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos");
 }
 
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> {
@@ -173,33 +219,13 @@ export async function payBookingAction(bookingId: string, formData: FormData) {
   if (formData.get("recordingConsent") !== "on") throw new Error("Confirme as regras de presença e gravação antes de continuar.");
   const booking = await prisma.booking.findFirst({ where: { id: bookingId, customerId: user.id, status: BookingStatus.PENDING_PAYMENT }, include: { professional: { select: { userId: true } } } });
   if (!booking) throw new Error("Consulta inválida ou já processada");
-  if (formData.get("paymentMethod") === "direct_pix") {
-    await prisma.$transaction([
-      prisma.payment.update({ where: { bookingId }, data: { provider: "DIRECT_PIX_AWAITING_CONFIRMATION", providerRef: `PIX-DIRECT-${Date.now()}` } }),
-      prisma.booking.update({ where: { id: bookingId }, data: { customerRecordingConsent: true } }),
-      prisma.notification.create({ data: { userId: booking.professional.userId, title: "Confirme o Pix recebido", body: "Uma pessoa informou que fez o Pix direto para sua conversa. Confira seu banco antes de liberar a sala.", href: "/consultor/consultas" } }),
-      prisma.notification.create({ data: { userId: booking.customerId, title: "Pix informado", body: "Aguardando o profissional confirmar o recebimento para liberar a conversa.", href: "/dashboard/agendamentos" } }),
-    ]);
-    redirect("/dashboard/agendamentos?pix=aguardando");
-  }
   await prisma.$transaction([
-    prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.APPROVED, paidAt: new Date(), provider: `SIMULATED_${String(formData.get("paymentMethod") || "PIX").toUpperCase()}`, providerRef: `SIM-${Date.now()}` } }),
+    prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.HELD, paidAt: new Date(), provider: `SIMULATED_PLATFORM_HOLD_${String(formData.get("paymentMethod") || "PIX").toUpperCase()}`, providerRef: `HOLD-${Date.now()}` } }),
     prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED, customerRecordingConsent: true } }),
-    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "Pagamento demonstrativo aprovado. A sala do Google Meet será liberada 15 minutos antes do horário.", href: "/dashboard/agendamentos" } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Pagamento retido com segurança", body: "O valor ficará retido até a conversa ser confirmada. A sala do Google Meet será liberada antes do horário.", href: "/dashboard/agendamentos" } }),
+    prisma.notification.create({ data: { userId: booking.professional.userId, title: "Nova conversa confirmada", body: "O pagamento está retido pela plataforma e será liberado após a confirmação da conversa.", href: "/consultor/consultas" } }),
   ]);
   redirect("/dashboard/agendamentos?confirmado=1");
-}
-
-export async function confirmDirectPixBookingAction(bookingId: string) {
-  const user = await requireUser([Role.CONSULTANT]);
-  const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: BookingStatus.PENDING_PAYMENT, professional: { userId: user.id }, payment: { provider: "DIRECT_PIX_AWAITING_CONFIRMATION" } } });
-  if (!booking) throw new Error("Esta confirmação não está disponível.");
-  await prisma.$transaction([
-    prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.APPROVED, paidAt: new Date() } }),
-    prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED } }),
-    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "O profissional confirmou o Pix. A sala será liberada antes do horário agendado.", href: "/dashboard/agendamentos" } }),
-  ]);
-  revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/agendamentos");
 }
 
 export async function updateConsultantRecordingConsentAction(bookingId: string, formData: FormData) {
@@ -238,6 +264,7 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
     yearsExperience: z.coerce.number().int().min(0).max(60),
     price30Cents: z.coerce.number().int().min(1000, "O valor mínimo da conversa é R$ 10.").max(50000),
     price60Cents: z.coerce.number().int().min(1000, "O valor mínimo da conversa é R$ 10.").max(100000),
+    responseHours: z.coerce.number().int().min(1).max(168),
     companyId: z.string().min(1, "Selecione a empresa ou experiência principal."),
     professionId: z.string().min(1, "Selecione sua área de atuação."),
     title: z.string().trim().min(2, "Informe seu cargo."),
@@ -260,7 +287,7 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
     await tx.professionalProfile.update({ where: { id: profile.id }, data: {
       headline: parsed.data.headline, bio: parsed.data.bio, location: parsed.data.location, region: parsed.data.region,
       workMode: parsed.data.workMode, seniority: parsed.data.seniority, yearsExperience: parsed.data.yearsExperience,
-      price30Cents: parsed.data.price30Cents, price60Cents: parsed.data.price60Cents, topics, boundaries, pixKey: parsed.data.pixKey || null,
+      price30Cents: parsed.data.price30Cents, price60Cents: parsed.data.price60Cents, responseHours: parsed.data.responseHours, topics, boundaries, pixKey: parsed.data.pixKey || null,
     } });
     const current = profile.experiences[0];
     const experienceData = { companyId: company.id, professionId: profession.id, title: parsed.data.title, area: profession.category, isCurrent: true, summary: "Experiência atualizada pelo consultor." };

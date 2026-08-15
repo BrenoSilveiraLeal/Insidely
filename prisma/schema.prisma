@@ -45,14 +45,19 @@ enum VerificationStatus {
 enum BookingStatus {
   PENDING_PAYMENT
   CONFIRMED
+  AWAITING_CONFIRMATION
   COMPLETED
+  DISPUTED
   CANCELLED
   NO_SHOW
 }
 
 enum PaymentStatus {
   PENDING
+  HELD
   APPROVED
+  RELEASED
+  DISPUTED
   REFUNDED
   FAILED
 }
@@ -267,6 +272,10 @@ model Booking {
   customerJoinedAt      DateTime?
   consultantJoinedAt    DateTime?
   meetingEndedAt        DateTime?
+  customerConfirmedAt   DateTime?
+  consultantConfirmedAt DateTime?
+  autoReleaseAt         DateTime?
+  disputedAt            DateTime?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
@@ -290,6 +299,7 @@ model Payment {
   provider    String        @default("SIMULATED")
   providerRef String?
   paidAt      DateTime?
+  releasedAt  DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
