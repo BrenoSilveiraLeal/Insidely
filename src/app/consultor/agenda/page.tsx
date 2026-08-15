@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/domain";
 import { AvailabilityManager } from "@/components/consultant-availability";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getConsultantDashboard } from "@/lib/queries";

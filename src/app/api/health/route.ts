@@ -1,12 +1,3 @@
-import { prisma } from "@/lib/prisma";
-
-export async function GET(request: Request) {
-  const configuredSecret = process.env.HEALTHCHECK_SECRET;
-  if (process.env.NODE_ENV === "production" && (!configuredSecret || request.headers.get("x-healthcheck-secret") !== configuredSecret)) return new Response(null, { status: 404 });
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return Response.json({ ok: true });
-  } catch {
-    return Response.json({ ok: false }, { status: 503 });
-  }
-}
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+export async function GET() { const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").select("id", { head: true, count: "exact" }); return NextResponse.json({ ok: !error, backend: "supabase", error: error?.message ?? null }, { status: error ? 503 : 200 }); }

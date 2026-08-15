@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useActionState } from "react";
 import { loginAction, registerAction } from "@/app/actions";
 
@@ -16,10 +16,6 @@ export function LoginForm({ google, linkedin, socialPending = false }: { google:
   const [error, action, pending] = useActionState(loginAction, undefined);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const twoFactorRequired = error === "__TWO_FACTOR_REQUIRED__";
-
-  useEffect(() => {
-    if (twoFactorRequired) setShowTwoFactor(true);
-  }, [twoFactorRequired]);
 
   const displayError = twoFactorRequired ? "Confirme com seu código do Authenticator para continuar." : error;
 

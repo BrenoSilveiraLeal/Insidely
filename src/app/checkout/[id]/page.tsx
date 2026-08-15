@@ -1,8 +1,9 @@
-import { BookingStatus } from "@prisma/client";
+import { getBookingForUser } from "@/lib/queries";
+import { BookingStatus } from "@/lib/domain";
 import { payBookingAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
 import { money, shortDate } from "@/lib/format";
-import { prisma } from "@/lib/prisma";
+
 import { requireUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const booking = await prisma.booking.findFirst({ where: { id, customerId: user.id }, include: { professional: { include: { user: true } }, payment: true } });
+  const booking = await getBookingForUser(id, user.id);
   if (!booking) notFound();
   return <PublicShell>
     <section className="page-hero" data-mark="R$"><div className="container page-hero-inner"><span className="eyebrow">Pagamento protegido</span><h1>Seu pagamento fica retido até a conversa acontecer.</h1><p>A Insidely só prevê o repasse ao consultor depois da confirmação ou do prazo de segurança, sem contestação.</p></div></section>

@@ -9,28 +9,18 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "db:health": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
-    "@prisma/client": "^6.19.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/postcss": "^4.3.3",
-    "@vercel/blob": "^2.7.0",
-    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "gsap": "^3.15.0",
     "lucide-react": "^1.30.0",
     "motion": "^13.0.0",
     "next": "16.3.0",
-    "next-auth": "^5.0.0-beta.32",
-    "otpauth": "^9.5.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -46,12 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
-    "prisma": "^6.19.0",
-    "tsx": "^4.23.11",
     "typescript": "^5",
     "vitest": "^4.1.10"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }
