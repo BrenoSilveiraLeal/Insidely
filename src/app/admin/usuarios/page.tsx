@@ -1,3 +1,7 @@
-import { getUserById } from "@/lib/queries";
-import { Role } from "@/lib/domain";import { DashboardShell } from "@/components/dashboard-shell";import { requireUser } from "@/lib/session";
-export const dynamic="force-dynamic";export default async function Page(){await requireUser([Role.ADMIN]);const users=await [];return <DashboardShell mode="admin" title="UsuÃ¡rios"><div className="table-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Perfil</th></tr></thead><tbody>{users.map(u=><tr key={u.id}><td>{u.name}</td><td>{u.email}</td><td>{u.role}</td><td>{u.professionalProfile?.verificationStatus??"â€”"}</td></tr>)}</tbody></table></div></DashboardShell>}
+import { Role } from "@/lib/domain";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { requireUser } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page() { await requireUser([Role.ADMIN]); return <DashboardShell mode="admin" title="Usuários"><div className="table-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Perfil</th></tr></thead><tbody /></table></div></DashboardShell>; }

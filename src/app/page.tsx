@@ -9,37 +9,17 @@ import { getHomeData } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-const hiddenQuestions = [
-  ["01", "Como é uma terça-feira comum, não o dia da entrevista?"],
-  ["02", "A liderança dá contexto ou só cobra a entrega?"],
-  ["03", "O crescimento acontece ou fica apenas no discurso?"],
-  ["04", "O que você gostaria de saber antes de entrar?"],
-];
+const hiddenQuestions = [["01", "Como é uma terça-feira comum, não o dia da entrevista?"], ["02", "A liderança dá contexto ou só cobra a entrega?"], ["03", "O crescimento acontece ou fica apenas no discurso?"], ["04", "O que você gostaria de saber antes de entrar?"]];
 
 export default async function Home() {
   const data = await getHomeData();
-  return <PublicShell>
-    <ScrollReveals>
-    <InsideHero/>
-    <section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
-
-    <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list">{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p></article>)}</div></div></section>
-
-    <StoryMotion/>
-
+  return <PublicShell><ScrollReveals><InsideHero/><section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
+    <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list">{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p></article>)}</div></div></section><StoryMotion/>
     <section className="section people-section"><div className="container"><div className="section-head"><div><span className="eyebrow">Pessoas, não rankings</span><h2 className="section-title">Experiências para comparar.</h2></div><Link className="text-link" href="/buscar">Ver todos os profissionais <ArrowRight size={16}/></Link></div><div className="grid grid-4">{data.professionals.map((profile,index)=><ProfessionalCard key={profile.id} profile={profile} index={index}/>)}</div></div></section>
-
     <section className="brand-truth-section"><div className="container brand-truth-inner"><span className="eyebrow">Uma marca não é uma experiência única</span><blockquote>A empresa que você imagina pode não ser a equipe que você encontra.</blockquote><Link className="button button-dark" href="/empresas">Ver empresas por dentro <Building2 size={17}/></Link><span className="orbit-tag orbit-team">Time</span><span className="orbit-tag orbit-routine">Rotina</span><span className="orbit-tag orbit-management">Gestão</span><span className="orbit-tag orbit-company">Empresa</span></div></section>
-
     <section className="section company-section"><div className="container"><div className="section-head"><div><span className="eyebrow"><Building2 size={14}/> Por dentro das empresas</span><h2 className="section-title">A mesma marca.<br/>Muitas realidades.</h2></div><Link className="text-link" href="/empresas">Todas as empresas <ArrowRight size={16}/></Link></div><div className="grid grid-4">{data.companies.slice(0,8).map(company=><CompanyCard key={company.id} company={company}/>)}</div></div></section>
-
     <section className="section profession-section"><div className="container"><div className="section-head"><div><span className="eyebrow"><Eye size={14}/> Reality Check</span><h2 className="section-title">A profissão imaginada encontra o trabalho prático.</h2></div><Link className="text-link" href="/profissoes">Ver todas <ArrowRight size={16}/></Link></div><div className="grid grid-3">{data.professions.slice(0,6).map(profession=><ProfessionCard key={profession.id} profession={profession}/>)}</div></div></section>
-
     <section className="trust-section"><div className="container trust-grid"><div><span className="eyebrow"><ShieldCheck size={14}/> Confiança desde o desenho</span><h2>Privacidade não entra depois. Ela começa junto.</h2><p>Quem compartilha experiência controla o que fica público. Verificações são privadas; o perfil exibe apenas o selo.</p><Link className="button button-light" href="/cadastro">Participar com segurança <ArrowRight size={17}/></Link></div><div className="trust-cards"><article className="trust-card trust-card-blue"><Fingerprint size={44}/><div><span>Identidade</span><h3>Pública, protegida ou pseudônima.</h3></div></article><article className="trust-card trust-card-yellow"><ShieldCheck size={44}/><div><span>Verificação</span><h3>Documento nunca aparece no perfil.</h3></div></article><article className="trust-card trust-card-pink"><LockKeyhole size={44}/><div><span>Limites</span><h3>Sem segredos, dados internos ou de terceiros.</h3></div></article></div></div></section>
-
     <section className="reviews-section"><div className="container reviews-grid"><Quote className="quote-mark" size={72}/><div><span className="eyebrow">Depois da conversa</span><blockquote>A conversa trouxe clareza para transformar uma dúvida em uma decisão melhor.</blockquote><p>Pessoa da comunidade · avaliação média de {data.rating.toFixed(1)}</p></div></div></section>
-
-    <section className="final-cta"><div className="container final-cta-inner"><div className="final-copy"><span className="eyebrow">Antes da próxima decisão</span><h2>Não escolha<br/>no escuro.</h2><p>Uma conversa pode não decidir por você. Mas pode fazer você decidir melhor.</p><div><Link className="button button-accent" href="/buscar">Encontrar uma experiência <ArrowRight size={17}/></Link><Link className="button button-ghost" href="/cadastro"><MessageCircleMore size={17}/> Compartilhar a minha</Link></div></div><div className="final-symbol"><Sparkles size={120}/><IdCard size={42}/></div></div></section>
-    </ScrollReveals>
-  </PublicShell>;
+    <section className="final-cta"><div className="container final-cta-inner"><div className="final-copy"><span className="eyebrow">Antes da próxima decisão</span><h2>Não escolha<br/>no escuro.</h2><p>Uma conversa pode não decidir por você. Mas pode fazer você decidir melhor.</p><div><Link className="button button-accent" href="/buscar">Encontrar uma experiência <ArrowRight size={17}/></Link><Link className="button button-ghost" href="/cadastro"><MessageCircleMore size={17}/> Compartilhar a minha</Link></div></div><div className="final-symbol"><Sparkles size={120}/><IdCard size={42}/></div></div></section></ScrollReveals></PublicShell>;
 }

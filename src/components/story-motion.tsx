@@ -6,9 +6,9 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const steps = [
-  { number: "01", eyebrow: "Explore", title: "Encontre o contexto certo.", copy: "Filtre por profissão, empresa, senioridade e forma de trabalho.", symbol: "⌕" },
-  { number: "02", eyebrow: "Pergunte", title: "Leve as perguntas difíceis.", copy: "Rotina, liderança, carga, crescimento e processo seletivo — sem pedir dados confidenciais.", symbol: "?" },
-  { number: "03", eyebrow: "Decida", title: "Troque suposição por clareza.", copy: "Use experiências contextualizadas para escolher seu próximo passo com mais consciência.", symbol: "→" },
+  { number: "01", eyebrow: "Explore", title: "Encontre o contexto certo.", copy: "Filtre por profissáo, empresa, senioridade e forma de trabalho.", symbol: "?" },
+  { number: "02", eyebrow: "Pergunte", title: "Leve as perguntas difíceis.", copy: "Rotina, liderança, carga, crescimento e processo seletivo - sem pedir dados confidenciais.", symbol: "?" },
+  { number: "03", eyebrow: "Decida", title: "Troque suposiçáo por clareza.", copy: "Use experiéncias contextualizadas para escolher seu próximo passo com mais consciéncia.", symbol: "?" },
 ];
 
 export function StoryMotion() {
@@ -23,6 +23,6 @@ export function StoryMotion() {
     }, scope);
     return () => context.revert();
   }, [reduced]);
-  return <section className="story" id="como-funciona" ref={scope}><div className="container"><motion.div className="story-intro" initial={reduced ? false : { opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .35 }} transition={{ duration: .75 }}><span className="eyebrow">Uma escolha menos escura</span><h2>Não aceite uma descrição. Investigue o contexto.</h2><p className="section-copy">A Insidely aproxima dúvidas honestas de experiências verificadas — com proteção para quem pergunta e para quem responde.</p></motion.div><div className="story-stack">{steps.map((step)=><article className="story-card" key={step.number}><div className="story-number">{step.number}</div><div><span className="eyebrow">{step.eyebrow}</span><h3>{step.title}</h3><p>{step.copy}</p></div><div className="story-symbol">{step.symbol}</div></article>)}</div></div></section>;
+  return <section className="story" id="como-funciona" ref={scope}><div className="container"><motion.div className="story-intro" initial={reduced ? false : { opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .35 }} transition={{ duration: .75 }}><span className="eyebrow">Uma escolha menos escura</span><h2>Náo aceite uma descriçáo. Investigue o contexto.</h2><p className="section-copy">A Insidely aproxima dúvidas honestas de experiéncias verificadas - com proteçáo para quem pergunta e para quem responde.</p></motion.div><div className="story-stack">{steps.map((step)=><article className="story-card" key={step.number}><div className="story-number">{step.number}</div><div><span className="eyebrow">{step.eyebrow}</span><h3>{step.title}</h3><p>{step.copy}</p></div><div className="story-symbol">{step.symbol}</div></article>)}</div></div></section>;
 }
 
