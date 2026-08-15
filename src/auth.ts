@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
 import LinkedIn from "next-auth/providers/linkedin";
 import { compare } from "bcryptjs";
 import { z } from "zod";
@@ -42,7 +41,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user.failedLoginAttempts || user.lockedUntil) await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lastFailedLoginAt: null, lockedUntil: null } });
       return { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role, onboardingCompleted: user.onboardingCompleted };
     },
-  }), ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []), ...(process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET ? [LinkedIn({ clientId: process.env.AUTH_LINKEDIN_ID, clientSecret: process.env.AUTH_LINKEDIN_SECRET })] : [])],
+  }), ...(process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET ? [LinkedIn({ clientId: process.env.AUTH_LINKEDIN_ID, clientSecret: process.env.AUTH_LINKEDIN_SECRET })] : [])],
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider !== "credentials") {

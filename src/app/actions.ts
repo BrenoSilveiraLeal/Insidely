@@ -1,14 +1,16 @@
 "use server";
 
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { put } from "@vercel/blob";
 import { BookingStatus, PaymentStatus, Role, Seniority, VerificationStatus, WorkMode } from "@prisma/client";
 import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { SOCIAL_SESSION_COOKIE } from "@/lib/social-session";
 import { requireUser } from "@/lib/session";
 import { createRecoveryCodes, createTwoFactorSetup, decryptTwoFactorSecret, encryptTwoFactorSecret, hashRecoveryCode, verifyTotp } from "@/lib/two-factor";
 
@@ -24,11 +26,24 @@ const accountSchema = z.object({
 const externalContactPattern = /(?:https?:\/\/|www\.|(?:\+?\d[\d\s().-]{7,}\d)|\b[\w.+-]+@[\w-]+\.[\w.-]+\b)/i;
 function hasExternalContact(...values: string[]) { return values.some((value) => externalContactPattern.test(value)); }
 
+const TWO_FACTOR_REQUIRED_FLAG = "__TWO_FACTOR_REQUIRED__";
+
 export async function loginAction(_: string | undefined, formData: FormData) {
-  const credentials = z.object({ email: z.string().trim().email("Informe seu e-mail."), password: z.string().min(1, "Informe sua senha.") }).safeParse(Object.fromEntries(formData));
+  const credentials = z.object({ email: z.string().trim().email("Informe seu e-mail."), password: z.string().min(1, "Informe sua senha."), twoFactorCode: z.string().trim().optional() }).safeParse(Object.fromEntries(formData));
   if (!credentials.success) return credentials.error.issues[0]?.message ?? "Informe e-mail e senha.";
+  const email = credentials.data.email.toLowerCase();
+
+  // When the password is correct and 2FA is enabled, ask for code in a second step.
+  if (!credentials.data.twoFactorCode) {
+    const user = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true, twoFactorEnabled: true, lockedUntil: true } });
+    if (user?.passwordHash && (!user.lockedUntil || user.lockedUntil <= new Date())) {
+      const passwordOk = await compare(credentials.data.password, user.passwordHash);
+      if (passwordOk && user.twoFactorEnabled) return TWO_FACTOR_REQUIRED_FLAG;
+    }
+  }
+
   try {
-    await signIn("credentials", { email: credentials.data.email.toLowerCase(), password: credentials.data.password, redirectTo: "/continuar" });
+    await signIn("credentials", { email, password: credentials.data.password, twoFactorCode: credentials.data.twoFactorCode, redirectTo: "/continuar" });
   } catch (error) {
     if (error instanceof AuthError) return "E-mail ou senha incorretos.";
     throw error;
@@ -36,9 +51,10 @@ export async function loginAction(_: string | undefined, formData: FormData) {
 }
 
 export async function socialSignInAction(provider: "google" | "linkedin") {
-  const configured = provider === "google"
-    ? Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET)
-    : Boolean(process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET);
+  if (provider === "google") {
+    redirect("/auth/google?next=/continuar");
+  }
+  const configured = Boolean(process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET);
   if (!configured) redirect("/entrar?social=pendente");
   await signIn(provider, { redirectTo: "/continuar" });
 }
@@ -52,7 +68,11 @@ export async function registerAction(_: string | undefined, formData: FormData) 
   await signIn("credentials", { email, password: parsed.data.password, redirectTo: "/onboarding" });
 }
 
-export async function logoutAction() { await signOut({ redirectTo: "/" }); }
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SOCIAL_SESSION_COOKIE);
+  await signOut({ redirectTo: "/" });
+}
 
 export async function completeOnboardingAction(_: string | undefined, formData: FormData) {
   const user = await requireUser(undefined, { allowIncomplete: true });
