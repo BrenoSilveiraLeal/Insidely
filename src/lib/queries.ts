@@ -11,16 +11,29 @@ export function getProfessionalInclude() { return {
 } as const; }
 
 async function getHomeDataUncached() {
-  const [professionalCount, companyCount, completedCount, reviewAggregate, professionals, companies, professions] = await Promise.all([
-    prisma.professionalProfile.count({ where: { isActive: true } }),
-    prisma.company.count(),
-    prisma.booking.count({ where: { status: BookingStatus.COMPLETED } }),
-    prisma.review.aggregate({ _avg: { rating: true } }),
-    prisma.professionalProfile.findMany({ where: { isActive: true }, include: getProfessionalInclude(), take: 8, orderBy: { createdAt: "asc" } }),
-    prisma.company.findMany({ include: { _count: { select: { experiences: true } } }, take: 10, orderBy: { name: "asc" } }),
-    prisma.profession.findMany({ include: { _count: { select: { experiences: true } } }, take: 12, orderBy: { name: "asc" } }),
-  ]);
-  return { professionalCount, companyCount, completedCount, rating: reviewAggregate._avg.rating ?? 0, professionals, companies, professions };
+  try {
+    const [professionalCount, companyCount, completedCount, reviewAggregate, professionals, companies, professions] = await Promise.all([
+      prisma.professionalProfile.count({ where: { isActive: true } }),
+      prisma.company.count(),
+      prisma.booking.count({ where: { status: BookingStatus.COMPLETED } }),
+      prisma.review.aggregate({ _avg: { rating: true } }),
+      prisma.professionalProfile.findMany({ where: { isActive: true }, include: getProfessionalInclude(), take: 8, orderBy: { createdAt: "asc" } }),
+      prisma.company.findMany({ include: { _count: { select: { experiences: true } } }, take: 10, orderBy: { name: "asc" } }),
+      prisma.profession.findMany({ include: { _count: { select: { experiences: true } } }, take: 12, orderBy: { name: "asc" } }),
+    ]);
+    return { professionalCount, companyCount, completedCount, rating: reviewAggregate._avg.rating ?? 0, professionals, companies, professions };
+  } catch (error) {
+    console.warn("Home data fallback: database unavailable", error);
+    return {
+      professionalCount: 0,
+      companyCount: 0,
+      completedCount: 0,
+      rating: 0,
+      professionals: [],
+      companies: [],
+      professions: [],
+    };
+  }
 }
 
 // Dados editoriais públicos mudam pouco. Este cache evita uma nova conexão ao
