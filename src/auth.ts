@@ -6,20 +6,32 @@ import { compare } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { decryptTwoFactorSecret, hashRecoveryCode, verifyTotp } from "@/lib/two-factor";
 
-const credentialsSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
+const credentialsSchema = z.object({ email: z.string().email(), password: z.string().min(8), twoFactorCode: z.string().trim().optional() });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/entrar" },
   providers: [Credentials({
-    credentials: { email: { label: "E-mail", type: "email" }, password: { label: "Senha", type: "password" } },
+    credentials: { email: { label: "E-mail", type: "email" }, password: { label: "Senha", type: "password" }, twoFactorCode: { label: "Código do Authenticator", type: "text" } },
     async authorize(raw) {
       const parsed = credentialsSchema.safeParse(raw);
       if (!parsed.success) return null;
       const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
       if (!user?.passwordHash || !(await compare(parsed.data.password, user.passwordHash))) return null;
+      if (user.twoFactorEnabled) {
+        const code = parsed.data.twoFactorCode ?? "";
+        let valid = false;
+        try { valid = Boolean(user.twoFactorSecret && verifyTotp(decryptTwoFactorSecret(user.twoFactorSecret), code)); } catch { return null; }
+        const recoveryHash = hashRecoveryCode(code);
+        if (!valid && user.twoFactorRecoveryCodes.includes(recoveryHash)) {
+          valid = true;
+          await prisma.user.update({ where: { id: user.id }, data: { twoFactorRecoveryCodes: user.twoFactorRecoveryCodes.filter((item) => item !== recoveryHash) } });
+        }
+        if (!valid) return null;
+      }
       return { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role, onboardingCompleted: user.onboardingCompleted };
     },
   }), ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })] : []), ...(process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET ? [LinkedIn({ clientId: process.env.AUTH_LINKEDIN_ID, clientSecret: process.env.AUTH_LINKEDIN_SECRET })] : [])],

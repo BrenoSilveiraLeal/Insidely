@@ -17,6 +17,7 @@ export function LoginForm({ google, linkedin, socialPending = false }: { google:
     {(error || socialPending) && <p className="form-error" role="alert">{error || "O login social ainda precisa das credenciais na Vercel."}</p>}
     <div className="field"><label htmlFor="email">E-mail</label><input className="input" id="email" name="email" type="email" autoComplete="email" required/></div>
     <div className="field"><label htmlFor="password">Senha</label><input className="input" id="password" name="password" type="password" autoComplete="current-password" minLength={8} required/></div>
+    <div className="field"><label htmlFor="twoFactorCode">Código do Authenticator <small>(se ativado)</small></label><input className="input" id="twoFactorCode" name="twoFactorCode" inputMode="numeric" pattern="[0-9A-Za-z-]{6,16}" autoComplete="one-time-code" placeholder="000 000 ou código de recuperação"/></div>
     <button className="button button-accent button-block" disabled={pending}>{pending ? "Entrando…" : "Entrar"}</button><SocialButtons google={google} linkedin={linkedin}/><p>Não tem conta? <Link href="/cadastro"><u>Cadastre-se</u></Link></p>
     <div className="demo-box"><strong>Acessos demonstrativos</strong><br/>Usuário: demo@insidely.com<br/>Consultor: consultor@insidely.com<br/>Admin: admin@insidely.com<br/>Senha: Demo@123</div>
   </form>;

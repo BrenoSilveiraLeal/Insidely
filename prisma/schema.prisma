@@ -71,6 +71,11 @@ model User {
   emailVerified       DateTime?
   image               String?
   passwordHash        String?
+  twoFactorEnabled    Boolean  @default(false)
+  twoFactorSecret     String?
+  twoFactorRecoveryCodes String[] @default([])
+  twoFactorSetupSecret String?
+  twoFactorSetupExpiresAt DateTime?
   role                Role     @default(USER)
   onboardingCompleted Boolean  @default(false)
   createdAt           DateTime @default(now())
@@ -163,6 +168,7 @@ model ProfessionalProfile {
   yearsExperience      Int
   price30Cents          Int
   price60Cents          Int
+  pixKey                String?
   responseHours        Int                @default(12)
   privacyMode          PrivacyMode        @default(PROTECTED)
   pseudonym            String?

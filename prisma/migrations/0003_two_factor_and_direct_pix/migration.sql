@@ -1,0 +1,9 @@
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT,
+  ADD COLUMN IF NOT EXISTS "twoFactorRecoveryCodes" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN IF NOT EXISTS "twoFactorSetupSecret" TEXT,
+  ADD COLUMN IF NOT EXISTS "twoFactorSetupExpiresAt" TIMESTAMP(3);
+
+ALTER TABLE "ProfessionalProfile"
+  ADD COLUMN IF NOT EXISTS "pixKey" TEXT;

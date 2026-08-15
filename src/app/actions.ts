@@ -10,6 +10,7 @@ import { z } from "zod";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { createRecoveryCodes, createTwoFactorSetup, decryptTwoFactorSecret, encryptTwoFactorSecret, hashRecoveryCode, verifyTotp } from "@/lib/two-factor";
 
 const accountSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome completo."),
@@ -114,14 +115,35 @@ export async function createBookingAction(profileId: string, formData: FormData)
 export async function payBookingAction(bookingId: string, formData: FormData) {
   const user = await requireUser();
   if (formData.get("recordingConsent") !== "on") throw new Error("Confirme as regras de presença e gravação antes de continuar.");
-  const booking = await prisma.booking.findFirst({ where: { id: bookingId, customerId: user.id, status: BookingStatus.PENDING_PAYMENT } });
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, customerId: user.id, status: BookingStatus.PENDING_PAYMENT }, include: { professional: { select: { userId: true } } } });
   if (!booking) throw new Error("Consulta inválida ou já processada");
+  if (formData.get("paymentMethod") === "direct_pix") {
+    await prisma.$transaction([
+      prisma.payment.update({ where: { bookingId }, data: { provider: "DIRECT_PIX_AWAITING_CONFIRMATION", providerRef: `PIX-DIRECT-${Date.now()}` } }),
+      prisma.booking.update({ where: { id: bookingId }, data: { customerRecordingConsent: true } }),
+      prisma.notification.create({ data: { userId: booking.professional.userId, title: "Confirme o Pix recebido", body: "Uma pessoa informou que fez o Pix direto para sua conversa. Confira seu banco antes de liberar a sala.", href: "/consultor/consultas" } }),
+      prisma.notification.create({ data: { userId: booking.customerId, title: "Pix informado", body: "Aguardando o profissional confirmar o recebimento para liberar a conversa.", href: "/dashboard/agendamentos" } }),
+    ]);
+    redirect("/dashboard/agendamentos?pix=aguardando");
+  }
   await prisma.$transaction([
     prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.APPROVED, paidAt: new Date(), provider: `SIMULATED_${String(formData.get("paymentMethod") || "PIX").toUpperCase()}`, providerRef: `SIM-${Date.now()}` } }),
     prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED, customerRecordingConsent: true } }),
     prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "Pagamento demonstrativo aprovado. A sala do Google Meet será liberada 15 minutos antes do horário.", href: "/dashboard/agendamentos" } }),
   ]);
   redirect("/dashboard/agendamentos?confirmado=1");
+}
+
+export async function confirmDirectPixBookingAction(bookingId: string) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const booking = await prisma.booking.findFirst({ where: { id: bookingId, status: BookingStatus.PENDING_PAYMENT, professional: { userId: user.id }, payment: { provider: "DIRECT_PIX_AWAITING_CONFIRMATION" } } });
+  if (!booking) throw new Error("Esta confirmação não está disponível.");
+  await prisma.$transaction([
+    prisma.payment.update({ where: { bookingId }, data: { status: PaymentStatus.APPROVED, paidAt: new Date() } }),
+    prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.CONFIRMED } }),
+    prisma.notification.create({ data: { userId: booking.customerId, title: "Conversa confirmada", body: "O profissional confirmou o Pix. A sala será liberada antes do horário agendado.", href: "/dashboard/agendamentos" } }),
+  ]);
+  revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/agendamentos");
 }
 
 export async function updateConsultantRecordingConsentAction(bookingId: string, formData: FormData) {
@@ -165,6 +187,7 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
     title: z.string().trim().min(2, "Informe seu cargo."),
     topics: z.string().trim().min(2, "Informe pelo menos um tema de conversa."),
     boundaries: z.string().trim().min(2, "Informe pelo menos um limite da conversa."),
+    pixKey: z.string().trim().max(100, "A chave Pix parece longa demais.").optional(),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return parsed.error.issues[0]?.message ?? "Revise as informações do seu perfil.";
   const [profile, company, profession] = await Promise.all([
@@ -180,7 +203,7 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
     await tx.professionalProfile.update({ where: { id: profile.id }, data: {
       headline: parsed.data.headline, bio: parsed.data.bio, location: parsed.data.location, region: parsed.data.region,
       workMode: parsed.data.workMode, seniority: parsed.data.seniority, yearsExperience: parsed.data.yearsExperience,
-      price30Cents: parsed.data.price30Cents, price60Cents: parsed.data.price60Cents, topics, boundaries,
+      price30Cents: parsed.data.price30Cents, price60Cents: parsed.data.price60Cents, topics, boundaries, pixKey: parsed.data.pixKey || null,
     } });
     const current = profile.experiences[0];
     const experienceData = { companyId: company.id, professionId: profession.id, title: parsed.data.title, area: profession.category, isCurrent: true, summary: "Experiência atualizada pelo consultor." };
@@ -252,4 +275,37 @@ export async function reviewVerificationAction(verificationId: string, decision:
 
 export async function resolveReportAction(reportId: string) {
   await requireUser([Role.ADMIN]); await prisma.report.update({ where: { id: reportId }, data: { status: "RESOLVED", resolution: "Analisado pela moderação demonstrativa." } }); revalidatePath("/admin/denuncias");
+}
+
+type TwoFactorState = { status: "success" | "error"; message: string; recoveryCodes?: string[] } | undefined;
+
+export async function getOrCreateTwoFactorSetup() {
+  const user = await requireUser();
+  const stored = await prisma.user.findUnique({ where: { id: user.id }, select: { email: true, twoFactorEnabled: true, twoFactorSetupSecret: true, twoFactorSetupExpiresAt: true } });
+  if (!stored || stored.twoFactorEnabled) return null;
+  if (stored.twoFactorSetupSecret && stored.twoFactorSetupExpiresAt && stored.twoFactorSetupExpiresAt > new Date()) return { uri: decryptTwoFactorSecret(stored.twoFactorSetupSecret) };
+  const setup = createTwoFactorSetup(stored.email);
+  await prisma.user.update({ where: { id: user.id }, data: { twoFactorSetupSecret: encryptTwoFactorSecret(setup.uri), twoFactorSetupExpiresAt: new Date(Date.now() + 15 * 60 * 1000) } });
+  return { uri: setup.uri };
+}
+
+export async function enableTwoFactorAction(_: TwoFactorState, formData: FormData): Promise<TwoFactorState> {
+  const user = await requireUser(); const code = String(formData.get("code") || "");
+  const stored = await prisma.user.findUnique({ where: { id: user.id }, select: { twoFactorSetupSecret: true, twoFactorSetupExpiresAt: true } });
+  if (!stored?.twoFactorSetupSecret || !stored.twoFactorSetupExpiresAt || stored.twoFactorSetupExpiresAt < new Date()) return { status: "error", message: "Este QR Code expirou. Atualize a página e tente novamente." };
+  let uri = ""; try { uri = decryptTwoFactorSecret(stored.twoFactorSetupSecret); } catch { return { status: "error", message: "Não foi possível validar a configuração de segurança." }; }
+  const secret = new URL(uri).searchParams.get("secret");
+  if (!secret || !verifyTotp(secret, code)) return { status: "error", message: "Código inválido ou expirado. Confira o Authenticator e tente de novo." };
+  const recoveryCodes = createRecoveryCodes();
+  await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true, twoFactorSecret: encryptTwoFactorSecret(secret), twoFactorRecoveryCodes: recoveryCodes.map(hashRecoveryCode), twoFactorSetupSecret: null, twoFactorSetupExpiresAt: null } });
+  revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil");
+  return { status: "success", message: "Proteção ativada.", recoveryCodes };
+}
+
+export async function disableTwoFactorAction(_: TwoFactorState, formData: FormData): Promise<TwoFactorState> {
+  const user = await requireUser(); const code = String(formData.get("code") || "");
+  const stored = await prisma.user.findUnique({ where: { id: user.id }, select: { twoFactorSecret: true } });
+  try { if (!stored?.twoFactorSecret || !verifyTotp(decryptTwoFactorSecret(stored.twoFactorSecret), code)) return { status: "error", message: "Informe o código atual do Authenticator para desativar a proteção." }; } catch { return { status: "error", message: "Não foi possível validar o código de segurança." }; }
+  await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: [], twoFactorSetupSecret: null, twoFactorSetupExpiresAt: null } });
+  revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); return { status: "success", message: "Proteção desativada." };
 }
