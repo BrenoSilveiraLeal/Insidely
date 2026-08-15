@@ -73,9 +73,6 @@ model User {
   passwordHash        String?
   role                Role     @default(USER)
   onboardingCompleted Boolean  @default(false)
-  termsVersion        String?
-  termsAcceptedAt     DateTime?
-  privacyAcceptedAt   DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

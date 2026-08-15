@@ -11,7 +11,6 @@ import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
-const termsVersion = "2026-08";
 const accountSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome completo."),
   email: z.string().trim().email("Informe um e-mail válido."),
@@ -45,8 +44,7 @@ export async function registerAction(_: string | undefined, formData: FormData) 
   if (!parsed.success) return parsed.error.issues[0]?.message ?? "Revise os campos obrigatórios.";
   const email = parsed.data.email.toLowerCase();
   if (await prisma.user.findUnique({ where: { email } })) return "Este e-mail já está cadastrado.";
-  const acceptedAt = new Date();
-  await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash: await hash(parsed.data.password, 12), role: parsed.data.role as Role, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
+  await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash: await hash(parsed.data.password, 12), role: parsed.data.role as Role } });
   await signIn("credentials", { email, password: parsed.data.password, redirectTo: "/onboarding" });
 }
 
@@ -56,9 +54,8 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   const user = await requireUser(undefined, { allowIncomplete: true });
   const role = (formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER);
   if (formData.get("terms") !== "on") return "Você precisa aceitar os termos da plataforma para concluir o cadastro.";
-  const acceptedAt = new Date();
   if (role === Role.USER) {
-    await prisma.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
+    await prisma.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true } });
     redirect("/dashboard");
   }
   const parsed = z.object({
@@ -78,7 +75,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   if (!company || !profession) return "Empresa ou profissão inválida.";
   if (role === Role.CONSULTANT) {
     await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true, termsVersion, termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
+      await tx.user.update({ where: { id: user.id }, data: { role, onboardingCompleted: true } });
       await tx.professionalProfile.upsert({ where: { userId: user.id }, update: {}, create: {
       userId: user.id, headline: parsed.data.headline, bio: parsed.data.bio,
       location: parsed.data.location, region: "Brasil", workMode: "REMOTE", seniority: "MID", yearsExperience: parsed.data.yearsExperience, price30Cents: 4500, price60Cents: 8000,
