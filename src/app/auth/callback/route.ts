@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     if (exchangeError) return NextResponse.redirect(new URL("/entrar?social=error", request.url));
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user?.email) return NextResponse.redirect(new URL("/entrar?social=error", request.url));
+    if (nextPath === "/redefinir-senha") return NextResponse.redirect(new URL(nextPath, request.url));
     const name = user.user_metadata?.full_name?.trim() || user.user_metadata?.name?.trim() || "Pessoa Insidely";
     const image = user.user_metadata?.avatar_url || null;
     const { data: profile, error: profileError } = await supabase.rpc("sync_google_profile", { p_name: name, p_image: image }).maybeSingle() as { data: { onboardingCompleted: boolean } | null; error: unknown };

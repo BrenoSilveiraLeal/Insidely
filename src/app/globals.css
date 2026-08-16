@@ -57,6 +57,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px; padding: 0 20px; border: 1px solid transparent; border-radius: 999px; cursor: pointer; font-size: .87rem; font-weight: 800; transition: transform .2s, background .2s, color .2s, border .2s; }
 .button:hover { transform: translateY(-2px); }
 .button-dark { background: var(--ink); color: var(--paper); }
+.password-field { position: relative; display: block; }
+.password-field .input { padding-right: 78px; }
+.password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--ink); font-weight: 800; cursor: pointer; }
+.favorite-button.is-saved { color: var(--red); border-color: var(--red); }
 .button-light { background: var(--paper); color: var(--ink); }
 .button-accent { background: var(--mineral); color: var(--ink); }
 .button-ghost { border-color: currentColor; background: transparent; color: inherit; }
@@ -155,6 +159,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .dash-main { min-width: 0; padding: 38px clamp(24px, 5vw, 70px) 80px; }
 .dash-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 48px; }
 .dash-title { font: 800 clamp(2.6rem, 5vw, 5rem)/.9 var(--display); letter-spacing: -.06em; margin: 0; }
+.dash-top .eyebrow { margin-bottom: 14px; }
 .metric { padding: 24px; border-radius: 24px; background: white; border: 1px solid var(--line); }
 .metric strong { display: block; font: 800 2.6rem/1 var(--display); letter-spacing: -.06em; margin-top: 14px; }
 .list { display: grid; gap: 12px; }
@@ -302,13 +307,17 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 /* Perfil: os cards superiores ocupam a mesma faixa visual e as seções respiram. */
 .profile-management-stack { gap: 40px; }
 .profile-admin-grid { align-items: start; }
+.profile-admin-grid > .panel { height: auto; box-sizing: border-box; }
+.profile-left-column { display: grid; gap: 22px; align-content: start; }
+.profile-left-column::after { content: "A equipe confere sua experiência com segurança. O comprovante permanece privado e, depois da aprovação, seu perfil recebe o selo de experiência verificada."; display: block; padding: 22px; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); color: var(--muted); font-size: .9rem; line-height: 1.45; }
 .professional-edit-panel .profile-form-grid:nth-of-type(3) > :last-child { grid-column: 1 / -1; }
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
-.profile-layout > .booking-box { grid-column: 2; grid-row: 2; }
+.profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
 .profile-preview-panel > .eyebrow { font-size: 0; }
 .profile-preview-panel > .eyebrow::after { content: "Seu perfil profissional"; font-size: .76rem; }
 .profile-preview-panel .button-dark { font-size: 0; }
 .profile-preview-panel .button-dark::before { content: "Abrir perfil profissional"; font-size: .87rem; }
+.profile-preview-panel .button-dark { margin-top: 14px; }
 
 /* Ajustes finais de leitura e toque em telas pequenas. */
 @media (max-width: 620px) {
