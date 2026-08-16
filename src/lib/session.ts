@@ -8,7 +8,12 @@ export async function getAuthenticatedUser() {
   if (supabaseUser) {
     const { data: stored, error } = await supabase.from("User").select("id, name, email, image, role, onboardingCompleted").eq("auth_user_id", supabaseUser.id).maybeSingle();
     if (stored) return { ...stored, role: stored.role as Role };
-    if (error) throw new Error(`Supabase profile lookup failed: ${error.message}`);
+    if (error) {
+      if (error.message.includes("JWT issued at future")) {
+        redirect("/entrar?erro=sessao_expirada");
+      }
+      throw new Error(`Supabase profile lookup failed: ${error.message}`);
+    }
   }
   return null;
 }

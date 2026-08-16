@@ -37,14 +37,20 @@ export function ScrollReveals({ children }: { children: ReactNode }) {
       reveal(".problem-heading", { y: 52, duration: .84 });
       const questionList = scope.current?.querySelector<HTMLElement>(".question-list");
       if (questionList) {
-        gsap.from(questionList.querySelectorAll("article"), {
+        const questionTimeline = gsap.timeline({
+          scrollTrigger: { trigger: questionList, start: "top 78%", once: true },
+        });
+        questionTimeline.from(questionList.querySelector(".question-list-line"), {
+          scaleX: 0,
+          duration: .55,
+          ease: "power2.out",
+        }).from(questionList.querySelectorAll("article"), {
           autoAlpha: 0,
           x: 42,
           duration: .7,
           stagger: .14,
           ease: "power3.out",
-          scrollTrigger: { trigger: questionList, start: "top 78%", once: true },
-        });
+        }, "-=.18");
       }
 
       const trustSection = scope.current?.querySelector<HTMLElement>(".trust-section");

@@ -19,8 +19,16 @@ export async function createSupabaseServerClient() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        for (const cookie of cookiesToSet) {
-          cookieStore.set(cookie.name, cookie.value, cookie.options);
+        // Server Components can read cookies, but Next.js only allows writes
+        // from Server Actions and Route Handlers. The proxy refreshes the
+        // session for normal requests; ignore writes here when this client is
+        // used during a read-only render.
+        try {
+          for (const cookie of cookiesToSet) {
+            cookieStore.set(cookie.name, cookie.value, cookie.options);
+          }
+        } catch {
+          // Cookie writes are best-effort during Server Component renders.
         }
       },
     },

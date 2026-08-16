@@ -244,6 +244,10 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .hero-word-outline{text-shadow:none}
 .mfa-code-boxes{display:flex;gap:9px;justify-content:center;margin:8px 0 10px}.mfa-code-box{width:48px;height:58px;border:1px solid var(--line);border-radius:14px;background:#fffdf7;color:var(--ink);text-align:center;font:800 1.7rem/1 var(--display);outline:none;transition:transform .22s ease,border-color .22s ease,background-color .22s ease,box-shadow .22s ease}.mfa-code-box:focus{border-color:var(--coral);box-shadow:0 0 0 3px rgba(255,108,79,.16);transform:translateY(-3px)}.mfa-challenge.mfa-error .mfa-code-box{border-color:#d9534f;background:#fff0ee;animation:mfa-shake .42s ease}.mfa-challenge.mfa-success .mfa-code-box{border-color:#55b995;background:#e8faf2;animation:mfa-join .6s cubic-bezier(.2,.9,.2,1) both}.mfa-confirmation{display:flex;align-items:center;justify-content:center;gap:8px;color:#197b5d;font-weight:800;animation:mfa-confirm .45s ease both}.mfa-confirmation svg{border-radius:50%;background:#b9efd9;padding:4px;box-sizing:content-box}@keyframes mfa-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}50%{transform:translateX(7px)}75%{transform:translateX(-4px)}}@keyframes mfa-join{0%{transform:translateY(0);border-radius:14px}45%{transform:translateY(-5px) scale(1.04)}100%{transform:translateY(0) scale(1);border-radius:8px}}@keyframes mfa-confirm{from{opacity:0;transform:translateY(8px) scale(.94)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.mfa-code-box,.mfa-confirmation{animation:none!important;transition:none!important}}@media(max-width:620px){.mfa-code-boxes{gap:6px}.mfa-code-box{width:calc((100vw - 112px)/6);max-width:48px;height:52px;font-size:1.45rem}}
 .hero-line-accent{text-shadow:0 3px 0 rgba(23,32,51,.32)}
+.question-list{border-top:0;position:relative}.question-list-line{display:block;height:1px;background:var(--line);transform-origin:left center}
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:32px}.pagination span{margin-right:auto;color:var(--muted);font-size:.82rem}
+.about-discovery{display:grid;place-items:center;text-align:center;align-content:center;gap:14px}.about-discovery svg{margin:0}.about-discovery h3{margin:0}
+.image-editor-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:16px;background:rgba(8,12,20,.68)}.image-editor-modal{width:min(920px,100%);max-height:min(680px,calc(100vh - 32px));display:grid;grid-template-rows:auto 1fr auto;overflow:hidden;border-radius:16px;background:#fff;color:var(--ink);box-shadow:0 30px 90px rgba(0,0,0,.35)}.image-editor-modal>header,.image-editor-modal>footer{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}.image-editor-modal>header h2{margin:0;font-size:1.1rem}.image-editor-modal>footer{justify-content:flex-end;gap:10px;border-top:1px solid var(--line);border-bottom:0}.image-editor-close{display:grid;place-items:center;padding:4px;border:0;background:transparent;color:inherit;cursor:pointer}.image-editor-body{display:grid;grid-template-columns:minmax(0,1fr) 270px;min-height:360px;overflow:auto}.image-editor-canvas{display:grid;place-items:center;min-height:360px;padding:32px;background:#9b9b9b}.image-editor-crop{width:min(420px,70vw);aspect-ratio:1;overflow:hidden;border:3px solid white;border-radius:50%;background:#555;box-shadow:0 0 0 999px rgba(0,0,0,.22)}.image-editor-crop img{width:100%;height:100%;object-fit:cover;transition:transform .12s ease}.image-editor-controls{display:grid;align-content:center;gap:22px;padding:28px;background:#fff}.image-editor-controls label{display:grid;gap:9px;font-size:.82rem;font-weight:800}.image-editor-controls input{width:100%;accent-color:var(--coral)}@media(max-width:700px){.image-editor-backdrop{padding:8px}.image-editor-body{grid-template-columns:1fr}.image-editor-canvas{min-height:280px;padding:20px}.image-editor-crop{width:min(300px,72vw)}.image-editor-controls{grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px}.image-editor-controls label{font-size:.72rem}.image-editor-modal{max-height:calc(100vh - 16px)}}
 .career-network{z-index:0;left:43%;right:auto;bottom:-4%;width:min(62vw,900px);opacity:.46}
 .inside-scene{z-index:5;min-height:610px;margin-right:0;transform:translateX(-72px)}
 .surface-card{z-index:11;top:72px;left:0;visibility:visible}
@@ -295,8 +299,22 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .photo-editor{display:grid;gap:9px;width:min(100%,360px);padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--paper)}.photo-editor-preview{position:relative;width:220px;height:220px;margin:auto;overflow:hidden;border-radius:50%;background:var(--blue)}.photo-editor-preview img{width:100%;height:100%;object-fit:cover;transform-origin:center;transition:transform .15s ease}.photo-editor-guide{position:absolute;inset:0;border:2px solid rgba(255,255,255,.8);border-radius:50%;pointer-events:none}.photo-editor label{display:grid;gap:3px;font-size:.75rem;font-weight:800}.photo-editor input[type="range"]{width:100%;accent-color:var(--coral)}
 }
 
+/* Perfil: os cards superiores ocupam a mesma faixa visual e as seções respiram. */
+.profile-management-stack { gap: 40px; }
+.profile-admin-grid { align-items: start; }
+.professional-edit-panel .profile-form-grid:nth-of-type(3) > :last-child { grid-column: 1 / -1; }
+.profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
+.profile-layout > .booking-box { grid-column: 2; grid-row: 2; }
+.profile-preview-panel > .eyebrow { font-size: 0; }
+.profile-preview-panel > .eyebrow::after { content: "Seu perfil profissional"; font-size: .76rem; }
+.profile-preview-panel .button-dark { font-size: 0; }
+.profile-preview-panel .button-dark::before { content: "Abrir perfil profissional"; font-size: .87rem; }
+
 /* Ajustes finais de leitura e toque em telas pequenas. */
 @media (max-width: 620px) {
+  .profile-management-stack { gap: 24px; }
+  .profile-admin-grid { gap: 24px; }
+  .profile-layout > .direct-pix, .profile-layout > .booking-box { grid-column: 1; grid-row: auto; }
   .container { width: min(100% - 28px, 1240px); }
   .section { padding: 72px 0; }
   .section-head { align-items: flex-start; flex-direction: column; margin-bottom: 28px; }
