@@ -3,7 +3,7 @@ import { LoginForm } from "@/components/auth-form";
 
 const socialMessages: Record<string, string> = {
 	pendente: "O login social ainda precisa de configura.",
-	erro: "N foi poss completar o login social.",
+	erro: "Não foi possível completar o login social.",
 	config: "Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY para usar Google.",
 	callback: "O callback do Google/Supabase falhou. Verifique as Redirect URLs no Supabase Auth.",
 	profile: "Sua conta Google foi autenticada, mas n foi poss sincronizar seu perfil no Supabase. Tente novamente.",

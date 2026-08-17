@@ -16,7 +16,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const booking = await getBookingForUser(id, user.id);
   if (!booking) notFound();
-  const pixPayload = directPixPayload({ key: process.env.PIX_RECEIVER_KEY ?? "brenosilveiraleal@gmail.com", name: "Insidely", city: "SAO PAULO", amount: booking.totalCents / 100 });
+  const receiverKey = process.env.PIX_RECEIVER_KEY;
+  if (!receiverKey) throw new Error("O checkout está temporariamente indisponível: a chave PIX não foi configurada.");
+  const pixPayload = directPixPayload({ key: receiverKey, name: "Insidely", city: "SAO PAULO", amount: booking.totalCents / 100 });
   return <PublicShell>
     <section className="page-hero" data-mark="R$"><div className="container page-hero-inner"><span className="eyebrow">Pagamento protegido</span><h1>Seu pagamento fica retido até a conversa acontecer.</h1><p>A Insidely só libera o repasse ao consultor depois da confirmação da conversa ou do prazo de segurança, sem contestação.</p></div></section>
     <section className="section"><div className="container profile-layout"><DirectPixCheckout payload={pixPayload}/>

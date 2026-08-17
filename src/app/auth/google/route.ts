@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function safeNextPath(raw: string | null) {
-  if (!raw || !raw.startsWith("/")) return "/continuar";
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return "/continuar";
   return raw;
 }
 

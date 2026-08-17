@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/favicon.png" },
-  title: { default: "Insidely - A realidade antes da decis", template: "%s ? Insidely" },
+  title: { default: "Insidely — A realidade antes da decisão", template: "%s | Insidely" },
   description: "Converse com profissionais verificados antes de escolher uma empresa ou profiss.",
 };
 

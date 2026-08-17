@@ -1,30 +1,6 @@
-import { expect, test } from "@playwright/test";
-
-test("home expõe proposta, dados e busca", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: /A realidade antes da decisão/i })).toBeVisible();
-  await expect(page.getByText("80", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: /Encontrar alguém/i }).click();
-  await expect(page).toHaveURL(/\/buscar/);
-  await expect(page.getByRole("heading", { name: /Encontre quem vive/i })).toBeVisible();
-});
-
-test("usuário entra e vê agenda persistida", async ({ page }) => {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill("demo@insidely.com");
-  await page.getByLabel("Senha").fill("Demo@123");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page.getByRole("heading", { name: /Olá, Breno/i })).toBeVisible();
-});
-
-test("admin acessa filas de confiança", async ({ page }) => {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill("admin@insidely.com");
-  await page.getByLabel("Senha").fill("Demo@123");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.goto("/admin/verificacoes");
-  await expect(page.getByRole("heading", { name: "Verificações" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Aprovar" }).first()).toBeVisible();
-});
-
+import {expect,test} from "@playwright/test";
+test("home pública renderiza dados reais e navega para busca",async({page})=>{await page.goto("/");await expect(page.getByRole("heading",{name:/A vaga mostra o cargo/i})).toBeVisible();await expect(page.getByRole("link",{name:/Encontrar alguém/i})).toBeVisible();await page.getByRole("link",{name:/Encontrar alguém/i}).click();await expect(page).toHaveURL(/\/buscar/);await expect(page.getByRole("heading",{name:/Encontre quem vive/i})).toBeVisible()});
+test("filtros e paginação permanecem na URL",async({page})=>{await page.goto("/buscar?q=produto&mode=REMOTE&page=1");await expect(page.getByLabel("Palavra-chave")).toHaveValue("produto");await expect(page.getByLabel("Modalidade")).toHaveValue("REMOTE");await expect(page.getByText(/resultados/).first()).toBeVisible()});
+test("rota protegida redireciona visitante",async({page})=>{await page.goto("/dashboard");await expect(page).toHaveURL(/\/entrar/)});
+test("callback rejeita redirecionamento externo",async({page})=>{await page.goto("/auth/callback?next=//evil.example");await expect(page).not.toHaveURL(/evil\.example/)});
+test("layout não cria rolagem horizontal",async({page})=>{for(const path of ["/","/entrar","/cadastro"]){await page.goto(path);expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth),`overflow em ${path}`).toBe(false)}});

@@ -2,6 +2,7 @@
   "name": "insidely",
   "version": "0.1.0",
   "private": true,
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,7 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
-    "db:health": "node -e \"console.log('Supabase health checks run through the configured project environment.')\""
+    "db:health": "node scripts/supabase-health.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
