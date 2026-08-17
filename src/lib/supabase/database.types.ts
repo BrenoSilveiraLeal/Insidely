@@ -1473,6 +1473,7 @@ export type Database = {
       }
       get_consultant_dashboard: { Args: { p_user_id: string }; Returns: Json }
       get_viewer_dashboard: { Args: { p_user_id: string }; Returns: Json }
+      health_check: { Args: Record<PropertyKey, never>; Returns: Json }
       search_public_profiles: { Args: { p_query?: string; p_company_slug?: string; p_profession_slug?: string; p_work_mode?: string; p_location?: string; p_limit?: number; p_offset?: number }; Returns: Json }
       release_eligible_bookings_for_user: { Args: Record<PropertyKey, never>; Returns: number }
       remove_consultant_availability: {
@@ -1506,7 +1507,7 @@ export type Database = {
         Args: { p_payload: Json }
         Returns: undefined
       }
-      update_profile_image: { Args: { p_image: string }; Returns: undefined }
+      update_profile_image: { Args: { p_image: string | null }; Returns: undefined }
     }
     Enums: {
       BookingStatus:
