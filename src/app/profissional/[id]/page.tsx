@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BriefcaseBusiness, CalendarDays, Clock, Heart, ShieldCheck, Star } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Clock, ShieldCheck, Star } from "lucide-react";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PublicShell } from "@/components/public-shell";
 import { initials, money, publicName, shortDate } from "@/lib/format";

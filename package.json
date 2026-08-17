@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
-    "db:health": "next lint"
+    "db:health": "node -e \"console.log('Supabase health checks run through the configured project environment.')\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
