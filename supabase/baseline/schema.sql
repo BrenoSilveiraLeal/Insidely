@@ -1,11 +1,17 @@
--- Generated from the production schema on 2026-08-17. Apply this baseline before the incremental migrations.\ncreate schema if not exists extensions;\ncreate extension if not exists pgcrypto with schema extensions;\ncreate extension if not exists pg_trgm with schema extensions;\n\ndo $enum$ begin create type public."BookingStatus" as enum ('PENDING_PAYMENT', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'AWAITING_CONFIRMATION', 'DISPUTED', 'IN_PROGRESS', 'COMPLETED_RELEASE_PENDING'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."PaymentStatus" as enum ('PENDING', 'APPROVED', 'REFUNDED', 'FAILED', 'HELD', 'RELEASED', 'DISPUTED', 'PAYMENT_REPORTED', 'PAID_HELD'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."PrivacyMode" as enum ('PUBLIC', 'PROTECTED', 'PSEUDONYM'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."ReportStatus" as enum ('OPEN', 'IN_REVIEW', 'RESOLVED', 'DISMISSED'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."Role" as enum ('USER', 'CONSULTANT', 'ADMIN'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."Seniority" as enum ('INTERN', 'JUNIOR', 'MID', 'SENIOR', 'LEAD', 'MANAGER'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."VerificationStatus" as enum ('NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED', 'MORE_INFO_REQUIRED'); exception when duplicate_object then null; end $enum$;
-do $enum$ begin create type public."WorkMode" as enum ('REMOTE', 'HYBRID', 'ONSITE'); exception when duplicate_object then null; end $enum$;
+-- Generated from the production schema on 2026-08-17. Apply this baseline before the incremental migrations.
+set check_function_bodies = off;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists pg_trgm with schema extensions;
+
+do $enum$ begin create type public."BookingStatus" as enum ('PENDING_PAYMENT', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'AWAITING_CONFIRMATION', 'DISPUTED', 'IN_PROGRESS', 'COMPLETED_RELEASE_PENDING'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."PaymentStatus" as enum ('PENDING', 'APPROVED', 'REFUNDED', 'FAILED', 'HELD', 'RELEASED', 'DISPUTED', 'PAYMENT_REPORTED', 'PAID_HELD'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."PrivacyMode" as enum ('PUBLIC', 'PROTECTED', 'PSEUDONYM'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."ReportStatus" as enum ('OPEN', 'IN_REVIEW', 'RESOLVED', 'DISMISSED'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."Role" as enum ('USER', 'CONSULTANT', 'ADMIN'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."Seniority" as enum ('INTERN', 'JUNIOR', 'MID', 'SENIOR', 'LEAD', 'MANAGER'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."VerificationStatus" as enum ('NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED', 'MORE_INFO_REQUIRED'); exception when duplicate_object then null; end; $enum$;
+do $enum$ begin create type public."WorkMode" as enum ('REMOTE', 'HYBRID', 'ONSITE'); exception when duplicate_object then null; end; $enum$;
 
 create table if not exists public."Account" (id text not null,
   "userId" text not null,
@@ -262,62 +268,62 @@ create table if not exists public."VerificationToken" (identifier text not null,
   token text not null,
   expires timestamp(3) without time zone not null);
 
-do $constraint$ begin alter table "AccountDeletionAudit" add constraint "AccountDeletionAudit_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Account" add constraint "Account_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "AuditLog" add constraint "AuditLog_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Availability" add constraint "Availability_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Booking" add constraint "Booking_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Company" add constraint "Company_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Conversation" add constraint "Conversation_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Favorite" add constraint "Favorite_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Message" add constraint "Message_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Notification" add constraint "Notification_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Payment" add constraint "Payment_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PrivacySettings" add constraint "PrivacySettings_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Profession" add constraint "Profession_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "ProfessionalProfile" add constraint "ProfessionalProfile_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "ProfileView" add constraint "ProfileView_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "RealityCheck" add constraint "RealityCheck_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Report" add constraint "Report_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Review" add constraint "Review_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Session" add constraint "Session_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "User" add constraint "User_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "VerificationDocument" add constraint "VerificationDocument_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "VerificationToken" add constraint "VerificationToken_pkey" PRIMARY KEY (identifier, token); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Verification" add constraint "Verification_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Account" add constraint "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Availability" add constraint "Availability_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Booking" add constraint "Booking_availabilityId_fkey" FOREIGN KEY ("availabilityId") REFERENCES "Availability"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Booking" add constraint "Booking_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Booking" add constraint "Booking_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Conversation" add constraint "Conversation_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_professionId_fkey" FOREIGN KEY ("professionId") REFERENCES "Profession"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Favorite" add constraint "Favorite_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Favorite" add constraint "Favorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Message" add constraint "Message_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Message" add constraint "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Notification" add constraint "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"(id) ON DELETE SET NULL; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"(id) ON DELETE SET NULL; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Payment" add constraint "Payment_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "PrivacySettings" add constraint "PrivacySettings_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "ProfessionalProfile" add constraint "ProfessionalProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "ProfileView" add constraint "ProfileView_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "RealityCheck" add constraint "RealityCheck_professionId_fkey" FOREIGN KEY ("professionId") REFERENCES "Profession"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Report" add constraint "Report_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Report" add constraint "Report_reporterId_fkey" FOREIGN KEY ("reporterId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Report" add constraint "Report_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Review" add constraint "Review_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Review" add constraint "Review_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Review" add constraint "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Session" add constraint "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "VerificationDocument" add constraint "VerificationDocument_verificationId_fkey" FOREIGN KEY ("verificationId") REFERENCES "Verification"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
-do $constraint$ begin alter table "Verification" add constraint "Verification_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end $constraint$;
+do $constraint$ begin alter table "AccountDeletionAudit" add constraint "AccountDeletionAudit_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Account" add constraint "Account_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "AuditLog" add constraint "AuditLog_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Availability" add constraint "Availability_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Booking" add constraint "Booking_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Company" add constraint "Company_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Conversation" add constraint "Conversation_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Favorite" add constraint "Favorite_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Message" add constraint "Message_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Notification" add constraint "Notification_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Payment" add constraint "Payment_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PrivacySettings" add constraint "PrivacySettings_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Profession" add constraint "Profession_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "ProfessionalProfile" add constraint "ProfessionalProfile_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "ProfileView" add constraint "ProfileView_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "RealityCheck" add constraint "RealityCheck_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Report" add constraint "Report_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Review" add constraint "Review_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Session" add constraint "Session_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "User" add constraint "User_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "VerificationDocument" add constraint "VerificationDocument_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "VerificationToken" add constraint "VerificationToken_pkey" PRIMARY KEY (identifier, token); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Verification" add constraint "Verification_pkey" PRIMARY KEY (id); exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Account" add constraint "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Availability" add constraint "Availability_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Booking" add constraint "Booking_availabilityId_fkey" FOREIGN KEY ("availabilityId") REFERENCES "Availability"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Booking" add constraint "Booking_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Booking" add constraint "Booking_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Conversation" add constraint "Conversation_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_professionId_fkey" FOREIGN KEY ("professionId") REFERENCES "Profession"(id) ON UPDATE CASCADE ON DELETE RESTRICT; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "EmploymentExperience" add constraint "EmploymentExperience_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Favorite" add constraint "Favorite_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Favorite" add constraint "Favorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Message" add constraint "Message_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Message" add constraint "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Notification" add constraint "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"(id) ON DELETE SET NULL; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PaymentAuditEvent" add constraint "PaymentAuditEvent_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"(id) ON DELETE SET NULL; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Payment" add constraint "Payment_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "PrivacySettings" add constraint "PrivacySettings_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "ProfessionalProfile" add constraint "ProfessionalProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "ProfileView" add constraint "ProfileView_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "RealityCheck" add constraint "RealityCheck_professionId_fkey" FOREIGN KEY ("professionId") REFERENCES "Profession"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Report" add constraint "Report_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Report" add constraint "Report_reporterId_fkey" FOREIGN KEY ("reporterId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Report" add constraint "Report_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Review" add constraint "Review_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Review" add constraint "Review_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Review" add constraint "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Session" add constraint "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "VerificationDocument" add constraint "VerificationDocument_verificationId_fkey" FOREIGN KEY ("verificationId") REFERENCES "Verification"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
+do $constraint$ begin alter table "Verification" add constraint "Verification_professionalProfileId_fkey" FOREIGN KEY ("professionalProfileId") REFERENCES "ProfessionalProfile"(id) ON UPDATE CASCADE ON DELETE CASCADE; exception when duplicate_object then null; end; $constraint$;
 
 CREATE UNIQUE INDEX "Account_provider_providerAccountId_key" ON public."Account" USING btree (provider, "providerAccountId");
 CREATE INDEX IF NOT EXISTS "Account_userId_idx" ON public."Account" USING btree ("userId");
@@ -384,7 +390,8 @@ create or replace view public.home_metrics as  SELECT ( SELECT count(*) AS count
     COALESCE(( SELECT round(avg(r.rating), 1) AS round
            FROM ("Review" r
              JOIN "Booking" b ON ((b.id = r."bookingId")))
-          WHERE (b.status = 'COMPLETED'::"BookingStatus")), (0)::numeric) AS average_rating;;\nalter view public.home_metrics set (security_invoker=false);
+          WHERE (b.status = 'COMPLETED'::"BookingStatus")), (0)::numeric) AS average_rating;;
+alter view public.home_metrics set (security_invoker=false);
 
 create or replace view public.public_company_cards as  SELECT id,
     slug,
@@ -399,7 +406,8 @@ create or replace view public.public_company_cards as  SELECT id,
     jsonb_build_object('experiences', ( SELECT count(*) AS count
            FROM "EmploymentExperience" e
           WHERE (e."companyId" = c.id))) AS _count
-   FROM "Company" c;;\nalter view public.public_company_cards set (security_invoker=false);
+   FROM "Company" c;;
+alter view public.public_company_cards set (security_invoker=false);
 
 create or replace view public.public_company_details as  SELECT id,
     slug,
@@ -414,7 +422,8 @@ create or replace view public.public_company_details as  SELECT id,
              JOIN "ProfessionalProfile" p ON ((p.id = e."professionalProfileId")))
              JOIN "User" u ON ((u.id = p."userId")))
           WHERE ((e."companyId" = c.id) AND (p."isActive" = true) AND (u."onboardingCompleted" = true)))) AS _count
-   FROM "Company" c;;\nalter view public.public_company_details set (security_invoker=false);
+   FROM "Company" c;;
+alter view public.public_company_details set (security_invoker=false);
 
 create or replace view public.public_profession_cards as  SELECT id,
     slug,
@@ -427,7 +436,8 @@ create or replace view public.public_profession_cards as  SELECT id,
     jsonb_build_object('experiences', ( SELECT count(*) AS count
            FROM "EmploymentExperience" e
           WHERE (e."professionId" = p.id))) AS _count
-   FROM "Profession" p;;\nalter view public.public_profession_cards set (security_invoker=false);
+   FROM "Profession" p;;
+alter view public.public_profession_cards set (security_invoker=false);
 
 create or replace view public.public_profession_details as  SELECT id,
     slug,
@@ -440,7 +450,8 @@ create or replace view public.public_profession_details as  SELECT id,
              JOIN "ProfessionalProfile" pp ON ((pp.id = e."professionalProfileId")))
              JOIN "User" u ON ((u.id = pp."userId")))
           WHERE ((e."professionId" = p.id) AND (pp."isActive" = true) AND (u."onboardingCompleted" = true)))) AS _count
-   FROM "Profession" p;;\nalter view public.public_profession_details set (security_invoker=false);
+   FROM "Profession" p;;
+alter view public.public_profession_details set (security_invoker=false);
 
 create or replace view public.public_profile_cards as  SELECT p.id,
     p.headline,
@@ -483,7 +494,8 @@ create or replace view public.public_profile_cards as  SELECT p.id,
    FROM (("ProfessionalProfile" p
      JOIN "User" u ON ((u.id = p."userId")))
      LEFT JOIN "PrivacySettings" ps ON ((ps."professionalProfileId" = p.id)))
-  WHERE (p."isActive" = true);;\nalter view public.public_profile_cards set (security_invoker=false);
+  WHERE (p."isActive" = true);;
+alter view public.public_profile_cards set (security_invoker=false);
 
 CREATE OR REPLACE FUNCTION public.admin_confirm_booking_payment(p_booking_id text, p_observation text DEFAULT ''::text)
  RETURNS "PaymentStatus"
@@ -1136,40 +1148,53 @@ alter table public."Verification" enable row level security;
 alter table public."VerificationDocument" enable row level security;
 alter table public."VerificationToken" enable row level security;
 
-drop policy if exists "audit deny client reads" on public."AccountDeletionAudit";\ncreate policy "audit deny client reads" on public."AccountDeletionAudit" as RESTRICTIVE for SELECT to authenticated using (false);
-drop policy if exists booking_customer_insert on public."Booking";\ncreate policy booking_customer_insert on public."Booking" as PERMISSIVE for INSERT to authenticated with check (("customerId" = ( SELECT "User".id
+drop policy if exists "audit deny client reads" on public."AccountDeletionAudit";
+create policy "audit deny client reads" on public."AccountDeletionAudit" as RESTRICTIVE for SELECT to authenticated using (false);
+drop policy if exists booking_customer_insert on public."Booking";
+create policy booking_customer_insert on public."Booking" as PERMISSIVE for INSERT to authenticated with check (("customerId" = ( SELECT "User".id
    FROM "User"
   WHERE ("User".auth_user_id = auth.uid()))));
-drop policy if exists public_company_read on public."Company";\ncreate policy public_company_read on public."Company" as PERMISSIVE for SELECT to anon, authenticated using (true);
-drop policy if exists favorite_owner_access on public."Favorite";\ncreate policy favorite_owner_access on public."Favorite" as PERMISSIVE for ALL to authenticated using (("userId" = ( SELECT u.id
+drop policy if exists public_company_read on public."Company";
+create policy public_company_read on public."Company" as PERMISSIVE for SELECT to anon, authenticated using (true);
+drop policy if exists favorite_owner_access on public."Favorite";
+create policy favorite_owner_access on public."Favorite" as PERMISSIVE for ALL to authenticated using (("userId" = ( SELECT u.id
    FROM "User" u
   WHERE (u.auth_user_id = ( SELECT auth.uid() AS uid))))) with check (("userId" = ( SELECT u.id
    FROM "User" u
   WHERE (u.auth_user_id = ( SELECT auth.uid() AS uid)))));
-drop policy if exists message_participant_insert on public."Message";\ncreate policy message_participant_insert on public."Message" as PERMISSIVE for INSERT to authenticated with check ((("senderId" = ( SELECT "User".id
+drop policy if exists message_participant_insert on public."Message";
+create policy message_participant_insert on public."Message" as PERMISSIVE for INSERT to authenticated with check ((("senderId" = ( SELECT "User".id
    FROM "User"
   WHERE ("User".auth_user_id = auth.uid()))) AND (EXISTS ( SELECT 1
    FROM (("Conversation" c
      JOIN "Booking" b ON ((b.id = c."bookingId")))
      LEFT JOIN "ProfessionalProfile" p ON ((p.id = b."professionalProfileId")))
   WHERE ((c.id = "Message"."conversationId") AND ((b."customerId" = "Message"."senderId") OR (p."userId" = "Message"."senderId")))))));
-drop policy if exists "payment audit participants read" on public."PaymentAuditEvent";\ncreate policy "payment audit participants read" on public."PaymentAuditEvent" as PERMISSIVE for SELECT to authenticated using ((EXISTS ( SELECT 1
+drop policy if exists "payment audit participants read" on public."PaymentAuditEvent";
+create policy "payment audit participants read" on public."PaymentAuditEvent" as PERMISSIVE for SELECT to authenticated using ((EXISTS ( SELECT 1
    FROM ("Booking" b
      JOIN "User" u ON ((u.auth_user_id = ( SELECT auth.uid() AS uid))))
   WHERE ((b.id = "PaymentAuditEvent"."bookingId") AND ((b."customerId" = u.id) OR (EXISTS ( SELECT 1
            FROM "ProfessionalProfile" pp
           WHERE ((pp.id = b."professionalProfileId") AND (pp."userId" = u.id)))) OR (u.role = 'ADMIN'::"Role"))))));
-drop policy if exists "Public can read professions" on public."Profession";\ncreate policy "Public can read professions" on public."Profession" as PERMISSIVE for SELECT to anon, authenticated using (true);
-drop policy if exists public_profession_read on public."Profession";\ncreate policy public_profession_read on public."Profession" as PERMISSIVE for SELECT to anon, authenticated using (true);
-drop policy if exists professional_active_lookup on public."ProfessionalProfile";\ncreate policy professional_active_lookup on public."ProfessionalProfile" as PERMISSIVE for SELECT to authenticated using (("isActive" = true));
-drop policy if exists "Public can read reality checks" on public."RealityCheck";\ncreate policy "Public can read reality checks" on public."RealityCheck" as PERMISSIVE for SELECT to anon, authenticated using (true);
-drop policy if exists review_customer_insert on public."Review";\ncreate policy review_customer_insert on public."Review" as PERMISSIVE for INSERT to authenticated with check ((("userId" = ( SELECT "User".id
+drop policy if exists "Public can read professions" on public."Profession";
+create policy "Public can read professions" on public."Profession" as PERMISSIVE for SELECT to anon, authenticated using (true);
+drop policy if exists public_profession_read on public."Profession";
+create policy public_profession_read on public."Profession" as PERMISSIVE for SELECT to anon, authenticated using (true);
+drop policy if exists professional_active_lookup on public."ProfessionalProfile";
+create policy professional_active_lookup on public."ProfessionalProfile" as PERMISSIVE for SELECT to authenticated using (("isActive" = true));
+drop policy if exists "Public can read reality checks" on public."RealityCheck";
+create policy "Public can read reality checks" on public."RealityCheck" as PERMISSIVE for SELECT to anon, authenticated using (true);
+drop policy if exists review_customer_insert on public."Review";
+create policy review_customer_insert on public."Review" as PERMISSIVE for INSERT to authenticated with check ((("userId" = ( SELECT "User".id
    FROM "User"
   WHERE ("User".auth_user_id = auth.uid()))) AND (EXISTS ( SELECT 1
    FROM "Booking" b
   WHERE ((b.id = "Review"."bookingId") AND (b."customerId" = "Review"."userId") AND (b.status = 'COMPLETED'::"BookingStatus"))))));
-drop policy if exists user_can_read_own_auth_profile on public."User";\ncreate policy user_can_read_own_auth_profile on public."User" as PERMISSIVE for SELECT to authenticated using ((( SELECT auth.uid() AS uid) = auth_user_id));
-drop policy if exists user_self_update on public."User";\ncreate policy user_self_update on public."User" as PERMISSIVE for UPDATE to authenticated using ((auth_user_id = auth.uid())) with check ((auth_user_id = auth.uid()));
+drop policy if exists user_can_read_own_auth_profile on public."User";
+create policy user_can_read_own_auth_profile on public."User" as PERMISSIVE for SELECT to authenticated using ((( SELECT auth.uid() AS uid) = auth_user_id));
+drop policy if exists user_self_update on public."User";
+create policy user_self_update on public."User" as PERMISSIVE for UPDATE to authenticated using ((auth_user_id = auth.uid())) with check ((auth_user_id = auth.uid()));
 
 grant SELECT on table public."Company" to anon;
 grant SELECT on table public."Company" to authenticated;
