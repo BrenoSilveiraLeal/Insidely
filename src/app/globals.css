@@ -370,8 +370,9 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Larguras de notebook: a composição de cards nunca invade o título. */
 @media (min-width: 951px) and (max-width: 1400px) {
-  .inside-hero { min-height: auto; padding: 128px 0 72px; }
-  .inside-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .inside-hero { display: block; min-height: auto; padding: 150px 0 72px; }
+  .inside-hero-grid { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 28px; }
+  .inside-hero-content { transform: none; }
   .inside-hero h1 { max-width: 900px; font-size: clamp(3.8rem, 7.2vw, 7rem); }
   .hero-line { width: auto; max-width: 100%; white-space: normal; }
   .inside-scene { width: min(680px, 100%); min-height: 480px; margin: 0 auto; transform: none; }
