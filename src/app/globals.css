@@ -378,13 +378,14 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .inside-scene { width: min(680px, 100%); min-height: 480px; margin: 0 auto; transform: none; }
 }
 
-/* Retoma a composição original dos cards no desktop: próximos ao bloco laranja, sem cair para baixo do texto. */
-@media (min-width: 951px) and (max-width: 1400px) {
-  .inside-hero { display: grid; min-height: 100svh; padding: 118px 0 70px; }
-  .inside-hero-grid { grid-template-columns: minmax(0, 1.18fr) minmax(300px, .82fr); align-items: center; gap: 26px; }
-  .inside-scene { width: 100%; min-height: 540px; margin: -70px -1vw 0 0; }
-  .surface-card { top: 14px; }
-  .inside-card { bottom: 112px; }
+/* Em notebooks largos, mantém a composição anterior ao lado do texto e próxima ao bloco laranja. */
+@media (min-width: 1151px) and (max-width: 1400px) {
+  .inside-hero { display: grid; min-height: 116svh; padding: 118px 0 120px; }
+  .inside-hero-grid { grid-template-columns: minmax(0, 1.34fr) minmax(330px, .66fr); align-items: center; gap: clamp(18px, 3vw, 52px); }
+  .inside-hero-content { transform: translateY(-28px); }
+  .inside-scene { width: auto; min-height: 590px; margin: 0 -2vw 0 0; }
+  .surface-card { top: 72px; left: 0; }
+  .inside-card { right: 12px; bottom: 52px; }
 }
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
 .profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
