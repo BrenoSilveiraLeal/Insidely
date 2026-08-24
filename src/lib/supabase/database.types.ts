@@ -1463,6 +1463,7 @@ export type Database = {
       confirm_booking: { Args: { p_booking_id: string }; Returns: undefined }
       dispute_booking: { Args: { p_booking_id: string; p_description: string }; Returns: undefined }
       create_support_report: { Args: { p_category: string; p_description: string }; Returns: undefined }
+      create_profile_report: { Args: { p_category: string; p_description: string; p_profile_id: string }; Returns: undefined }
       create_consultant_availability: {
         Args: { p_ends_at: string; p_starts_at: string; p_user_id: string }
         Returns: Json
