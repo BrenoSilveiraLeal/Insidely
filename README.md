@@ -4,7 +4,7 @@ Marketplace de conversas profissionais para conhecer a realidade de empresas e p
 
 ## Requisitos
 
-- Node.js 22 LTS (consulte `.nvmrc`)
+- Node.js 24 LTS (consulte `.nvmrc`)
 - npm 10 ou mais recente
 - Um projeto Supabase
 - Navegadores Playwright para os testes E2E

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/release-bookings",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}
