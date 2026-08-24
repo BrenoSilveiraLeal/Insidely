@@ -358,6 +358,15 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .sidebar .brand { padding-inline: 5px; }
   .side-nav a { min-height: 42px; display: inline-flex; align-items: center; }
 }
+
+/* Entre tablet grande e notebook, a cena passa para baixo do texto para nunca cobrir o título. */
+@media (min-width: 951px) and (max-width: 1150px) {
+  .inside-hero { min-height: auto; padding: 128px 0 72px; }
+  .inside-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .inside-hero h1 { max-width: 820px; font-size: clamp(3.8rem, 8.5vw, 6.8rem); }
+  .hero-line { width: auto; max-width: 100%; white-space: normal; }
+  .inside-scene { width: min(620px, 100%); min-height: 470px; margin: 0 auto; transform: none; }
+}
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
 .profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
 .profile-preview-panel > .eyebrow { font-size: 0; }
