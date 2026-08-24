@@ -326,6 +326,37 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 /* O recorte nunca pode escapar do quadro circular. */
 .image-editor-crop { position: relative; isolation: isolate; }
 .image-editor-crop > img { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover !important; object-position: center !important; }
+
+/* Painel responsivo: navegação compacta e conteúdo sem rolagem lateral. */
+@media (max-width: 950px) {
+  .dash-shell { display: block; }
+  .sidebar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; height: auto; min-height: 64px; padding: 8px 12px; }
+  .sidebar .brand { flex: 0 0 auto; padding: 6px 8px; font-size: 1.35rem; }
+  .side-nav { min-width: 0; display: flex; flex: 1 1 auto; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .side-nav::-webkit-scrollbar { display: none; }
+  .side-nav a, .side-nav form { flex: 0 0 auto; }
+  .side-nav a { padding: 9px 11px; font-size: .78rem; white-space: nowrap; }
+  .side-nav form { margin-left: auto; }
+  .dash-main { padding-top: 28px; }
+}
+
+@media (max-width: 620px) {
+  .dash-main { width: 100%; padding: 22px 14px 48px; overflow: hidden; }
+  .dash-top { flex-direction: row; align-items: flex-start; gap: 12px; margin-bottom: 32px; }
+  .dash-top > div:first-child { min-width: 0; }
+  .dash-top .eyebrow { margin-bottom: 9px; font-size: .68rem; }
+  .dash-title { font-size: clamp(2rem, 10vw, 3rem); overflow-wrap: anywhere; }
+  .notification-bell { flex: 0 0 44px; }
+  .metric { padding: 18px; border-radius: 18px; }
+  .metric strong { font-size: 1.85rem; }
+  .panel { width: 100%; padding: 18px; border-radius: 20px; }
+  .panel h2 { overflow-wrap: anywhere; }
+  .list-row { grid-template-columns: 1fr; gap: 12px; padding: 15px; }
+  .list-row .button, .panel .button { width: 100%; justify-content: center; }
+  .sidebar { min-height: 58px; padding: 7px 8px; }
+  .sidebar .brand { padding-inline: 5px; }
+  .side-nav a { min-height: 42px; display: inline-flex; align-items: center; }
+}
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
 .profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
 .profile-preview-panel > .eyebrow { font-size: 0; }
