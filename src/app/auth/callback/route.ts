@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     if (nextPath === "/redefinir-senha") return NextResponse.redirect(new URL(nextPath, request.url));
     const name = user.user_metadata?.full_name?.trim() || user.user_metadata?.name?.trim() || "Pessoa Insidely";
     const image = user.user_metadata?.avatar_url || null;
-    const { data: profile, error: profileError } = await supabase.rpc("sync_social_profile", { p_name: name, p_image: image }).maybeSingle();
+    const { data: rawProfile, error: profileError } = await supabase.rpc("sync_social_profile", { p_name: name, p_image: image });
+    const profile = Array.isArray(rawProfile) ? rawProfile[0] : rawProfile;
     if (profileError || !profile) return NextResponse.redirect(new URL("/entrar?social=profile", request.url));
     return NextResponse.redirect(new URL(profile.onboardingCompleted ? nextPath : "/onboarding", request.url));
   } catch { return NextResponse.redirect(new URL("/entrar?social=error", request.url)); }
