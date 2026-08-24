@@ -48,3 +48,6 @@ next-env.d.ts
 # Local development logs
 dev-err.log
 dev-out.log
+
+# Supabase CLI local metadata
+/supabase/.temp/

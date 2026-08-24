@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { releaseBookingTransfer } from "@/lib/stripe-payments";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +9,21 @@ export async function GET(request: Request) {
   if (!secret || authorization !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   try {
-    const { data, error } = await createSupabaseServiceClient().rpc("release_eligible_bookings_system");
+    // The migration adds provider-specific columns beyond the generated legacy type.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createSupabaseServiceClient() as any;
+    const { data: bookings, error } = await supabase.from("Booking").select("id, status, autoReleaseAt, startsAt, durationMinutes, payment:Payment(status)").eq("status", "AWAITING_CONFIRMATION").is("disputedAt", null);
     if (error) return Response.json({ error: "release_failed", detail: error.message }, { status: 500 });
-    return Response.json({ ok: true, released: data ?? 0 });
+    let released = 0;
+    for (const booking of bookings ?? []) {
+      const payment = Array.isArray(booking.payment) ? booking.payment[0] : booking.payment;
+      const releaseAt = booking.autoReleaseAt ?? new Date(new Date(booking.startsAt).getTime() + (Number(booking.durationMinutes) + 1440) * 60_000).toISOString();
+      if (new Date(releaseAt) <= new Date() && ["HELD", "PAID_HELD"].includes(payment?.status)) {
+        await supabase.from("Booking").update({ status: "COMPLETED", updatedAt: new Date().toISOString() }).eq("id", booking.id).eq("status", "AWAITING_CONFIRMATION");
+        if (await releaseBookingTransfer(booking.id)) released++;
+      }
+    }
+    return Response.json({ ok: true, released });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "release_failed" }, { status: 500 });
   }

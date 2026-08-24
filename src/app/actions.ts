@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern } from "@/lib/security";
 import { getAppUrl } from "@/lib/app-url";
+import { createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
 type RpcName = keyof Database["public"]["Functions"];
@@ -133,16 +134,37 @@ export async function createBookingAction(profileId: string, formData: FormData)
   redirect(`/checkout/${booking}`);
 }
 
+export async function createStripeCheckoutAction(id: string) {
+  const user = await requireUser([Role.USER, Role.ADMIN]);
+  try {
+    const url = await createBookingCheckout({ bookingId: id, customerId: user.id, customerEmail: user.email, customerName: user.name, appUrl: getAppUrl() });
+    if (!url) throw new Error("O Stripe não retornou uma URL de checkout.");
+    redirect(url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Não foi possível iniciar o pagamento.";
+    redirect(`/checkout/${id}?erro=${encodeURIComponent(message)}`);
+  }
+}
+
+export async function startStripeConnectOnboardingAction() {
+  const user = await requireUser([Role.CONSULTANT]);
+  const appUrl = getAppUrl();
+  try {
+    const url = await createConnectOnboardingLink({ userId: user.id, email: user.email, returnUrl: `${appUrl}/api/stripe/connect/return`, refreshUrl: `${appUrl}/consultor/perfil?stripe=refresh` });
+    redirect(url);
+  } catch (error) {
+    redirect(`/consultor/perfil?stripe=erro&mensagem=${encodeURIComponent(error instanceof Error ? error.message : "Não foi possível iniciar o cadastro.")}`);
+  }
+}
+
 function localDateToUtc(value: string, offset: number) { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : new Date(d.getTime() + offset * 60_000); }
 export async function createAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.CONSULTANT]); const starts = localDateToUtc(String(formData.get("startsAt")), Number(formData.get("timezoneOffset"))); const duration = Number(formData.get("duration")); if (!starts || !duration) return { status: "error", message: "Horário inválido." }; try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: starts.toISOString(), p_ends_at: new Date(starts.getTime() + duration * 60_000).toISOString() }); revalidatePath("/consultor/agenda"); return { status: "success", message: "Horário adicionado à sua agenda." }; } catch { return { status: "error", message: "Não foi possível salvar este horário no Supabase." }; } }
 export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("remove_consultant_availability", { p_availability_id: id }); revalidatePath("/consultor/agenda"); }
 export async function releaseEligibleBookings() { await rpc("release_eligible_bookings_for_user", {}); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
-export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); }
+export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); return { status: "success", message: "Avaliação publicada." }; }
-export async function payBookingAction(id: string, formData: FormData) { await requireUser([Role.USER, Role.ADMIN]); if (formData.get("recordingConsent") !== "on") throw new Error("Confirme as regras antes de continuar."); await rpc("report_booking_payment", { p_booking_id: id, p_method: String(formData.get("paymentMethod") || "PIX") }); redirect("/dashboard/agendamentos?pagamento_informado=1"); }
-export async function adminConfirmPaymentAction(id: string, formData: FormData) { await requireUser([Role.ADMIN]); await rpc("admin_confirm_booking_payment", { p_booking_id: id, p_observation: String(formData.get("observation") || "") }); revalidatePath("/admin"); revalidatePath(`/checkout/${id}`); }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function sendMessageAction(id: string, formData: FormData) { await requireUser(); const body = String(formData.get("body") || "").trim(); if (!body || body.length > 2000 || blockedContactPattern.test(body)) throw new Error("A mensagem está vazia, longa demais ou contém contato/link não permitido."); await rpc("send_message", { p_conversation_id: id, p_body: body }); revalidatePath("/dashboard/mensagens"); }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("update_privacy", { p_payload: formText(formData) }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
