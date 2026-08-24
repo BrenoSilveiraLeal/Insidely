@@ -445,3 +445,5 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .dash-main { width: 100%; overflow: hidden; }
   .dash-top h1 { font-size: clamp(2rem, 9vw, 3rem); }
 }
+.profile-photo svg{right:4px;bottom:4px;box-sizing:border-box}
+.privacy-group{display:grid;gap:8px;margin:8px 0 4px;padding:0;border:0}.privacy-group legend{margin-bottom:2px;font:800 1rem/1 var(--display)}.privacy-group .list-row span{display:grid;gap:4px}.privacy-group .list-row small{color:var(--muted);font-size:.75rem;font-weight:500}.route-loading{min-height:60vh;width:min(100% - 32px,1080px);margin:0 auto;padding:100px 0;display:grid;align-content:start;gap:18px}.loading-line,.loading-title,.loading-panel{background:linear-gradient(100deg,rgba(20,30,48,.08),rgba(20,30,48,.18),rgba(20,30,48,.08));background-size:200% 100%;animation:loading-shimmer 1.3s infinite;border-radius:16px}.loading-line{height:14px;width:180px}.loading-line-short{width:110px}.loading-title{height:70px;width:min(620px,90%)}.loading-panel{height:260px}.loading-panel-small{height:120px}@keyframes loading-shimmer{to{background-position:-200% 0}}

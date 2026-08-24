@@ -7,9 +7,7 @@ export function shortDate(date: Date | string) {
 }
 
 export function publicName(profile: { privacyMode: string; pseudonym: string | null; user: { name: string } }) {
-  if (profile.privacyMode === "PSEUDONYM") return profile.pseudonym ?? "Profissional verificado";
-  if (profile.privacyMode === "PROTECTED") return `${profile.user.name.split(" ")[0]} · identidade protegida`;
-  return profile.user.name;
+  return profile.user.name || profile.pseudonym || "Profissional verificado";
 }
 
 export function initials(value: string) {

@@ -760,6 +760,7 @@ export type Database = {
           isActive: boolean
           location: string
           pixKey: string | null
+          publicSurname: string | null
           price30Cents: number
           price60Cents: number
           privacyMode: Database["public"]["Enums"]["PrivacyMode"]
@@ -784,6 +785,7 @@ export type Database = {
           isActive?: boolean
           location: string
           pixKey?: string | null
+          publicSurname?: string | null
           price30Cents: number
           price60Cents: number
           privacyMode?: Database["public"]["Enums"]["PrivacyMode"]
@@ -808,6 +810,7 @@ export type Database = {
           isActive?: boolean
           location?: string
           pixKey?: string | null
+          publicSurname?: string | null
           price30Cents?: number
           price60Cents?: number
           privacyMode?: Database["public"]["Enums"]["PrivacyMode"]
