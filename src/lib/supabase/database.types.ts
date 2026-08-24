@@ -1153,6 +1153,12 @@ export type Database = {
         }
         Relationships: []
       }
+      ProfileCover: {
+        Row: { professionalProfileId: string; image: string; updatedAt: string }
+        Insert: { professionalProfileId: string; image: string; updatedAt?: string }
+        Update: { professionalProfileId?: string; image?: string; updatedAt?: string }
+        Relationships: []
+      }
       Verification: {
         Row: {
           adminNotes: string | null
@@ -1513,6 +1519,8 @@ export type Database = {
         Returns: undefined
       }
       update_profile_image: { Args: { p_image: string | null }; Returns: undefined }
+      update_profile_cover: { Args: { p_image: string }; Returns: undefined }
+      remove_profile_cover: { Args: Record<PropertyKey, never>; Returns: undefined }
     }
     Enums: {
       BookingStatus:

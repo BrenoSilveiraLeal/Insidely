@@ -134,6 +134,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .page-hero p { max-width: 620px; color: #c8cbc5; font-size: 1.1rem; }
 
 .profile-hero { padding: 145px 0 70px; background: var(--blue); }
+.profile-hero-with-cover{background-position:center;background-size:cover;background-repeat:no-repeat;color:var(--paper)}.profile-hero-with-cover .section-copy{color:#e5e8ed}.profile-cover-panel{display:grid;gap:18px}.profile-cover-heading{display:flex;align-items:center;gap:22px}.profile-cover-heading h2{margin:9px 0 0;font:850 clamp(1.5rem,3vw,2.7rem)/.95 var(--display);letter-spacing:-.05em}.profile-cover-preview{position:relative;display:grid;place-items:center;flex:0 0 auto;width:min(300px,38vw);height:112px;overflow:hidden;border-radius:18px;background:var(--blue);color:var(--paper)}.profile-cover-preview img{object-fit:cover}.profile-cover-panel .upload-row{margin-top:0}
 .profile-layout { display: grid; grid-template-columns: 1.5fr .7fr; gap: 24px; align-items: start; }
 .profile-main, .booking-box, .panel { background: rgba(255,255,255,.54); border: 1px solid var(--line); border-radius: 30px; padding: 28px; }
 .booking-box { position: sticky; top: 105px; box-shadow: var(--shadow); }

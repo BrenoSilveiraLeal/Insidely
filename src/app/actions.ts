@@ -55,6 +55,16 @@ function avatarStoragePath(publicUrl: string | null | undefined, authUserId: str
   } catch { return null; }
 }
 
+function coverStoragePath(publicUrl: string | null | undefined, authUserId: string) {
+  if (!publicUrl) return null;
+  try {
+    const marker = "/storage/v1/object/public/profile-covers/", pathname = new URL(publicUrl).pathname, index = pathname.indexOf(marker);
+    if (index < 0) return null;
+    const path = decodeURIComponent(pathname.slice(index + marker.length));
+    return path.startsWith(`covers/${authUserId}/`) ? path : null;
+  } catch { return null; }
+}
+
 export async function loginAction(_: string | undefined, formData: FormData) {
   const parsed = z.object({ email: z.string().email(), password: z.string().min(1) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return "E-mail ou senha inválidos.";
@@ -152,6 +162,45 @@ export async function removeProfileImageAction() {
   const { error } = await supabase.rpc("update_profile_image", { p_image: null });
   if (error) throw new Error("Não foi possível remover a foto do perfil.");
   revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor");
+}
+export async function updateProfileCoverAction(_: string | undefined, formData: FormData) {
+  const stored = await requireUser([Role.CONSULTANT]);
+  const file = formData.get("cover");
+  if (!(file instanceof File)) return "Escolha uma imagem para a capa.";
+  if (!["image/png","image/jpeg","image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida.";
+  if (file.size > 5 * 1024 * 1024) return "A capa deve ter no máximo 5 MB.";
+  const moderation = await moderateProfileImage(file);
+  if (!moderation.allowed) return "Esta imagem não pode ser usada como capa.";
+  const supabase = await createSupabaseServerClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return "Sua sessão expirou. Entre novamente.";
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", stored.id).maybeSingle();
+  if (!profile) return "Perfil profissional não encontrado.";
+  const { data: oldCover } = await supabase.from("ProfileCover").select("image").eq("professionalProfileId", profile.id).maybeSingle();
+  const path = `covers/${authData.user.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"-")}`;
+  const bucket = supabase.storage.from("profile-covers");
+  const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" });
+  if (upload.error) return `Não foi possível enviar a capa: ${upload.error.message}`;
+  const { data } = bucket.getPublicUrl(path);
+  const { error } = await supabase.rpc("update_profile_cover", { p_image: data.publicUrl });
+  if (error) { await bucket.remove([path]); return "A imagem foi enviada, mas não pôde ser salva no perfil."; }
+  const oldPath = coverStoragePath(oldCover?.image, authData.user.id);
+  if (oldPath && oldPath !== path) await bucket.remove([oldPath]);
+  revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); revalidatePath("/profissional/[id]", "page");
+  return "Capa atualizada.";
+}
+export async function removeProfileCoverAction() {
+  const stored = await requireUser([Role.CONSULTANT]);
+  const supabase = await createSupabaseServerClient();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) throw new Error("Sua sessão expirou.");
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", stored.id).maybeSingle();
+  const { data: oldCover } = profile ? await supabase.from("ProfileCover").select("image").eq("professionalProfileId", profile.id).maybeSingle() : { data: null };
+  const oldPath = coverStoragePath(oldCover?.image, authData.user.id);
+  if (oldPath) await supabase.storage.from("profile-covers").remove([oldPath]);
+  const { error } = await supabase.rpc("remove_profile_cover");
+  if (error) throw new Error("Não foi possível remover a capa.");
+  revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); revalidatePath("/profissional/[id]", "page");
 }
 export async function deleteAccountAction(_: string | undefined, formData: FormData) { const user = await requireUser(); const confirmation = String(formData.get("confirmation") || "").trim().toLowerCase(); if (confirmation !== user.email.trim().toLowerCase()) return "Digite exatamente o e-mail da sua conta para confirmar a exclusão."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.functions.invoke("delete-account", { body: { confirmation } }); if (error) return `Não foi possível concluir a remoção segura da conta: ${error.message}`; await supabase.auth.signOut(); redirect("/?conta=excluida"); }
 export async function submitSupportAction(formData: FormData) { await requireUser(); await rpc("create_support_report", { p_category: String(formData.get("category") || ""), p_description: String(formData.get("description") || "") }); redirect("/suporte?enviado=1"); }
