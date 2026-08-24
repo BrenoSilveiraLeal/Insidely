@@ -8,14 +8,15 @@ import { requireUser } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 function stateLabel(status: string) {
-  return ({ CONFIRMED: "Confirmada · valor retido", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED: "Concluída · repasse liberado", DISPUTED: "Em análise pelo suporte" } as Record<string, string>)[status] ?? status;
+  return ({ PENDING_PAYMENT: "Solicitação recebida · aguardando pagamento", CONFIRMED: "Confirmada · valor retido", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED: "Concluída · repasse liberado", DISPUTED: "Em análise pelo suporte" } as Record<string, string>)[status] ?? status;
 }
 
 export default async function ConsultantConsultationsPage() {
   const user = await requireUser([Role.CONSULTANT]);
   await releaseEligibleBookings();
   const profile = await getConsultantDashboard(user.id);
-  return <DashboardShell mode="consultant" title="Consultas"><div className="grid grid-2">{profile?.bookings.map((booking) => <article className="panel" key={booking.id}><span className="eyebrow">{stateLabel(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.customer.name}</h2><p>{booking.goals}</p>
+  return <DashboardShell mode="consultant" title="Consultas e solicitações"><div className="grid grid-2">{profile?.bookings.map((booking) => <article className="panel" key={booking.id}><span className="eyebrow">{stateLabel(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.customer.name}</h2><p>{booking.goals}</p>
+    {booking.status === "PENDING_PAYMENT" && <div className="meeting-policy compact"><span>◌</span><div><strong>Pedido ainda não pago</strong><p>O horário foi reservado temporariamente. A conversa e as mensagens serão liberadas após a confirmação do pagamento.</p></div></div>}
     {booking.status === "CONFIRMED" && new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000) <= new Date() && <form action={completeBookingAction.bind(null, booking.id)}><button className="button button-dark button-sm">Informar fim da conversa</button></form>}
     {booking.status === "AWAITING_CONFIRMATION" && <div className="meeting-policy compact"><span>◉</span><div><strong>Confirmação dupla</strong><p>{booking.consultantConfirmedAt ? "Você confirmou. Aguardando a outra pessoa ou o prazo automático." : "Confirme que a conversa aconteceu para agilizar a liberação."}</p>{!booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent button-sm">Confirmar conversa realizada</button></form>}<form className="form-stack" style={{marginTop:12}} action={disputeBookingAction.bind(null, booking.id)}><textarea className="textarea" name="description" minLength={20} placeholder="Houve algum problema? Explique para o suporte."/><button className="button button-ghost button-sm">Reportar problema</button></form></div></div>}
     {booking.status === "DISPUTED" && <p className="form-error">O repasse está suspenso até a análise do suporte.</p>}
