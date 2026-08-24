@@ -106,7 +106,22 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
 }
 
 export async function toggleFavoriteAction(profileId: string) { await requireUser(); await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath(`/profissional/${profileId}`); }
-export async function createBookingAction(profileId: string, formData: FormData) { await requireUser([Role.USER, Role.ADMIN]); const booking = await rpc("create_booking", { p_profile_id: profileId, p_slot_id: String(formData.get("slot")), p_duration: Number(formData.get("duration")) === 60 ? 60 : 30, p_topics: formData.getAll("topics").map(String), p_goals: String(formData.get("goals") || "") }); redirect(`/checkout/${booking}`); }
+export async function createBookingAction(profileId: string, formData: FormData) {
+  await requireUser([Role.USER, Role.ADMIN]);
+  const slot = String(formData.get("slot") || "");
+  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
+  const goals = String(formData.get("goals") || "").trim();
+  if (!slot || goals.length < 12) redirect(`/agendar/${profileId}?erro=preencha`);
+  let booking: string;
+  try {
+    booking = await rpc("create_booking", { p_profile_id: profileId, p_slot_id: slot, p_duration: duration, p_topics: formData.getAll("topics").map(String), p_goals: goals });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const reason = message.includes("slot_unavailable") ? "indisponivel" : message.includes("unauthorized") ? "sessao" : "temporario";
+    redirect(`/agendar/${profileId}?erro=${reason}`);
+  }
+  redirect(`/checkout/${booking}`);
+}
 
 function localDateToUtc(value: string, offset: number) { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : new Date(d.getTime() + offset * 60_000); }
 export async function createAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.CONSULTANT]); const starts = localDateToUtc(String(formData.get("startsAt")), Number(formData.get("timezoneOffset"))); const duration = Number(formData.get("duration")); if (!starts || !duration) return { status: "error", message: "Horário inválido." }; try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: starts.toISOString(), p_ends_at: new Date(starts.getTime() + duration * 60_000).toISOString() }); revalidatePath("/consultor/agenda"); return { status: "success", message: "Horário adicionado à sua agenda." }; } catch { return { status: "error", message: "Não foi possível salvar este horário no Supabase." }; } }

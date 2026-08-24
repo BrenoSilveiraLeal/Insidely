@@ -367,6 +367,15 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .hero-line { width: auto; max-width: 100%; white-space: normal; }
   .inside-scene { width: min(620px, 100%); min-height: 470px; margin: 0 auto; transform: none; }
 }
+
+/* Larguras de notebook: a composição de cards nunca invade o título. */
+@media (min-width: 951px) and (max-width: 1400px) {
+  .inside-hero { min-height: auto; padding: 128px 0 72px; }
+  .inside-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .inside-hero h1 { max-width: 900px; font-size: clamp(3.8rem, 7.2vw, 7rem); }
+  .hero-line { width: auto; max-width: 100%; white-space: normal; }
+  .inside-scene { width: min(680px, 100%); min-height: 480px; margin: 0 auto; transform: none; }
+}
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
 .profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
 .profile-preview-panel > .eyebrow { font-size: 0; }
@@ -400,6 +409,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 /* Refinamentos globais de acessibilidade e toque. */
 .premium-nav > a, .premium-nav > button { min-height: 44px; }
 .mobile-drawer a { display: flex; align-items: center; min-height: 44px; }
+.form-alert { margin: 0 0 8px; padding: 13px 15px; border: 1px solid rgba(211, 91, 76, .45); border-radius: 12px; background: rgba(211, 91, 76, .1); color: var(--ink); font-weight: 700; }
 
 /* Responsive guardrails: keep the existing composition inside the viewport. */
 @media (max-width: 1100px) {
