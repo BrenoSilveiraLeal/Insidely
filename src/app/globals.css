@@ -322,6 +322,10 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .profile-left-column { display: grid; gap: 22px; align-content: start; }
 .profile-left-column::after { content: "A equipe confere sua experiência com segurança. O comprovante permanece privado e, depois da aprovação, seu perfil recebe o selo de experiência verificada."; display: block; padding: 22px; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); color: var(--muted); font-size: .9rem; line-height: 1.45; }
 .professional-edit-panel .profile-form-grid:nth-of-type(3) > :last-child { grid-column: 1 / -1; }
+
+/* O recorte nunca pode escapar do quadro circular. */
+.image-editor-crop { position: relative; isolation: isolate; }
+.image-editor-crop > img { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover !important; object-position: center !important; }
 .profile-layout > .direct-pix { grid-column: 2; grid-row: 1; }
 .profile-layout > .booking-box { grid-column: 2; grid-row: 1; }
 .profile-preview-panel > .eyebrow { font-size: 0; }
