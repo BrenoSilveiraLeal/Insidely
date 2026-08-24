@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern } from "@/lib/security";
+import { getAppUrl } from "@/lib/app-url";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
 type RpcName = keyof Database["public"]["Functions"];
@@ -70,7 +71,7 @@ export async function updatePasswordAction(_: string | undefined, formData: Form
 
 export async function socialSignInAction(provider: "google" | "linkedin_oidc") {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/continuar` } });
+  const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${getAppUrl()}/auth/callback?next=/continuar` } });
   if (error || !data.url) redirect("/entrar?social=erro");
   redirect(data.url);
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAppUrl } from "@/lib/app-url";
 
 function safeNextPath(raw: string | null) {
   return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/continuar";
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
     return NextResponse.redirect(new URL("/entrar?social=config", request.url));
   }
-  const redirectTo = new URL("/auth/callback", request.url);
+  const redirectTo = new URL("/auth/callback", getAppUrl(request.nextUrl.origin));
   redirectTo.searchParams.set("next", safeNextPath(request.nextUrl.searchParams.get("next")));
   try {
     const supabase = await createSupabaseServerClient();
