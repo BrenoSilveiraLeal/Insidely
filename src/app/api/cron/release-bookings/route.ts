@@ -12,14 +12,13 @@ export async function GET(request: Request) {
     // The migration adds provider-specific columns beyond the generated legacy type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceClient() as any;
-    const { data: bookings, error } = await supabase.from("Booking").select("id, status, autoReleaseAt, startsAt, durationMinutes, payment:Payment(status)").eq("status", "AWAITING_CONFIRMATION").is("disputedAt", null);
+    const { data: bookings, error } = await supabase.from("Booking").select("id, status, autoReleaseAt, startsAt, durationMinutes, payment:Payment(status)").in("status", ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING"]).is("disputedAt", null);
     if (error) return Response.json({ error: "release_failed", detail: error.message }, { status: 500 });
     let released = 0;
     for (const booking of bookings ?? []) {
       const payment = Array.isArray(booking.payment) ? booking.payment[0] : booking.payment;
       const releaseAt = booking.autoReleaseAt ?? new Date(new Date(booking.startsAt).getTime() + (Number(booking.durationMinutes) + 1440) * 60_000).toISOString();
-      if (new Date(releaseAt) <= new Date() && ["HELD", "PAID_HELD"].includes(payment?.status)) {
-        await supabase.from("Booking").update({ status: "COMPLETED", updatedAt: new Date().toISOString() }).eq("id", booking.id).eq("status", "AWAITING_CONFIRMATION");
+      if (new Date(releaseAt) <= new Date() && ["HELD", "PAID_HELD", "TRANSFER_FAILED"].includes(payment?.status)) {
         if (await releaseBookingTransfer(booking.id)) released++;
       }
     }

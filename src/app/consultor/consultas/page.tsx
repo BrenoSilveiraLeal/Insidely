@@ -1,9 +1,10 @@
-import { completeBookingAction, confirmConversationAction, disputeBookingAction, releaseEligibleBookings, sendMessageAction, updateConsultantRecordingConsentAction } from "@/app/actions";
+import { completeBookingAction, confirmConversationAction, disputeBookingAction, sendMessageAction, updateConsultantRecordingConsentAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { shortDate } from "@/lib/format";
 import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
+import { canSendBookingMessage } from "@/lib/booking-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,6 @@ function stateLabel(status: string) { return ({ PENDING_PAYMENT: "Solicitação 
 
 export default async function ConsultantConsultationsPage() {
   const user = await requireUser([Role.CONSULTANT]);
-  await releaseEligibleBookings();
   const profile = await getConsultantDashboard(user.id);
   return <DashboardShell mode="consultant" title="Consultas e solicitações"><div className="grid grid-2">{profile?.bookings.map((booking) => <article className="panel" key={booking.id}><span className="eyebrow">{stateLabel(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.customer.name}</h2><p>{booking.goals}</p>
     {booking.status === "PENDING_PAYMENT" && <div className="meeting-policy compact"><span>◌</span><div><strong>Pedido ainda não pago</strong><p>O horário foi reservado temporariamente. A conversa e as mensagens serão liberadas após a confirmação do pagamento.</p></div></div>}
@@ -19,5 +19,5 @@ export default async function ConsultantConsultationsPage() {
     {booking.status === "AWAITING_CONFIRMATION" && <div className="meeting-policy compact"><span>◉</span><div><strong>Confirmação dupla</strong><p>{booking.consultantConfirmedAt ? "Você confirmou. Aguardando a outra pessoa ou o prazo automático." : "Confirme que a conversa aconteceu para agilizar a liberação."}</p>{!booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent button-sm">Confirmar conversa realizada</button></form>}<form className="form-stack" style={{marginTop:12}} action={disputeBookingAction.bind(null, booking.id)}><textarea className="textarea" name="description" minLength={20} placeholder="Houve algum problema? Explique para o suporte."/><button className="button button-ghost button-sm">Reportar problema</button></form></div></div>}
     {booking.status === "DISPUTED" && <p className="form-error">O repasse está suspenso até a análise do suporte.</p>}
     <div className="meeting-policy compact"><span>↗</span><div><strong>Google Meet protegido</strong><p>{booking.meetingUrl ? "A sala está disponível para esta consulta." : "A sala será criada automaticamente após a confirmação do pagamento."}</p>{booking.meetingUrl && <a className="button button-accent button-sm" href={booking.meetingUrl} target="_blank" rel="noreferrer">Abrir Google Meet</a>}</div></div>
-    <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="consent-inline"><label><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent} /><span>Autorizo a gravação apenas se o participante também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>{booking.conversation && <><div className="message-thread">{booking.conversation.messages.map((message) => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br />{message.body}</div>)}</div><form action={sendMessageAction.bind(null, booking.conversation.id)} style={{ display: "flex", gap: 8 }}><input className="input" name="body" placeholder="Responder" /><button className="button button-dark">Enviar</button></form></>}</article>)}</div></DashboardShell>;
+    <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="consent-inline"><label><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent} /><span>Autorizo a gravação apenas se o participante também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>{booking.conversation && <><div className="message-thread">{booking.conversation.messages.map((message) => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br />{message.body}</div>)}</div>{canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} style={{ display: "flex", gap: 8 }}><input className="input" name="body" placeholder="Responder" /><button className="button button-dark">Enviar</button></form> : <p className="muted">O pedido foi recebido. A conversa será liberada após a confirmação do pagamento.</p>}</>}</article>)}</div></DashboardShell>;
 }

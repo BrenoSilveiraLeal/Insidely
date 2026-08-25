@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { confirmConversationAction, disputeBookingAction, releaseEligibleBookings } from "@/app/actions";
+import { confirmConversationAction, disputeBookingAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { BookingStatus, Role } from "@/lib/domain";
 import { money, shortDate } from "@/lib/format";
@@ -10,8 +10,7 @@ export const dynamic = "force-dynamic";
 function statusText(status: string) { return ({ PENDING_PAYMENT: "Aguardando pagamento", CONFIRMED: "Confirmada · pagamento retido", AWAITING_CONFIRMATION: "Confirme a conversa", COMPLETED: "Concluída", DISPUTED: "Em análise" } as Record<string, string>)[status] ?? status; }
 
 export default async function AppointmentsPage() {
-  const user = await requireUser([Role.USER, Role.ADMIN]);
-  await releaseEligibleBookings();
+  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const dashboard = await getViewerDashboard(user.id);
   return <DashboardShell mode="user" title="Agendamentos"><div className="grid grid-2">{dashboard?.customerBookings.map((booking) => <article className="panel" key={booking.id}>
     <span className="eyebrow">{statusText(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.professional.user.name}</h2><p className="muted">{booking.durationMinutes} min · {money(booking.totalCents)} · Sala online</p>

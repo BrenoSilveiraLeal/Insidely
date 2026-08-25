@@ -2,6 +2,7 @@ import "server-only";
 
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { canRetryTransfer } from "@/lib/booking-policy";
 
 // Provider columns are added by the accompanying Supabase migration.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,13 +112,25 @@ export async function releaseBookingTransfer(bookingId: string) {
   const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
   if (!payment || payment.stripeTransferId || payment.status === "RELEASED") return true;
-  if (booking.status !== "COMPLETED" || !["HELD", "PAID_HELD"].includes(payment.status)) return false;
+  if (!canRetryTransfer(booking.status, payment.status)) return false;
   if (!professional?.stripeAccountId) throw new Error("Conta Stripe do consultor ausente.");
   const amount = Number(booking.totalCents) - Number(booking.feeCents);
   if (amount <= 0) throw new Error("Valor de repasse inválido.");
-  const transfer = await getStripe().transfers.create({ amount, currency: "brl", destination: professional.stripeAccountId, transfer_group: `booking_${booking.id}`, metadata: { bookingId: booking.id } }, { idempotencyKey: `insidely-transfer-${booking.id}` });
-  const { error: updateError } = await supabase.from("Payment").update({ status: "RELEASED", releasedAt: new Date().toISOString(), stripeTransferId: transfer.id, updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).in("status", ["HELD", "PAID_HELD"]);
-  if (updateError) throw new Error(updateError.message);
-  await supabase.from("Booking").update({ status: "COMPLETED", updatedAt: new Date().toISOString() }).eq("id", booking.id).in("status", ["AWAITING_CONFIRMATION", "COMPLETED"]);
-  return true;
+  const idempotencyKey = `insidely-transfer-${booking.id}`;
+  const attemptId = crypto.randomUUID();
+  await supabase.from("TransferAttempt").insert({ id: attemptId, paymentId: payment.id, bookingId: booking.id, idempotencyKey, status: "PROCESSING", attemptCount: 1 });
+  await supabase.from("Payment").update({ status: "TRANSFER_PROCESSING", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).in("status", ["HELD", "PAID_HELD", "TRANSFER_FAILED"]);
+  try {
+    const transfer = await getStripe().transfers.create({ amount, currency: "brl", destination: professional.stripeAccountId, transfer_group: `booking_${booking.id}`, metadata: { bookingId: booking.id } }, { idempotencyKey });
+    const { error: updateError } = await supabase.from("Payment").update({ status: "RELEASED", releasedAt: new Date().toISOString(), stripeTransferId: transfer.id, updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "TRANSFER_PROCESSING");
+    if (updateError) throw new Error(updateError.message);
+    await supabase.from("TransferAttempt").update({ status: "SUCCEEDED", stripeTransferId: transfer.id, updatedAt: new Date().toISOString() }).eq("id", attemptId);
+    await supabase.from("Booking").update({ status: "COMPLETED", updatedAt: new Date().toISOString() }).eq("id", booking.id).in("status", ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"]);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "transfer_failed";
+    await supabase.from("Payment").update({ status: "TRANSFER_FAILED", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "TRANSFER_PROCESSING");
+    await supabase.from("TransferAttempt").update({ status: "FAILED", lastError: message.slice(0, 1000), nextRetryAt: new Date(Date.now() + 15 * 60_000).toISOString(), updatedAt: new Date().toISOString() }).eq("id", attemptId);
+    throw error;
+  }
 }

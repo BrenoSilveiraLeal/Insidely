@@ -79,6 +79,10 @@ npm run test:e2e
 
 O repositório está conectado à Vercel. Configure as mesmas variáveis nos ambientes Preview/Production, aplique migrations e publique a Edge Function antes de promover o deploy.
 
+## Documentação operacional
+
+Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs/PAYMENTS_AND_TRANSFERS.md), [`docs/SUPABASE_SECURITY_REVIEW.md`](docs/SUPABASE_SECURITY_REVIEW.md), [`docs/E2E_TESTS.md`](docs/E2E_TESTS.md) e [`docs/QA_FINAL.md`](docs/QA_FINAL.md).
+
 ## Segurança e operação
 
 - RLS permanece habilitado; autorização não usa `user_metadata`.
