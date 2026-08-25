@@ -9,7 +9,7 @@ const menus = {
 } as const;
 
 export function DashboardShell({ mode, title, children, profileId, notificationCount = 0 }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notificationCount?: number }) {
-  const notificationHref = mode === "consultant" ? "/consultor/consultas" : "/dashboard";
+  const notificationHref = mode === "consultant" ? "/consultor#notificacoes" : "/dashboard";
   const profileHref = profileId ? `/profissional/${profileId}` : "/profissional/me";
   return <main className="dash"><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
