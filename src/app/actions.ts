@@ -118,7 +118,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
 
 export async function toggleFavoriteAction(profileId: string) { await requireUser(); await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath(`/profissional/${profileId}`); }
 export async function createBookingAction(profileId: string, formData: FormData) {
-  await requireUser([Role.USER, Role.ADMIN]);
+  await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const slot = String(formData.get("slot") || "");
   const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
   const goals = String(formData.get("goals") || "").trim();
@@ -135,7 +135,7 @@ export async function createBookingAction(profileId: string, formData: FormData)
 }
 
 export async function createStripeCheckoutAction(id: string) {
-  const user = await requireUser([Role.USER, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   try {
     const url = await createBookingCheckout({ bookingId: id, customerId: user.id, customerEmail: user.email, customerName: user.name, appUrl: getAppUrl() });
     if (!url) throw new Error("O Stripe não retornou uma URL de checkout.");
