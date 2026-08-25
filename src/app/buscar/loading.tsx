@@ -1,1 +1,1 @@
-export default function Loading(){return <main className="route-loading" aria-busy="true"><div className="loading-line loading-line-short"/><div className="loading-title"/><div className="loading-panel"/></main>}
+export default function Loading(){return <main className="route-loading" aria-busy="true"><div className="loading-line loading-line-short"/><h1>Encontre quem vive a realidade.</h1><p className="muted">Carregando perfis e filtros...</p><div className="loading-panel"/></main>}

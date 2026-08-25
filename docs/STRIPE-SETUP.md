@@ -1,6 +1,6 @@
 # Configuração do Stripe
 
-O código usa Stripe Checkout para cobrar o cliente e Stripe Connect Express para cadastrar o consultor. O dinheiro fica no saldo da plataforma e o servidor cria um `Transfer` somente após a conversa ser concluída.
+O código usa Stripe Checkout para cobrar o cliente e Stripe Connect Accounts v2 com configuração `recipient` para cadastrar o consultor. O dinheiro fica no saldo da plataforma e o servidor cria um `Transfer` somente após a conversa ser concluída.
 
 ## Ambiente
 
@@ -22,11 +22,15 @@ Cadastre `https://SEU_DOMINIO/api/webhooks/stripe` no Stripe. Eventos usados pel
 
 - `checkout.session.completed`
 - `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
+- `checkout.session.expired`
 - `payment_intent.succeeded`
+- `payment_intent.payment_failed`
 - `charge.refunded`
 - `charge.dispute.created`
 - `charge.dispute.updated`
 - `transfer.created`
 - `account.updated`
+- `v2.core.account.updated`
 
 O cron `/api/cron/release-bookings` continua protegido por `CRON_SECRET` e tenta os repasses vencidos com idempotência por agendamento.

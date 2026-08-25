@@ -5,7 +5,7 @@ import { logoutAction } from "@/app/actions";
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
   consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Perfil e verificação"]],
-  admin: [["/admin", "Visão geral"], ["/admin/verificacoes", "Verificações"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"]],
+  admin: [["/admin", "Visão geral"], ["/admin/verificacoes", "Verificações"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Suporte"]],
 } as const;
 
 export function DashboardShell({ mode, title, children, profileId, notificationCount = 0 }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notificationCount?: number }) {

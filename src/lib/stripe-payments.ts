@@ -7,9 +7,33 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type StripeRow = Record<string, any>;
 
+type StripeRecipientAccount = {
+  id: string;
+  configuration?: {
+    recipient?: {
+      capabilities?: {
+        stripe_balance?: {
+          stripe_transfers?: { status?: string };
+        };
+      };
+    };
+  };
+};
+
 function admin() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createSupabaseServiceClient() as any;
+}
+
+function recipientTransfersActive(account: StripeRecipientAccount | null | undefined) {
+  return account?.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status === "active";
+}
+
+function checkoutIntegrationIdentifier() {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  let suffix = "";
+  for (let index = 0; index < 8; index += 1) suffix += letters[Math.floor(Math.random() * letters.length)];
+  return `insidely_checkout_${suffix}`;
 }
 
 export async function createConnectOnboardingLink({ userId, email, returnUrl, refreshUrl }: { userId: string; email: string; returnUrl: string; refreshUrl: string }) {
@@ -21,19 +45,36 @@ export async function createConnectOnboardingLink({ userId, email, returnUrl, re
   const stripe = getStripe();
   let accountId = profile.stripeAccountId as string | null;
   if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "BR",
-      email,
-      business_type: "individual",
-      capabilities: { transfers: { requested: true } },
+    const account = await stripe.v2.core.accounts.create({
+      contact_email: email,
+      dashboard: "express",
+      identity: { country: "BR", entity_type: "individual" },
+      configuration: {
+        recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+      },
+      defaults: {
+        responsibilities: { fees_collector: "application", losses_collector: "application" },
+      },
       metadata: { insidelyUserId: userId, professionalProfileId: profile.id },
     });
     accountId = account.id;
     await supabase.from("ProfessionalProfile").update({ stripeAccountId: accountId, stripeOnboardingStatus: "PENDING" }).eq("id", profile.id);
+  } else {
+    // Also upgrades existing v1 connected accounts to the v2 recipient configuration.
+    await stripe.v2.core.accounts.update(accountId, {
+      dashboard: "express",
+      configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } } },
+      defaults: { responsibilities: { fees_collector: "application", losses_collector: "application" } },
+    });
   }
 
-  const link = await stripe.accountLinks.create({ account: accountId, type: "account_onboarding", refresh_url: refreshUrl, return_url: returnUrl });
+  const link = await stripe.v2.core.accountLinks.create({
+    account: accountId,
+    use_case: {
+      type: "account_onboarding",
+      account_onboarding: { configurations: ["recipient"], refresh_url: refreshUrl, return_url: returnUrl },
+    },
+  });
   return link.url;
 }
 
@@ -45,9 +86,11 @@ export async function createBookingCheckout({ bookingId, customerId, customerEma
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
   if (!professional?.stripeAccountId || professional.stripeOnboardingStatus !== "COMPLETE" || !professional.stripePayoutsEnabled) throw new Error("O consultor ainda não está habilitado para receber pagamentos.");
   const stripe = getStripe();
+  const account = await stripe.v2.core.accounts.retrieve(professional.stripeAccountId, { include: ["configuration.recipient"] });
+  if (!recipientTransfersActive(account)) throw new Error("O consultor ainda não está habilitado para receber pagamentos.");
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    payment_method_types: ["card", "pix"],
+    integration_identifier: checkoutIntegrationIdentifier(),
     customer_email: customerEmail,
     client_reference_id: booking.id,
     line_items: [{ price_data: { currency: "brl", product_data: { name: "Conversa profissional Insidely", description: `Consulta com ${customerName}` }, unit_amount: booking.totalCents }, quantity: 1 }],
@@ -55,7 +98,7 @@ export async function createBookingCheckout({ bookingId, customerId, customerEma
     payment_intent_data: { metadata: { bookingId: booking.id, customerId } },
     success_url: `${appUrl}/checkout/${booking.id}?status=success`,
     cancel_url: `${appUrl}/checkout/${booking.id}?status=cancelled`,
-  });
+  }, { idempotencyKey: `insidely-checkout-${booking.id}` });
   await supabase.from("Payment").update({ provider: "STRIPE", providerRef: session.id, stripeCheckoutSessionId: session.id, updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "PENDING");
   return session.url;
 }

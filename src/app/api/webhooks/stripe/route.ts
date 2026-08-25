@@ -1,37 +1,85 @@
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
+import { sendBookingConfirmationEmails } from "@/lib/email";
 
 export const runtime = "nodejs";
+
+type StripeObject = Stripe.Checkout.Session | Stripe.PaymentIntent | Stripe.Charge | Stripe.Transfer | Stripe.Account;
+
+async function ensureUpdated(result: { error: { message: string } | null }, operation: string) {
+  if (result.error) throw new Error(`${operation}: ${result.error.message}`);
+}
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
   if (!secret || !signature) return Response.json({ error: "webhook_not_configured" }, { status: 400 });
+
   let event: Stripe.Event;
-  try { event = getStripe().webhooks.constructEvent(await request.text(), signature, secret); } catch { return Response.json({ error: "invalid_signature" }, { status: 400 }); }
+  try {
+    event = getStripe().webhooks.constructEvent(await request.text(), signature, secret);
+  } catch {
+    return Response.json({ error: "invalid_signature" }, { status: 400 });
+  }
+
   // The migration adds provider-specific columns beyond the generated legacy type.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { error: eventError } = await supabase.from("StripeWebhookEvent").insert({ id: event.id, type: event.type, payload: event.data.object, createdAt: new Date(event.created * 1000).toISOString() });
-  if (eventError?.code === "23505") return Response.json({ received: true, duplicate: true });
-  if (eventError) return Response.json({ error: eventError.message }, { status: 500 });
+  const { data: existingEvent, error: existingEventError } = await supabase.from("StripeWebhookEvent").select("id").eq("id", event.id).maybeSingle();
+  if (existingEventError) return Response.json({ error: existingEventError.message }, { status: 500 });
+  if (existingEvent) return Response.json({ received: true, duplicate: true });
 
-  const object = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent | Stripe.Charge | Stripe.Transfer;
+  const object = event.data.object as StripeObject;
   const metadata = "metadata" in object ? object.metadata : null;
-  const bookingId = metadata?.bookingId;
+  let bookingId = metadata?.bookingId;
+  const paymentIntentRef = "payment_intent" in object && typeof object.payment_intent === "string" ? object.payment_intent : null;
+  if (!bookingId && paymentIntentRef) {
+    const { data: payment, error } = await supabase.from("Payment").select("bookingId").eq("stripePaymentIntentId", paymentIntentRef).maybeSingle();
+    if (error) throw new Error(`payment_lookup: ${error.message}`);
+    bookingId = payment?.bookingId;
+  }
+
   if (bookingId && ["checkout.session.completed", "checkout.session.async_payment_succeeded", "payment_intent.succeeded"].includes(event.type)) {
     const sessionId = event.type.startsWith("checkout.") ? (object as Stripe.Checkout.Session).id : null;
     const paymentIntentId = event.type.startsWith("payment_intent.") ? (object as Stripe.PaymentIntent).id : (object as Stripe.Checkout.Session).payment_intent as string | null;
-    await supabase.from("Payment").update({ status: "PAID_HELD", paidAt: new Date().toISOString(), provider: "STRIPE", providerRef: paymentIntentId ?? sessionId, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId).in("status", ["PENDING", "PAYMENT_REPORTED"]);
-    await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT");
+    await ensureUpdated(await supabase.from("Payment").update({ status: "PAID_HELD", paidAt: new Date().toISOString(), provider: "STRIPE", providerRef: paymentIntentId ?? sessionId, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId).in("status", ["PENDING", "PAYMENT_REPORTED"]), "payment_paid");
+    await ensureUpdated(await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT"), "booking_confirmed");
+    try {
+      const meetingUrl = await ensureGoogleMeetForBooking(supabase, bookingId);
+      await sendBookingConfirmationEmails(supabase, bookingId, meetingUrl);
+    } catch (error) {
+      // Optional integrations must not turn a successful payment into a failed webhook.
+      console.error("booking_confirmation_integrations_failed", error);
+    }
   }
-  if (bookingId && event.type === "charge.refunded") await supabase.from("Payment").update({ status: "REFUNDED", updatedAt: new Date().toISOString() }).eq("bookingId", bookingId);
-  if (bookingId && ["charge.dispute.created", "charge.dispute.updated"].includes(event.type)) await supabase.from("Payment").update({ status: "DISPUTED", updatedAt: new Date().toISOString() }).eq("bookingId", bookingId);
-  if (bookingId && event.type === "transfer.created") await supabase.from("Payment").update({ stripeTransferId: (object as Stripe.Transfer).id, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId);
-  if (event.type === "account.updated") {
-    const account = object as unknown as Stripe.Account;
-    await supabase.from("ProfessionalProfile").update({ stripeOnboardingStatus: account.details_submitted ? "COMPLETE" : "PENDING", stripeChargesEnabled: account.charges_enabled, stripePayoutsEnabled: account.payouts_enabled, updatedAt: new Date().toISOString() }).eq("stripeAccountId", account.id);
+
+  if (bookingId && ["payment_intent.payment_failed", "checkout.session.expired", "checkout.session.async_payment_failed"].includes(event.type)) {
+    await ensureUpdated(await supabase.from("Payment").update({ status: "FAILED", updatedAt: new Date().toISOString() }).eq("bookingId", bookingId).in("status", ["PENDING", "PAYMENT_REPORTED"]), "payment_failed");
   }
+
+  if (bookingId && event.type === "charge.refunded") {
+    await ensureUpdated(await supabase.from("Payment").update({ status: "REFUNDED", updatedAt: new Date().toISOString() }).eq("bookingId", bookingId), "payment_refunded");
+  }
+
+  if (bookingId && ["charge.dispute.created", "charge.dispute.updated"].includes(event.type)) {
+    await ensureUpdated(await supabase.from("Payment").update({ status: "DISPUTED", updatedAt: new Date().toISOString() }).eq("bookingId", bookingId), "payment_disputed");
+    await ensureUpdated(await supabase.from("Booking").update({ disputedAt: new Date().toISOString(), disputeReason: event.type, updatedAt: new Date().toISOString() }).eq("id", bookingId), "booking_disputed");
+  }
+
+  if (bookingId && event.type === "transfer.created") {
+    await ensureUpdated(await supabase.from("Payment").update({ stripeTransferId: (object as Stripe.Transfer).id, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId), "transfer_recorded");
+  }
+
+  if (event.type === "account.updated" || (event.type as string) === "v2.core.account.updated") {
+    const account = object as Stripe.Account & { configuration?: { recipient?: { capabilities?: { stripe_balance?: { stripe_transfers?: { status?: string } } } } } };
+    const transfersStatus = account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status;
+    await ensureUpdated(await supabase.from("ProfessionalProfile").update({ stripeOnboardingStatus: transfersStatus === "active" ? "COMPLETE" : "PENDING", stripeChargesEnabled: false, stripePayoutsEnabled: transfersStatus === "active", updatedAt: new Date().toISOString() }).eq("stripeAccountId", account.id), "account_status");
+  }
+
+  const { error: eventError } = await supabase.from("StripeWebhookEvent").insert({ id: event.id, type: event.type, payload: event.data.object, createdAt: new Date(event.created * 1000).toISOString() });
+  if (eventError?.code === "23505") return Response.json({ received: true, duplicate: true });
+  if (eventError) return Response.json({ error: eventError.message }, { status: 500 });
   return Response.json({ received: true });
 }
