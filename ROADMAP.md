@@ -10,13 +10,18 @@
 - disponibilidade padronizada em 30/60 minutos;
 - migrations de índices e RLS;
 - documentação operacional e baseline de QA.
+- E2E autenticado com duas contas isoladas;
+- paginação do dashboard do consultor;
+- múltiplas experiências profissionais com datas;
+- privacidade de idade/faixa etária;
+- testes mockados de Stripe, Meet, Resend e crons;
+- revisão e correção das views públicas e funções críticas;
+- deploy da aplicação e Edge Function em produção.
 
-## Próxima rodada
+## Operação antes do lançamento
 
-- E2E autenticado com duas contas;
-- paginação da RPC do consultor;
-- múltiplas experiências com datas;
-- idade/faixa etária com privacidade;
-- testes mockados de Stripe, Meet e Resend;
-- revisão individual das views `SECURITY DEFINER`;
-- deploy do commit validado.
+- validar Stripe em modo de teste com eventos reais;
+- validar criação real de Meet e envio real de e-mails;
+- alinhar o histórico local das migrations com o remoto;
+- revisar os avisos restantes dos advisors do Supabase;
+- concluir a auditoria de acessibilidade e configurar alertas de observabilidade.
