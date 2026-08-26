@@ -1,6 +1,6 @@
 # Google Meet
 
-The application creates a Google Meet space after Stripe confirms a booking. The link is saved in `Booking.meetingUrl` and shown to both participants. If Google is temporarily unavailable, the payment remains confirmed and the scheduled retry route tries again.
+The application creates a Google Meet space after Stripe confirms a booking. The link is saved in `Booking.meetingUrl` and shown to both participants. If Google is temporarily unavailable, the payment remains confirmed and the protected retry endpoint can be invoked later.
 
 ## Google Cloud
 
@@ -34,6 +34,6 @@ Do not put the client secret or refresh token in `NEXT_PUBLIC_*` variables or co
 ## Behavior
 
 - `checkout.session.completed` creates the Meet space after confirming payment.
-- `/api/cron/create-meetings` retries confirmed bookings without a link every 15 minutes.
+- `/api/cron/create-meetings` is a protected retry endpoint for confirmed bookings without a link. It is not currently scheduled in `vercel.json` because the project is on Vercel Hobby; invoke it from an approved scheduler or an operator workflow if automatic retries are required.
 - The link appears in the customer dashboard and consultant consultations page.
 - The existing calendar `.ics` download includes the Meet URL when available.
