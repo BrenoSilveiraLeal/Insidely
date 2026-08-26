@@ -7,13 +7,16 @@ The application creates a Google Meet space after Stripe confirms a booking. The
 1. Create or select a project in Google Cloud Console.
 2. Enable **Google Meet REST API**.
 3. Configure the OAuth consent screen. For production, complete the app verification requirements if Google requests them.
-4. Create an OAuth 2.0 **Web application** client.
-5. Add this redirect URI:
-   `https://insidely.vercel.app/api/google/callback`
-6. Request this scope:
+4. Create an OAuth 2.0 client for the account that will create the Meet spaces.
+5. Request this scope:
    `https://www.googleapis.com/auth/meetings.space.created`
 
-The application account must authorize the client once. Store the resulting refresh token only in Vercel as `GOOGLE_REFRESH_TOKEN`.
+The application account must authorize the client once and generate a refresh token. This integration uses the refresh token server-side; the application does not expose a `/api/google/callback` route.
+
+If Google OAuth Playground is used to generate the token, register/use its redirect URI:
+`https://developers.google.com/oauthplayground`
+
+Store the resulting refresh token only in Vercel as `GOOGLE_REFRESH_TOKEN`.
 
 ## Vercel variables
 
