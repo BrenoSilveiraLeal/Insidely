@@ -3,6 +3,7 @@ type BookingRecipient = { email: string; name: string };
 function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] ?? character); }
 
 export async function sendTransactionalEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) return false;
@@ -13,7 +14,7 @@ export async function sendTransactionalEmail({ to, subject, html }: { to: string
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendBookingConfirmationEmails(supabase: any, bookingId: string, meetingUrl: string | null) {
-  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return;
+  if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
   const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();

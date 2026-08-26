@@ -23,6 +23,7 @@ async function getGoogleAccessToken() {
 
 export async function createGoogleMeetSpace() {
   if (process.env.GOOGLE_MEET_ENABLED !== "true") return null;
+  if (process.env.E2E_MOCK_EXTERNALS === "true") return "https://meet.google.com/e2e-insidely-room";
   const accessToken = await getGoogleAccessToken();
   if (!accessToken) return null;
 

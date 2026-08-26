@@ -37,6 +37,10 @@ function checkoutIntegrationIdentifier() {
   return `insidely_checkout_${suffix}`;
 }
 
+function mockExternalIntegrationsEnabled() {
+  return process.env.E2E_MOCK_EXTERNALS === "true";
+}
+
 export async function createConnectOnboardingLink({ userId, email, returnUrl, refreshUrl }: { userId: string; email: string; returnUrl: string; refreshUrl: string }) {
   const supabase = admin();
   const { data: profile, error } = await supabase.from("ProfessionalProfile").select("id, stripeAccountId").eq("userId", userId).maybeSingle();
@@ -86,6 +90,11 @@ export async function createBookingCheckout({ bookingId, customerId, customerEma
   if (!booking || booking.status !== "PENDING_PAYMENT") throw new Error("Este agendamento não está aguardando pagamento.");
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
   if (!professional?.stripeAccountId || professional.stripeOnboardingStatus !== "COMPLETE" || !professional.stripePayoutsEnabled) throw new Error("O consultor ainda não está habilitado para receber pagamentos.");
+  if (mockExternalIntegrationsEnabled()) {
+    const sessionId = `cs_e2e_${booking.id}`;
+    await supabase.from("Payment").update({ provider: "STRIPE", providerRef: sessionId, stripeCheckoutSessionId: sessionId, updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "PENDING");
+    return `${appUrl}/checkout/${booking.id}?status=mock_checkout_started`;
+  }
   const stripe = getStripe();
   const account = await stripe.v2.core.accounts.retrieve(professional.stripeAccountId, { include: ["configuration.recipient"] });
   if (!recipientTransfersActive(account)) throw new Error("O consultor ainda não está habilitado para receber pagamentos.");
@@ -117,11 +126,22 @@ export async function releaseBookingTransfer(bookingId: string) {
   const amount = Number(booking.totalCents) - Number(booking.feeCents);
   if (amount <= 0) throw new Error("Valor de repasse inválido.");
   const idempotencyKey = `insidely-transfer-${booking.id}`;
-  const attemptId = crypto.randomUUID();
-  await supabase.from("TransferAttempt").insert({ id: attemptId, paymentId: payment.id, bookingId: booking.id, idempotencyKey, status: "PROCESSING", attemptCount: 1 });
-  await supabase.from("Payment").update({ status: "TRANSFER_PROCESSING", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).in("status", ["HELD", "PAID_HELD", "TRANSFER_FAILED"]);
+  const { data: previousAttempt, error: previousAttemptError } = await supabase.from("TransferAttempt").select("id, attemptCount").eq("idempotencyKey", idempotencyKey).maybeSingle();
+  if (previousAttemptError) throw new Error(previousAttemptError.message);
+  const attemptId = previousAttempt?.id ?? crypto.randomUUID();
+  const attemptCount = Number(previousAttempt?.attemptCount ?? 0) + 1;
+  const attemptMutation = previousAttempt
+    ? supabase.from("TransferAttempt").update({ status: "PROCESSING", attemptCount, lastError: null, nextRetryAt: null, updatedAt: new Date().toISOString() }).eq("id", attemptId)
+    : supabase.from("TransferAttempt").insert({ id: attemptId, paymentId: payment.id, bookingId: booking.id, idempotencyKey, status: "PROCESSING", attemptCount });
+  const { error: attemptError } = await attemptMutation;
+  if (attemptError) throw new Error(attemptError.message);
+  const { error: processingError } = await supabase.from("Payment").update({ status: "TRANSFER_PROCESSING", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).in("status", ["HELD", "PAID_HELD", "TRANSFER_FAILED"]);
+  if (processingError) throw new Error(processingError.message);
   try {
-    const transfer = await getStripe().transfers.create({ amount, currency: "brl", destination: professional.stripeAccountId, transfer_group: `booking_${booking.id}`, metadata: { bookingId: booking.id } }, { idempotencyKey });
+    if (mockExternalIntegrationsEnabled() && process.env.E2E_TRANSFER_MODE === "fail-once" && attemptCount === 1) throw new Error("e2e_transfer_failed_once");
+    const transfer = mockExternalIntegrationsEnabled()
+      ? { id: `tr_e2e_${booking.id}` }
+      : await getStripe().transfers.create({ amount, currency: "brl", destination: professional.stripeAccountId, transfer_group: `booking_${booking.id}`, metadata: { bookingId: booking.id } }, { idempotencyKey });
     const { error: updateError } = await supabase.from("Payment").update({ status: "RELEASED", releasedAt: new Date().toISOString(), stripeTransferId: transfer.id, updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "TRANSFER_PROCESSING");
     if (updateError) throw new Error(updateError.message);
     await supabase.from("TransferAttempt").update({ status: "SUCCEEDED", stripeTransferId: transfer.id, updatedAt: new Date().toISOString() }).eq("id", attemptId);
@@ -129,7 +149,7 @@ export async function releaseBookingTransfer(bookingId: string) {
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "transfer_failed";
-    await supabase.from("Payment").update({ status: "TRANSFER_FAILED", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).eq("status", "TRANSFER_PROCESSING");
+    await supabase.from("Payment").update({ status: "TRANSFER_FAILED", updatedAt: new Date().toISOString() }).eq("bookingId", booking.id).in("status", ["HELD", "PAID_HELD", "TRANSFER_PROCESSING", "TRANSFER_FAILED"]);
     await supabase.from("TransferAttempt").update({ status: "FAILED", lastError: message.slice(0, 1000), nextRetryAt: new Date(Date.now() + 15 * 60_000).toISOString(), updatedAt: new Date().toISOString() }).eq("id", attemptId);
     throw error;
   }

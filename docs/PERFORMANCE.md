@@ -1,7 +1,7 @@
 # Performance
 
-Páginas autenticadas são dinâmicas e não devem colocar jobs financeiros no render. Consultas, mensagens, notificações e pagamentos devem ser paginados conforme o volume crescer.
+Páginas autenticadas são dinâmicas e não devem executar jobs financeiros durante o render. Consultas, mensagens, notificações e pagamentos usam consultas paginadas conforme o volume cresce.
 
-As métricas mínimas a acompanhar são TTFB, tempo de RPC, tamanho do JSON, duração de queries Supabase e erros por rota.
+As métricas mínimas são TTFB, tempo das RPCs, tamanho do JSON, duração das queries Supabase e erros por rota.
 
-O dashboard do consultor ainda usa uma RPC agregada grande; a próxima etapa é separar resumo, bookings, mensagens e notificações em consultas paginadas.
+O middleware registra o custo de atualização da sessão; as RPCs paginadas registram duração, bytes UTF-8 e erro em logs estruturados. O TTFB completo deve ser acompanhado por RUM/APM da Vercel.

@@ -7,11 +7,16 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:test": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:test": "next start",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:e2e:auth": "playwright test e2e/authenticated-flow.spec.ts --workers=1",
+    "test:e2e:debug": "playwright test e2e/authenticated-flow.spec.ts --workers=1 --headed --debug",
+    "e2e:preflight": "node scripts/e2e-preflight.mjs",
     "db:health": "node scripts/supabase-health.mjs"
   },
   "dependencies": {

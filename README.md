@@ -57,9 +57,11 @@ Google e LinkedIn usam Supabase Auth. Configure os client IDs/secrets no painel 
 
 O 2FA usa Supabase MFA TOTP: cadastro de fator, QR Code, confirmação, listagem, remoção, desafio após login e verificação AAL2. Se Challenge/Verify estiver desativado no painel Auth, habilite-o para TOTP.
 
-## Pagamento
+## Pagamento — decisão oficial
 
-O PIX atual é demonstrativo. A aplicação gera o payload e permite informar o pagamento; a equipe confirma manualmente. Isso não constitui custódia, escrow ou retenção financeira automática. Um gateway regulado será necessário para movimentação e repasse reais.
+O produto usa **Stripe como fluxo oficial de pagamentos**. O cliente paga via Stripe Checkout; o webhook confirma o pagamento; o valor permanece retido na plataforma até a conclusão e confirmação da conversa; e o Stripe Connect realiza a transferência para o consultor com idempotência e retry.
+
+O PIX manual é apenas legado/demonstrativo e não deve ser usado como caminho de produção. `PIX_RECEIVER_KEY` permanece no código somente para compatibilidade e deve ser removido quando o fluxo legado for descontinuado.
 
 ## Comandos
 

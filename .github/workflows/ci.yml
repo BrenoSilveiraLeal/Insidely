@@ -14,6 +14,14 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_SUPABASE_PUBLISHABLE_KEY }}
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       PIX_RECEIVER_KEY: ci-placeholder-not-for-payments
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_MOCK_EXTERNALS: "true"
+      E2E_TRANSFER_MODE: fail-once
+      GOOGLE_MEET_ENABLED: "true"
+      CRON_SECRET: e2e-cron-secret
+      STRIPE_WEBHOOK_SECRET: whsec_e2e_test_secret
+      STRIPE_SECRET_KEY: sk_test_e2e_test_secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +33,7 @@ jobs:
         run: |
           test -n "$NEXT_PUBLIC_SUPABASE_URL"
           test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          test -n "$E2E_SUPABASE_SERVICE_ROLE_KEY"
           case "$NEXT_PUBLIC_SUPABASE_URL" in
             *cghorzqnbhjcbwsuyrjp*) echo "Refusing to run CI against production"; exit 1 ;;
           esac

@@ -2,14 +2,14 @@
 
 ## Direção
 
-“Clareza radical com calor humano.” A interface usa escala tipográfica incomum, planos cromáticos extensos e formas quase editoriais para transformar uma decisão ansiosa em uma investigação ativa.
+“Clareza radical com calor humano.” A interface usa escala tipográfica incomum, planos cromáticos extensos e formas editoriais para transformar uma decisão ansiosa em uma investigação ativa.
 
-## Princípios reinterpretados da referência
+## Princípios
 
 - navegação fixa em cápsula para preservar orientação durante páginas longas;
 - hero de tela cheia com uma única afirmação dominante;
 - cartões de narrativa empilhados e vinculados ao scroll;
-- transições contínuas por cor, geometria e escala, não por blocos genéricos isolados;
+- transições contínuas por cor, geometria e escala;
 - títulos expressivos e corpo sóbrio para separar emoção de informação operacional;
 - microinterações curtas em hover/foco, sem sacrificar legibilidade;
 - `prefers-reduced-motion` respeitado em CSS e nos componentes de animação.
@@ -26,14 +26,12 @@
 | Azul contextual | `--blue` | `#8ebef0` |
 | Rosa editorial | `--pink` | `#e8a9c9` |
 
-Títulos usam uma pilha rounded do sistema; texto usa uma pilha sans nativa. Isso evita dependência de download de fontes no build.
-
 ## Movimento
 
 - CSS mantém formas orgânicas e feedback de interação.
 - Motion controla entrada progressiva e prefere movimento reduzido quando solicitado pelo sistema.
 - GSAP + ScrollTrigger relaciona a transformação dos cartões à posição de leitura.
-- nenhuma animação bloqueia ação, esconde informação essencial ou depende apenas de movimento para comunicar estado.
+- nenhuma animação bloqueia ação ou esconde informação essencial.
 
 ## Componentes
 

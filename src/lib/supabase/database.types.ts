@@ -1482,6 +1482,11 @@ export type Database = {
         Returns: undefined
       }
       get_consultant_dashboard: { Args: { p_user_id: string }; Returns: Json }
+      get_consultant_summary: { Args: { p_user_id: string }; Returns: Json }
+      get_consultant_bookings: { Args: { p_user_id: string; p_limit?: number; p_offset?: number }; Returns: Json }
+      get_consultant_messages: { Args: { p_user_id: string; p_limit?: number; p_offset?: number }; Returns: Json }
+      get_consultant_notifications: { Args: { p_user_id: string; p_limit?: number; p_offset?: number }; Returns: Json }
+      get_consultant_gains: { Args: { p_user_id: string; p_limit?: number; p_offset?: number }; Returns: Json }
       get_viewer_dashboard: { Args: { p_user_id: string }; Returns: Json }
       health_check: { Args: Record<PropertyKey, never>; Returns: Json }
       search_public_profiles: { Args: { p_query?: string; p_company_slug?: string; p_profession_slug?: string; p_work_mode?: string; p_location?: string; p_limit?: number; p_offset?: number }; Returns: Json }

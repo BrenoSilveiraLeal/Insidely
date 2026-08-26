@@ -11,6 +11,18 @@ async function ensureUpdated(result: { error: { message: string } | null }, oper
   if (result.error) throw new Error(`${operation}: ${result.error.message}`);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function notifyBookingParticipants(supabase: any, bookingId: string) {
+  const { data: booking, error } = await supabase.from("Booking").select("customerId, professional:ProfessionalProfile(userId)").eq("id", bookingId).maybeSingle();
+  if (error) throw new Error(`booking_notification_lookup: ${error.message}`);
+  if (!booking) return;
+  const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
+  const userIds = [booking.customerId, professional?.userId].filter((id, index, list): id is string => Boolean(id) && list.indexOf(id) === index);
+  if (!userIds.length) return;
+  const { error: insertError } = await supabase.from("Notification").insert(userIds.map((userId) => ({ id: crypto.randomUUID(), userId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. Acesse o painel para acompanhar a sala e as próximas etapas.", href: userId === booking.customerId ? "/dashboard/agendamentos" : "/consultor/consultas", createdAt: new Date().toISOString() })));
+  if (insertError) throw new Error(`booking_notification_insert: ${insertError.message}`);
+}
+
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
@@ -41,6 +53,7 @@ export async function POST(request: Request) {
       const paymentIntentId = event.type.startsWith("payment_intent.") ? (object as Stripe.PaymentIntent).id : (object as Stripe.Checkout.Session).payment_intent as string | null;
       await ensureUpdated(await supabase.from("Payment").update({ status: "PAID_HELD", paidAt: new Date().toISOString(), provider: "STRIPE", providerRef: paymentIntentId ?? sessionId, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId).in("status", ["PENDING", "PAYMENT_REPORTED"]), "payment_paid");
       await ensureUpdated(await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT"), "booking_confirmed");
+      await notifyBookingParticipants(supabase, bookingId);
       try {
         const meetingUrl = await ensureGoogleMeetForBooking(supabase, bookingId);
         await sendBookingConfirmationEmails(supabase, bookingId, meetingUrl);

@@ -1,17 +1,8 @@
-import { PaymentStatus, Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { PaginationControls } from "@/components/pagination-controls";
+import { Role, PaymentStatus } from "@/lib/domain";
 import { money, shortDate } from "@/lib/format";
-import { getConsultantDashboard } from "@/lib/queries";
+import { getConsultantGains } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
-
-export const dynamic = "force-dynamic";
-
-export default async function Page() {
-  const user = await requireUser([Role.CONSULTANT]);
-  const profile = await getConsultantDashboard(user.id);
-  const released = profile?.bookings.filter((booking) => booking.payment?.status === PaymentStatus.RELEASED) ?? [];
-  const held = profile?.bookings.filter((booking) => booking.payment?.status === PaymentStatus.HELD) ?? [];
-  const releasedTotal = released.reduce((sum, booking) => sum + booking.totalCents - booking.feeCents, 0);
-  const heldTotal = held.reduce((sum, booking) => sum + booking.totalCents - booking.feeCents, 0);
-  return <DashboardShell mode="consultant" title="Ganhos"><div className="grid grid-2" style={{ marginBottom: 24 }}><div className="metric"><span>Repasse liberado</span><strong>{money(releasedTotal)}</strong><p className="muted">Demonstrativo: na integração real, o provedor transfere este valor para sua conta.</p></div><div className="metric"><span>Valor retido em segurança</span><strong>{money(heldTotal)}</strong><p className="muted">Aguardando a conversa, a confirmação ou o prazo automático.</p></div></div><div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Seu repasse</th><th>Status</th></tr></thead><tbody>{[...released, ...held].map((booking) => <tr key={booking.id}><td>{shortDate(booking.startsAt)}</td><td>{booking.customer.name}</td><td>{money(booking.totalCents - booking.feeCents)}</td><td><span className="status">{booking.payment?.status === PaymentStatus.RELEASED ? "LIBERADO" : "RETIDO"}</span></td></tr>)}</tbody></table></div></DashboardShell>;
-}
+export const dynamic="force-dynamic";
+export default async function Page({searchParams}:{searchParams:Promise<{page?:string}>}){const user=await requireUser([Role.CONSULTANT]);const page=Math.max(1,Number((await searchParams).page)||1);const gains=await getConsultantGains(user.id,page,20);return <DashboardShell mode="consultant" title="Ganhos"><div className="grid grid-2" style={{marginBottom:24}}><div className="metric"><span>Repasse liberado</span><strong>{money(gains.releasedTotalCents)}</strong></div><div className="metric"><span>Valor retido em segurança</span><strong>{money(gains.heldTotalCents)}</strong></div></div><div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Seu repasse</th><th>Status</th></tr></thead><tbody>{gains.items.map(booking=><tr key={booking.id}><td>{shortDate(booking.startsAt)}</td><td>{booking.customer.name}</td><td>{money(booking.totalCents-booking.feeCents)}</td><td><span className="status">{booking.payment?.status===PaymentStatus.RELEASED?"LIBERADO":"RETIDO"}</span></td></tr>)}</tbody></table></div><PaginationControls page={gains.page} total={gains.total} pageSize={gains.pageSize} basePath="/consultor/ganhos"/></DashboardShell>}
