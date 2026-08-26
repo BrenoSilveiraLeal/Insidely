@@ -12,6 +12,8 @@ O código local compila e os testes principais passam, mas a aplicação não de
 ## Achados corrigidos
 
 - **CRÍTICO — corrigido:** `PaymentAuditEvent` permitia privilégios de leitura e alteração para `anon` e `authenticated`. Foi criada a migration `restrict_payment_audit_access`, aplicada no projeto Supabase, removendo esses privilégios. O acesso ficou restrito ao `service_role`.
+- **Baseline corrigido:** novas instalações não concedem mais DML a clientes em `PaymentAuditEvent` nem em views de projeção pública; views públicas recebem somente `SELECT`.
+- **CI endurecido:** o workflow de segurança agora executa secret scanning (Gitleaks), SAST (Semgrep) e auditoria de dependências em pull requests e na branch `main`.
 - **Documentação corrigida:** o retry de criação de reuniões não está agendado atualmente no Vercel Hobby; a documentação não afirma mais que ele roda a cada 15 minutos.
 
 ## Situação por serviço
@@ -21,7 +23,7 @@ O código local compila e os testes principais passam, mas a aplicação não de
 | Supabase Database | PASS | 28 tabelas públicas auditadas; RLS habilitado em 28/28; migrations remotas incluem a correção de `PaymentAuditEvent`. |
 | Supabase RLS | PARTIAL | O advisor reporta tabelas com RLS sem policies. Isso pode ser intencional quando o acesso ocorre apenas por funções/service role, mas precisa de teste com dois usuários reais para confirmar isolamento entre contas. |
 | Supabase Storage | PARTIAL | `verification-documents` é privado; `avatars` e `profile-covers` são públicos, comportamento compatível com mídia de perfil, mas deve ser confirmado como decisão de produto. |
-| Supabase Auth | PARTIAL | Fluxos de login, recuperação/troca de senha, confirmação de e-mail e MFA existem no código. Configuração externa de provedores, URLs e políticas de e-mail não foi verificável integralmente por ferramenta. |
+| Supabase Auth | PARTIAL | Fluxos de login, recuperação/troca de senha, confirmação de e-mail e MFA existem no código. O advisor identificou proteção contra senhas vazadas desativada; ela precisa ser ligada no painel Auth. Configuração externa de provedores, URLs e políticas de e-mail também precisa ser validada. |
 | Vercel | PARTIAL | Projeto e domínios Vercel identificados; deploy de produção mais recente está READY. O deploy é um redeploy de artefato antigo e não contém metadata do commit atual. Variáveis de produção não puderam ser auditadas sem expor valores. |
 | Vercel Cron | PARTIAL | Apenas `release-bookings` está no `vercel.json`. `create-meetings` está protegido, mas sem agendamento automático no Hobby. |
 | Stripe | PARTIAL | Conta LIVE, Checkout para cartão/boleto e webhook com assinatura/idempotência existem no código. Nenhum pagamento real foi executado, conforme a regra de segurança. |
@@ -48,7 +50,7 @@ O código local compila e os testes principais passam, mas a aplicação não de
 - E2E público: **PASS** — 10 cenários desktop/mobile
 - E2E autenticado: **BLOCKED_EXTERNAL** — ambiente Supabase de E2E não conectou
 - `npm audit`: **BLOCKED_EXTERNAL** — endpoint do registry indisponível durante a execução
-- Semgrep/Gitleaks/Trivy: **BLOCKED_EXTERNAL** — ferramentas não instaladas no ambiente
+- Semgrep/Gitleaks/Trivy: **PARTIAL** — Semgrep e Gitleaks foram configurados no CI; Trivy ainda não é necessário para o runtime atual e não foi instalado localmente.
 - Navegador integrado: **BLOCKED_EXTERNAL** — runtime Node do navegador não iniciou; Playwright CLI executou os cenários públicos
 - Vercel runtime errors: houve um erro histórico isolado de permissão em `ProfessionalProfile` em deploy anterior; não houve erro de runtime nas últimas 24h consultadas.
 
@@ -63,6 +65,7 @@ O código local compila e os testes principais passam, mas a aplicação não de
 7. Configurar uma estratégia de retry para Meet compatível com Vercel Hobby, caso o produto exija criação automática após falha.
 8. Verificar DNS e reputação de e-mail: SPF, DKIM, DMARC, domínio remetente e URLs oficiais.
 9. Instalar/executar scanners SAST e secret scanning no CI e acompanhar os advisories do Supabase.
+10. No Supabase Auth, ativar **Leaked password protection** em Authentication → Passwords e revisar o nível mínimo de senha.
 
 ## Conclusão
 
