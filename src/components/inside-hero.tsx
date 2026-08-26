@@ -14,7 +14,7 @@ export function InsideHero() {
     gsap.registerPlugin(ScrollTrigger);
     const context = gsap.context(() => {
       const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
-      timeline.from(".hero-kicker", { y: 18, opacity: 0, duration: 0.45 }).from(".hero-line", { y: 54, opacity: 0, duration: 0.62, stagger: 0.08 }, "-=.18").from([".inside-hero-copy", ".inside-hero-actions"], { y: 24, opacity: 0, duration: 0.5, stagger: 0.08 }, "-=.28").from(".inside-scene", { x: 45, opacity: 0, rotate: 2, duration: 0.7 }, "-=.45");
+      timeline.from(".hero-kicker", { y: 18, opacity: 0, duration: 0.45 }).from(".hero-line", { y: 54, opacity: 0, duration: 0.62, stagger: 0.08 }, "-=.18").from(".inside-hero-copy", { y: 24, opacity: 0, duration: 0.5 }, "-=.28").from(".inside-hero-actions", { opacity: 0, duration: 0.5 }, "-=.28").from(".inside-scene", { x: 45, opacity: 0, rotate: 2, duration: 0.7 }, "-=.45");
       gsap.to(".surface-card", { yPercent: -22, rotate: -2, ease: "none", scrollTrigger: { trigger: scope.current, start: "top top", end: "bottom top", scrub: 0.7 } });
       gsap.to(".inside-card", { yPercent: -7, rotate: 1, ease: "none", scrollTrigger: { trigger: scope.current, start: "top top", end: "bottom top", scrub: 0.7 } });
     }, scope);
