@@ -63,7 +63,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .button-dark { background: var(--ink); color: var(--paper); }
 .password-field { position: relative; display: block; }
 .password-field .input { padding-right: 78px; }
-.password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--ink); font-weight: 800; cursor: pointer; }
+.password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: #fff; font-weight: 800; cursor: pointer; }
 .favorite-button.is-saved { color: var(--red); border-color: var(--red); }
 .button-light { background: var(--paper); color: var(--ink); }
 .button-accent { background: var(--mineral); color: var(--ink); }
