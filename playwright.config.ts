@@ -42,6 +42,10 @@ const requiresAuthenticatedFixture = process.argv.some((argument) => argument.in
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // Authenticated fixtures intentionally share one isolated Supabase project
+  // and test accounts. Keep projects serialized so desktop/mobile cannot
+  // create and clean the same fixture at the same time.
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

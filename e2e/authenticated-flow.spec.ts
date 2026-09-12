@@ -20,15 +20,20 @@ test.describe("fluxo autenticado cliente + consultor", () => {
   });
 
   async function login(page: import("@playwright/test").Page, account: E2EAccount) {
-    await page.goto("/entrar");
-    await page.locator('input[name="email"]').fill(account.email);
-    await page.locator('input[name="password"]').fill(account.password);
-    await page.getByRole("button", { name: "Entrar" }).click();
-    await page.waitForTimeout(250);
-    const alert = page.locator("form.auth-form [role=alert]").first();
-    if (await alert.isVisible().catch(() => false)) {
-      const message = (await alert.innerText()).trim();
-      if (message) throw new Error(`Login failed for ${account.name}: ${message} (url=${page.url()})`);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await page.goto("/entrar");
+      await page.locator('input[name="email"]').fill(account.email);
+      await page.locator('input[name="password"]').fill(account.password);
+      await page.getByRole("button", { name: "Entrar" }).click();
+      await page.waitForTimeout(250);
+      const alert = page.locator("form.auth-form [role=alert]").first();
+      if (await alert.isVisible().catch(() => false)) {
+        const message = (await alert.innerText()).trim();
+        if (message) throw new Error(`Login failed for ${account.name}: ${message} (url=${page.url()})`);
+      }
+      if (/\/(dashboard|consultor|continuar)/.test(page.url())) break;
+      if (attempt === 1) await expect(page).toHaveURL(/\/(dashboard|consultor|continuar)/, { timeout: 15_000 });
+      await page.waitForTimeout(500);
     }
     await expect(page).toHaveURL(/\/(dashboard|consultor|continuar)/, { timeout: 15_000 });
     if (page.url().endsWith("/continuar")) await expect(page).toHaveURL(/\/(dashboard|consultor)/);
@@ -61,6 +66,10 @@ test.describe("fluxo autenticado cliente + consultor", () => {
   }
 
   test("completa booking, pagamento, comunicação, Meet, relatório, retry e avaliação", async ({ browser, request }) => {
+    // The first authenticated desktop run can include Next.js dev-server
+    // compilation. Keep the scenario deterministic without weakening its
+    // individual assertion timeouts.
+    test.setTimeout(60_000);
     const customerContext = await browser.newContext();
     const consultantContext = await browser.newContext();
     const customer = await customerContext.newPage();
