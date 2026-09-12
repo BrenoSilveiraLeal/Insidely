@@ -19,5 +19,5 @@ export default async function LoginPage({searchParams}:{searchParams:Promise<{so
 	const params=await searchParams;
 	const socialMessage = params.social ? socialMessages[params.social] ?? socialMessages.erro : undefined;
 	const accountMessage = params.cadastro ? accountMessages[params.cadastro] : params.senha ? accountMessages[params.senha] : undefined;
-	return <main className="auth-page"><section className="auth-art"><Link className="brand" href="/">insidely.</Link><h1>Entre com perguntas.</h1></section><section className="auth-panel">{socialMessage && <p className="form-error" role="alert">{socialMessage}</p>}{accountMessage && <p className="form-feedback" role="status">{accountMessage}</p>}<LoginForm google linkedin socialPending={params.social==="pendente"}/><RememberLogin /></section></main>
+	return <main className="auth-page"><section className="auth-art"><Link className="brand" href="/">insidely.</Link><h1>Entre com perguntas.</h1></section><section className="auth-panel">{socialMessage && <p className="form-error" role="alert">{socialMessage}</p>}{accountMessage && <p className="form-feedback" role="status">{accountMessage}</p>}<LoginForm google socialPending={params.social==="pendente"}/><RememberLogin /></section></main>
 }

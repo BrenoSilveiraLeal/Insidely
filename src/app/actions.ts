@@ -82,7 +82,7 @@ export async function updatePasswordAction(_: string | undefined, formData: Form
 export async function changePasswordAction(_: string | undefined, formData: FormData) { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const password = String(formData.get("password") || ""); const confirmation = String(formData.get("confirmation") || ""); if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número."; if (password !== confirmation) return "As senhas não coincidem."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.updateUser({ password }); if (error) return "Não foi possível alterar sua senha agora. Tente novamente."; return "Senha alterada com sucesso."; }
 
 
-export async function socialSignInAction(provider: "google" | "linkedin_oidc") {
+export async function socialSignInAction(provider: "google") {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${getAppUrl()}/auth/callback?next=/continuar` } });
   if (error || !data.url) redirect("/entrar?social=erro");
