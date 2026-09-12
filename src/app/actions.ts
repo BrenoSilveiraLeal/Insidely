@@ -10,6 +10,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern } from "@/lib/security";
 import { getAppUrl } from "@/lib/app-url";
 import { createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
+import { sendPaymentInstructionsEmail } from "@/lib/email";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
 type RpcName = keyof Database["public"]["Functions"];
@@ -133,6 +134,11 @@ export async function createBookingAction(profileId: string, formData: FormData)
     const reason = message.includes("slot_too_soon") ? "muito_cedo" : message.includes("slot_unavailable") ? "indisponivel" : message.includes("unauthorized") ? "sessao" : "temporario";
     redirect(`/agendar/${profileId}?erro=${reason}`);
   }
+  try {
+    await sendPaymentInstructionsEmail(await createSupabaseServerClient(), booking, `${getAppUrl()}/checkout/${booking}`);
+  } catch (error) {
+    console.error("payment_instructions_email_failed", { booking, error });
+  }
   redirect(`/checkout/${booking}`);
 }
 
@@ -166,7 +172,7 @@ export async function startStripeConnectOnboardingAction() {
 function localDateToUtc(value: string, offset: number) { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : new Date(d.getTime() + offset * 60_000); }
 export async function createAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.CONSULTANT]); const starts = localDateToUtc(String(formData.get("startsAt")), Number(formData.get("timezoneOffset"))); const duration = Number(formData.get("duration")); if (!starts || !duration) return { status: "error", message: "Horário inválido." }; try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: starts.toISOString(), p_ends_at: new Date(starts.getTime() + duration * 60_000).toISOString() }); revalidatePath("/consultor/agenda"); return { status: "success", message: "Horário adicionado à sua agenda." }; } catch { return { status: "error", message: "Não foi possível salvar este horário no Supabase." }; } }
 export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("remove_consultant_availability", { p_availability_id: id }); revalidatePath("/consultor/agenda"); }
-export async function releaseEligibleBookings() { await rpc("release_eligible_bookings_for_user", {}); }
+export async function releaseEligibleBookings() { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); await rpc("release_eligible_bookings_for_user", {}); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }

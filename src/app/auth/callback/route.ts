@@ -21,10 +21,17 @@ export async function GET(request: NextRequest) {
     const service = createSupabaseServiceClient();
     const email = user.email.toLowerCase();
     let { data: profile, error: profileError } = await service.from("User").select("id, role, onboardingCompleted").eq("auth_user_id", user.id).maybeSingle();
+    // Never bind an OAuth identity to an existing profile by email alone.
+    // Account linking must happen from an authenticated, explicit flow.
     if (!profile && !profileError) {
-      const byEmail = await service.from("User").select("id, role, onboardingCompleted").eq("email", email).maybeSingle();
-      profile = byEmail.data;
-      profileError = byEmail.error;
+      const byEmail = await service.from("User").select("id, auth_user_id").eq("email", email).maybeSingle();
+      if (byEmail.error) {
+        profileError = byEmail.error;
+      } else if (byEmail.data?.auth_user_id) {
+        return NextResponse.redirect(new URL("/entrar?social=conta_existente", request.url));
+      } else if (byEmail.data) {
+        return NextResponse.redirect(new URL("/entrar?social=vinculacao", request.url));
+      }
     }
     if (profile) {
       const update = await service.from("User").update({ auth_user_id: user.id, name, image, updatedAt: new Date().toISOString() }).eq("id", profile.id);
