@@ -150,11 +150,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .detail-list { display: grid; gap: 12px; padding: 0; list-style: none; }
 .detail-list li { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 
-.auth-page { min-height: 100svh; display: grid; grid-template-columns: 1.05fr .95fr; background: var(--ink); }
+.auth-page { min-height: 100svh; height: 100dvh; display: grid; grid-template-columns: 1.05fr .95fr; overflow: hidden; background: var(--ink); }
 .auth-art { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: end; padding: 64px; color: var(--ink); background: var(--mineral); }
 .auth-art::after { content: "?"; position: absolute; top: -12%; right: -6%; font: 800 42vw/1 var(--display); opacity: .18; }
 .auth-art h1 { position: relative; z-index: 2; margin: 0; font: 800 clamp(4rem, 8vw, 8rem)/.78 var(--display); letter-spacing: -.075em; }
-.auth-panel { display: grid; place-items: center; padding: 100px 32px 40px; color: var(--paper); }
+.auth-panel { min-height: 0; display: grid; place-items: center; padding: 32px; overflow: hidden; color: var(--paper); }
 .auth-form { width: min(460px, 100%); }
 .auth-form h2 { font: 800 3rem/1 var(--display); letter-spacing: -.055em; }
 .auth-form .input, .auth-form .select { background: #272a26; border-color: #454a43; color: var(--paper); }
