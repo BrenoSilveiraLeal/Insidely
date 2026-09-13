@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Role } from "@/lib/domain";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern } from "@/lib/security";
 import { getAppUrl } from "@/lib/app-url";
@@ -240,12 +241,12 @@ export async function removeProfileCoverAction() {
 export async function deleteAccountAction(_: string | undefined, formData: FormData) { const user = await requireUser(); const confirmation = String(formData.get("confirmation") || "").trim().toLowerCase(); if (confirmation !== user.email.trim().toLowerCase()) return "Digite exatamente o e-mail da sua conta para confirmar a exclusão."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.functions.invoke("delete-account", { body: { confirmation } }); if (error) return `Não foi possível concluir a remoção segura da conta: ${error.message}`; await supabase.auth.signOut(); redirect("/?conta=excluida"); }
 export async function submitSupportAction(formData: FormData) { await requireUser(); await rpc("create_support_report", { p_category: String(formData.get("category") || ""), p_description: String(formData.get("description") || "") }); redirect("/suporte?enviado=1"); }
 async function markNotificationRead(id: string, userId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("id", id).eq("userId", userId).is("readAt", null);
   if (error) throw new Error(`Não foi possível marcar a notificação como lida: ${error.message}`);
 }
 export async function markNotificationReadAction(id: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
-export async function markAllNotificationsReadAction() { const user = await requireUser(); const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("userId", user.id).is("readAt", null); if (error) throw new Error(`Não foi possível marcar as notificações como lidas: ${error.message}`); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
+export async function markAllNotificationsReadAction() { const user = await requireUser(); const supabase = createSupabaseServiceClient(); const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("userId", user.id).is("readAt", null); if (error) throw new Error(`Não foi possível marcar as notificações como lidas: ${error.message}`); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
 export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(href.startsWith("/") ? href : "/"); }
 export async function reportProfileAction(profileId: string, formData: FormData) { await requireUser(); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED") { await requireUser([Role.ADMIN]); await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id); revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); }
