@@ -480,6 +480,13 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .inside-hero-content { z-index: 6; }
 .inside-scene { min-width: 0; max-width: 100%; }
 .sidebar { align-self: start; }
+
+/* Keep the desktop dashboard navigation fully contained and independent from page scroll. */
+@media (min-width: 951px) {
+  .dash-shell { display: block; }
+  .sidebar { position: fixed; inset: 0 auto 0 0; width: 250px; height: 100dvh; overflow-y: auto; }
+  .dash-main { margin-left: 250px; }
+}
 /* Keep the single remaining social provider at the full available width. */
 .social-grid { grid-template-columns: 1fr; }
 .social-button { width: 100%; }
