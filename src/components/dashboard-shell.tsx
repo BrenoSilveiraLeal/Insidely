@@ -8,31 +8,19 @@ const menus = {
   admin: [["/admin", "Visão geral"], ["/admin/verificacoes", "Verificações"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Suporte"]],
 } as const;
 
-export function DashboardShell({ mode, title, children, profileId, notifications = [], canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notifications?: { id: string; title: string; body: string; href: string | null; readAt: string | null }[]; canClient?: boolean; canConsultant?: boolean }) {
+type Notification = { id: string; title: string; body: string; href: string | null; readAt: string | null };
+
+export function DashboardShell({ mode, title, children, profileId, notifications = [], canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notifications?: Notification[]; canClient?: boolean; canConsultant?: boolean }) {
   const profileHref = profileId ? `/profissional/${profileId}` : "/profissional/me";
   return <main className="dash"><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
-      <div className="side-nav-section">
-        <span className="side-nav-label">Trabalho</span>
-        {menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-      </div>
-      <div className="side-nav-section side-nav-secondary">
-        <span className="side-nav-label">Conta</span>
-        {menus.consultant.slice(4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-      </div>
-      <div className="side-nav-footer">
-        <Link className="side-nav-profile" href={profileHref}>Visualizar seu perfil</Link>
-        <Link href="/dashboard">Modo cliente</Link>
-        <Link href="/suporte">Suporte</Link>
-        <Link href="/buscar">Ver plataforma</Link>
-        <form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form>
-      </div>
+      <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
+      <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span>{menus.consultant.slice(4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
+      <div className="side-nav-footer"><Link className="side-nav-profile" href={profileHref}>Visualizar seu perfil</Link><Link href="/dashboard">Modo cliente</Link><Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form></div>
     </> : <>
       {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-      {canClient && <Link href="/dashboard">Modo cliente</Link>}
-      {canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}
-      <Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link>
-      <form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form>
+      {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}
+      <Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form>
     </>}
-  </nav></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "consultant" && <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
+  </nav></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode !== "admin" && <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
 }
