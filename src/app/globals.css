@@ -238,7 +238,9 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .search-panel { grid-template-columns: 1fr; margin-top: -20px; }
   .page-hero::after { opacity: .25; }
   .auth-art { display: none; }
-  .auth-panel { min-height: 100vh; padding: 120px 20px 40px; }
+  .auth-panel { min-height: 100dvh; padding: 24px 20px 18px; align-content: center; }
+  .auth-form.form-stack { gap: 12px; }
+  .auth-form h2 { font-size: 2.6rem; }
   .dash-main { padding: 28px 14px 60px; }
   .footer-grid { grid-template-columns: 1fr; }
   .list-row { grid-template-columns: 1fr; }
