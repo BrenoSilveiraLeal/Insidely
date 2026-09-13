@@ -348,7 +348,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 /* Painel responsivo: navegação compacta e conteúdo sem rolagem lateral. */
 @media (max-width: 950px) {
   .dash-shell { display: block; }
-  .sidebar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; height: auto; min-height: 64px; padding: 8px 12px; }
+  .sidebar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; height: auto; min-height: 64px; padding: 8px 12px; }
   .sidebar .brand { flex: 0 0 auto; padding: 6px 8px; font-size: 1.35rem; }
   .side-nav { min-width: 0; display: flex; flex: 1 1 auto; gap: 6px; overflow-x: auto; scrollbar-width: none; }
   .side-nav::-webkit-scrollbar { display: none; }
