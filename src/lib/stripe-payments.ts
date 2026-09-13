@@ -154,3 +154,34 @@ export async function releaseBookingTransfer(bookingId: string) {
     throw error;
   }
 }
+
+export async function cancelBookingAndRefund({ bookingId, consultantId, reason }: { bookingId: string; consultantId: string; reason: string }) {
+  const supabase = admin();
+  const { data: profile, error: profileError } = await supabase.from("ProfessionalProfile").select("id").eq("userId", consultantId).maybeSingle();
+  if (profileError) throw new Error(profileError.message);
+  if (!profile) throw new Error("Perfil profissional não encontrado.");
+  const { data: booking, error } = await supabase.from("Booking").select("id, customerId, availabilityId, startsAt, status, totalCents, payment:Payment(*)").eq("id", bookingId).eq("professionalProfileId", profile.id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!booking) throw new Error("Conversa não encontrada.");
+  if (!["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) || new Date(booking.startsAt).getTime() <= Date.now()) throw new Error("Esta conversa não pode mais ser cancelada pelo consultor.");
+  const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
+  const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));
+  if (paid && payment?.provider === "STRIPE" && !payment.stripePaymentIntentId) throw new Error("O pagamento não tem uma referência segura para reembolso.");
+  if (paid && payment?.provider === "STRIPE" && payment.stripePaymentIntentId) {
+    await getStripe().refunds.create({ payment_intent: payment.stripePaymentIntentId, reason: "requested_by_customer", metadata: { bookingId, reason: reason.slice(0, 500) } }, { idempotencyKey: `insidely-refund-${bookingId}` });
+  }
+  const now = new Date().toISOString();
+  const { error: bookingError } = await supabase.from("Booking").update({ status: "CANCELLED", updatedAt: now }).eq("id", bookingId).in("status", ["PENDING_PAYMENT", "CONFIRMED"]);
+  if (bookingError) throw new Error(bookingError.message);
+  if (payment && paid) {
+    const { error: paymentError } = await supabase.from("Payment").update({ status: "REFUNDED", updatedAt: now }).eq("id", payment.id).in("status", ["PAID_HELD", "HELD", "APPROVED"]);
+    if (paymentError) throw new Error(paymentError.message);
+  }
+  if (booking.availabilityId) {
+    const { error: availabilityError } = await supabase.from("Availability").update({ isBooked: false }).eq("id", booking.availabilityId);
+    if (availabilityError) throw new Error(availabilityError.message);
+  }
+  const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa cancelada e reembolso iniciado", body: `O consultor cancelou a conversa. ${paid ? "O valor integral será devolvido pelo meio de pagamento usado." : "Como o pagamento ainda não havia sido confirmado, nenhuma cobrança foi concluída."}`, href: "/dashboard/agendamentos", createdAt: now });
+  if (notificationError) throw new Error(notificationError.message);
+  return { customerId: booking.customerId, refunded: paid };
+}

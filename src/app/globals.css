@@ -160,6 +160,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-form .input, .auth-form .select { background: #272a26; border-color: #454a43; color: var(--paper); }
 .form-stack { display: grid; gap: 17px; }
 .form-error { padding: 12px; border-radius: 12px; color: #ffd8d0; background: rgba(214,92,70,.22); font-size: .85rem; }
+.form-success { padding: 12px; border-radius: 12px; color: #17433a; background: #d7eee8; font-size: .85rem; }
+.cancel-booking-form { display: grid; gap: 8px; margin: 18px 0; padding: 15px; border: 1px solid rgba(214,92,70,.45); border-radius: 16px; background: rgba(255,118,87,.06); }
+.cancel-booking-form strong { font-size: .88rem; }
+.cancel-booking-form p { margin: 0; font-size: .78rem; }
 .demo-box { margin-top: 24px; padding: 16px; border: 1px solid #454a43; border-radius: 17px; font-size: .8rem; color: #bfc4bb; }
 
 .dash { min-height: 100vh; background: #e9e7df; }

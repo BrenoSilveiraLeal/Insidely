@@ -43,3 +43,17 @@ export async function sendPaymentInstructionsEmail(supabase: any, bookingId: str
   const pix = pixCode ? `<h3>Pagamento por Pix</h3><p>Copie o código Pix abaixo no aplicativo do seu banco:</p><p><code>${escapeHtml(pixCode)}</code></p>` : "";
   await sendTransactionalEmail({ to: customer.email, subject: "Finalize o pagamento da sua conversa na Insidely", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>Sua conversa com ${escapeHtml(professionalUser?.name || "o consultor")} está reservada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p><p><a href="${escapeHtml(checkoutUrl)}">Abrir checkout seguro</a></p>${pix}<p>A conversa só será liberada depois que o pagamento for confirmado.</p>` });
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendBookingCancellationEmail(supabase: any, bookingId: string, reason: string, refunded: boolean) {
+  if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
+  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professional:ProfessionalProfile(user:User(name))").eq("id", bookingId).maybeSingle();
+  if (error || !booking) throw new Error(`cancellation_email_lookup: ${error?.message ?? "not_found"}`);
+  const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
+  if (!customer?.email) return;
+  const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
+  const professionalUser = Array.isArray(professional?.user) ? professional.user[0] : professional?.user;
+  const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const refundMessage = refunded ? "O reembolso integral foi solicitado ao meio de pagamento utilizado. O prazo para aparecer na sua conta depende da instituição financeira." : "Como o pagamento ainda não havia sido confirmado, não houve cobrança concluída.";
+  await sendTransactionalEmail({ to: customer.email, subject: "Sua conversa na Insidely foi cancelada", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>O consultor ${escapeHtml(professionalUser?.name || "responsável pela conversa")} precisou cancelar a conversa marcada para <strong>${escapeHtml(date)}</strong>.</p><p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p><p>${refundMessage}</p><p>Você pode voltar à plataforma para escolher outro profissional e horário.</p>` });
+}

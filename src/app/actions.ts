@@ -10,8 +10,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern } from "@/lib/security";
 import { getAppUrl } from "@/lib/app-url";
-import { createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendPaymentInstructionsEmail } from "@/lib/email";
+import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
+import { sendBookingCancellationEmail, sendPaymentInstructionsEmail } from "@/lib/email";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
 type RpcName = keyof Database["public"]["Functions"];
@@ -179,6 +179,22 @@ export async function confirmConversationAction(id: string) { await requireUser(
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
+export async function cancelBookingAction(id: string, formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const reason = String(formData.get("reason") || "").trim();
+  if (reason.length < 10 || reason.length > 500) redirect("/consultor/consultas?cancelamento=motivo");
+  try {
+    const result = await cancelBookingAndRefund({ bookingId: id, consultantId: user.id, reason });
+    try { await sendBookingCancellationEmail(createSupabaseServiceClient(), id, reason, result.refunded); } catch (error) { console.error("booking_cancellation_email_failed", { bookingId: id, error }); }
+    revalidatePath("/consultor"); revalidatePath("/consultor/consultas"); revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos");
+    redirect("/consultor/consultas?cancelamento=ok");
+  } catch (error) {
+    const digest = error && typeof error === "object" && "digest" in error ? String((error as { digest?: unknown }).digest) : "";
+    if (digest.startsWith("NEXT_REDIRECT")) throw error;
+    console.error("booking_cancellation_failed", { bookingId: id, error });
+    redirect("/consultor/consultas?cancelamento=erro");
+  }
+}
 export async function sendMessageAction(id: string, formData: FormData) { await requireUser(); const body = String(formData.get("body") || "").trim(); if (!body || body.length > 2000 || blockedContactPattern.test(body)) throw new Error("A mensagem está vazia, longa demais ou contém contato/link não permitido."); await rpc("send_message", { p_conversation_id: id, p_body: body }); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("update_privacy", { p_payload: formText(formData) }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
