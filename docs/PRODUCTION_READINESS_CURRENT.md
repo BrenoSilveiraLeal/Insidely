@@ -9,7 +9,7 @@ A aplicacao em producao responde corretamente. O codigo local passa nas validaco
 ## Evidencias verificadas
 
 - Supabase: projeto `Insidely` ativo e saudavel; migrations aplicadas remotamente.
-- Supabase E2E: projeto existente `insidely-ci` ativo e saudavel; usado pelos testes autenticados.
+- Supabase: o runtime e os testes usam exclusivamente o projeto `Insidely`.
 - Vercel: deployment READY com o commit `c185c70816a0b90841fc5f29ff6441e2e33cde34`.
 - Producao: `/api/health` retornou HTTP 200 com `app=ok` e `database=ok`.
 - Runtime Vercel: nenhum erro agrupado nos ultimos 7 dias e nenhum log de erro nas ultimas 24 horas.

@@ -9,7 +9,7 @@ Credenciais externas não são usadas em testes determinísticos. Stripe, Google
 Variáveis necessárias:
 
 ```env
-E2E_SUPABASE_SERVICE_ROLE_KEY=ey...
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 E2E_MOCK_EXTERNALS=true
 E2E_TRANSFER_MODE=fail-once
 GOOGLE_MEET_ENABLED=true
@@ -17,4 +17,4 @@ CRON_SECRET=e2e-cron-secret
 STRIPE_WEBHOOK_SECRET=whsec_e2e_test_secret
 ```
 
-O workflow exige uma service key do projeto de teste e mantém a proteção contra o projeto de produção.
+O workflow usa exclusivamente os secrets do projeto Insidely. O E2E autenticado só deve ser executado com uma service key do Insidely e nunca deve usar uma chave publicável no lugar dela.

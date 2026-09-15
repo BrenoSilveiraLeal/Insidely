@@ -7,7 +7,6 @@ type AnyClient = any;
 export type E2EAccount = { authId: string; userId: string; email: string; password: string; name: string };
 export type E2EState = { customer: E2EAccount; consultant: E2EAccount; profileId: string; slotId: string; bookingId?: string; reportId?: string; seededCompanyId?: string; seededProfessionId?: string };
 
-const defaultE2ESupabaseUrl = "https://ifacnetraghfnvbilvhh.supabase.co";
 function cleanEnv(value: string | undefined) {
   return value?.trim().replace(/^(['"])(.*)\1$/, "$2");
 }
@@ -16,11 +15,11 @@ function validHttpUrl(value: string | undefined): value is string {
   if (/^[a-z0-9]{20}$/.test(value)) return true;
   try { const parsed = new URL(value); return parsed.protocol === "http:" || parsed.protocol === "https:"; } catch { return false; }
 }
-const configuredUrl = cleanEnv(process.env.E2E_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL);
+const configuredUrl = cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const url = validHttpUrl(configuredUrl)
   ? (/^[a-z0-9]{20}$/.test(configuredUrl) ? `https://${configuredUrl}.supabase.co` : configuredUrl)
-  : defaultE2ESupabaseUrl;
-const serviceKey = cleanEnv(process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY);
+  : null;
+const serviceKey = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
 export const authenticatedE2EEnabled = Boolean(url && serviceKey);
 
 function adminClient() {

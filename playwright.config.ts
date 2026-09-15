@@ -31,8 +31,8 @@ function cleanUrl(value: string | undefined) {
   }
 }
 
-const e2eSupabaseUrl = cleanUrl(process.env.E2E_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL) ?? "https://ifacnetraghfnvbilvhh.supabase.co";
-const e2ePublishableKey = process.env.E2E_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_MAvcSkUiaOKhJ8BgFDnbHA_GPhX_hZX";
+const e2eSupabaseUrl = cleanUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const e2ePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const portValue = Number(process.env.PLAYWRIGHT_PORT ?? "3111");
 const port = Number.isInteger(portValue) && portValue >= 1024 && portValue <= 65535 ? portValue : 3111;
 const configuredE2EBase = cleanUrl(process.env.E2E_BASE_URL);
@@ -42,7 +42,7 @@ const requiresAuthenticatedFixture = process.argv.some((argument) => argument.in
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  // Authenticated fixtures intentionally share one isolated Supabase project
+  // Authenticated fixtures use the configured Insidely project only when a
   // and test accounts. Keep projects serialized so desktop/mobile cannot
   // create and clean the same fixture at the same time.
   workers: 1,
@@ -59,10 +59,10 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       ...process.env,
-      NEXT_PUBLIC_SUPABASE_URL: e2eSupabaseUrl,
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: e2ePublishableKey,
+      ...(e2eSupabaseUrl ? { NEXT_PUBLIC_SUPABASE_URL: e2eSupabaseUrl } : {}),
+      ...(e2ePublishableKey ? { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: e2ePublishableKey } : {}),
       NEXT_PUBLIC_APP_URL: baseURL,
-      ...(process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ? { SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY } : {}),
+      ...(process.env.SUPABASE_SERVICE_ROLE_KEY ? { SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY } : {}),
     },
     timeout: 120_000,
   },

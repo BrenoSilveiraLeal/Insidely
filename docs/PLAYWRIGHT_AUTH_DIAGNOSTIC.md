@@ -4,12 +4,11 @@ O fluxo autenticado usa exclusivamente um servidor Next iniciado pelo Playwright
 
 ## Configuração local
 
-No PowerShell, dentro de `C:\Insidely`, informe a URL e a service role key do projeto Supabase CI. A URL deve ficar em `E2E_SUPABASE_URL`; o teste não usa `NEXT_PUBLIC_SUPABASE_URL` como fallback, evitando apontar acidentalmente para produção. A service role key é secreta e não deve ser commitada:
+No PowerShell, dentro de `C:\Insidely`, informe a URL e a service role key do projeto Supabase Insidely. A URL deve ficar em `NEXT_PUBLIC_SUPABASE_URL`; a service role key é secreta e não deve ser commitada:
 
 ```powershell
-$env:E2E_SUPABASE_URL = "https://SEU_REF.supabase.co"
-$env:E2E_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..."
-$env:E2E_SUPABASE_SERVICE_ROLE_KEY = "sb_secret_..."
+$env:NEXT_PUBLIC_SUPABASE_URL = "https://cghorzqnbhjcbwsuyrjp.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "sb_secret_..."
 npm run e2e:preflight
 ```
 

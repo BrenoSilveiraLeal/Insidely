@@ -7,7 +7,7 @@ type BookingSnapshot = { status: string; customerConfirmedAt: string | null; con
 test.describe.configure({ mode: "serial" });
 
 test.describe("fluxo autenticado cliente + consultor", () => {
-  test.skip(!authenticatedE2EEnabled, "Defina E2E_SUPABASE_SERVICE_ROLE_KEY para executar o E2E autenticado em um banco de teste isolado.");
+  test.skip(!authenticatedE2EEnabled, "Defina SUPABASE_SERVICE_ROLE_KEY para executar o E2E autenticado no projeto Insidely.");
 
   let state: E2EState;
 

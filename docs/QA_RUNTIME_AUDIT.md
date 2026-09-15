@@ -50,4 +50,4 @@ Verificar em desktop e mobile cada rota autenticada e pública:
 
 ## Fixtures CI
 
-Os fixtures autenticados estão em `e2e/authenticated-flow.fixture.ts` e criam duas contas isoladas usando `E2E_SUPABASE_SERVICE_ROLE_KEY`. O CI deve usar um projeto Supabase de teste dedicado, nunca credenciais de produção. Sem essa secret o teste é pulado, não considerado aprovado.
+Os fixtures autenticados estão em `e2e/authenticated-flow.fixture.ts` e criam duas contas isoladas usando `SUPABASE_SERVICE_ROLE_KEY` no projeto Insidely. Sem essa secret o teste é pulado, não considerado aprovado.
