@@ -23,12 +23,22 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
   const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const cover = profile.privacy?.showPhoto ? profile.coverImage : null;
+  const verification = profile.verificationStatus === "VERIFIED"
+    ? { label: "Experiência verificada", detail: "A Insiderly conferiu a comprovação profissional enviada para este perfil." }
+    : profile.verificationStatus === "PENDING"
+      ? { label: "Comprovação em análise", detail: "A experiência e o vínculo com a empresa foram informados pela própria pessoa e ainda estão em análise pela Insiderly." }
+      : profile.verificationStatus === "MORE_INFO_REQUIRED"
+        ? { label: "Comprovação incompleta", detail: "A Insiderly pediu informações adicionais. Até a conclusão da análise, a experiência e o vínculo com a empresa não estão comprovados." }
+        : profile.verificationStatus === "REJECTED"
+          ? { label: "Experiência não comprovada", detail: "A comprovação não foi aprovada. A experiência e o vínculo com a empresa permanecem sem validação da Insiderly." }
+          : { label: "Experiência não comprovada", detail: "A experiência e o vínculo com a empresa foram declarados pela própria pessoa e ainda não foram comprovados à Insiderly." };
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
       <div className="container">
         <div className={`avatar${photo ? " avatar-photo" : ""}`} style={{ width: 120, fontSize: "2.4rem", ...(photo ? { backgroundImage: `url(${photo})` } : {}) }}>{photo ? null : initials(name)}</div>
-        <div className="card-meta"><span className="badge"><ShieldCheck size={13}/> {profile.verificationStatus === "VERIFIED" ? "Experiência verificada" : "Verificação em análise"}</span><span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
+        <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" && <ShieldCheck size={13}/>} {verification.label}</span><span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
+        <p className="verification-disclosure" role="note">{verification.detail}</p>
         <h1 className="profile-title">{name}</h1>
         <p className="section-copy">{profile.headline}</p>
       </div>

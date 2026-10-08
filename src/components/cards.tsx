@@ -10,10 +10,11 @@ type ProfileCardData = {
 export function ProfessionalCard({ profile, index = 0 }: { profile: ProfileCardData; index?: number }) {
   const name = publicName(profile); const rating = profile.reviews.length ? profile.reviews.reduce((sum, item) => sum + item.rating, 0) / profile.reviews.length : null; const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const accents = ["var(--blue)", "var(--amber)", "var(--pink)", "var(--mineral)"];
+  const verificationLabel = profile.verificationStatus === "VERIFIED" ? "Experiência verificada" : profile.verificationStatus === "PENDING" ? "Comprovação em análise" : profile.verificationStatus === "MORE_INFO_REQUIRED" ? "Comprovação precisa de informações" : profile.verificationStatus === "REJECTED" ? "Experiência não verificada" : "Experiência não comprovada";
   return <Link href={`/profissional/${profile.id}`} className="card professional-card" style={{ "--card-accent": accents[index % accents.length] } as React.CSSProperties}>
     <div className="avatar-zone"><span className={`avatar${photo ? " avatar-photo" : ""}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{photo ? null : initials(name)}</span></div>
     <div className="card-body" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div className="card-meta">{profile.verificationStatus === "VERIFIED" && <span className="badge"><ShieldCheck size={13}/> Verificado</span>}<span className="badge">{profile.workMode === "REMOTE" ? "Remoto" : profile.workMode === "HYBRID" ? "Híbrido" : "Presencial"}</span></div>
+      <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" ? <ShieldCheck size={13}/> : null}{verificationLabel}</span><span className="badge">{profile.workMode === "REMOTE" ? "Remoto" : profile.workMode === "HYBRID" ? "Híbrido" : "Presencial"}</span></div>
       <h3>{name}</h3><span className="muted">{profile.headline}</span>
       <div className="card-meta"><span className="badge"><BriefcaseBusiness size={12}/>{profile.experiences[0]?.company.name}</span><span className="badge"><MapPin size={12}/>{profile.location}</span></div>
       <div className="card-footer"><span><strong>{money(profile.price30Cents)}</strong> / 30 min</span><span className="rating">{rating ? <><Star size={14} fill="currentColor"/> {rating.toFixed(1)}</> : "Novo"}</span></div>
