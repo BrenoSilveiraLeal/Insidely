@@ -57,11 +57,9 @@ Google e LinkedIn usam Supabase Auth. Configure os client IDs/secrets no painel 
 
 O 2FA usa Supabase MFA TOTP: cadastro de fator, QR Code, confirmação, listagem, remoção, desafio após login e verificação AAL2. Se Challenge/Verify estiver desativado no painel Auth, habilite-o para TOTP.
 
-## Pagamento — decisão oficial
+## Pagamento — demonstração acadêmica
 
-O produto usa **Stripe como fluxo oficial de pagamentos**. O cliente paga via Stripe Checkout; o webhook confirma o pagamento; o valor permanece retido na plataforma até a conclusão e confirmação da conversa; e o Stripe Connect realiza a transferência para o consultor com idempotência e retry.
-
-O PIX manual é apenas legado/demonstrativo e não deve ser usado como caminho de produção. `PIX_RECEIVER_KEY` permanece no código somente para compatibilidade e deve ser removido quando o fluxo legado for descontinuado.
+O checkout atual é uma **simulação**: oferece Pix, cartão de crédito, cartão de débito e boleto, mas não coleta dados financeiros nem chama a Stripe. Ao confirmar, registra o pagamento como simulado e confirma a reserva. Não há cobrança ou repasse de dinheiro. A integração Stripe permanece no código para possível evolução futura e não faz parte do checkout demonstrativo.
 
 ## Comandos
 
@@ -99,5 +97,5 @@ Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs
 - `Invalid Version` no npm: use Node 22 e o lockfile versionado; não reutilize `node_modules` antigo.
 - Login social volta com erro: confira URL de callback e credenciais no painel Supabase/provedor.
 - 2FA não desafia: confira se há fator `verified` e se TOTP Challenge/Verify está habilitado.
-- Checkout indisponível: configure `PIX_RECEIVER_KEY`.
+- Meet não aparece: configure `GOOGLE_MEET_ENABLED=true`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN` com escopo de criação de salas do Meet.
 - Upload negado: confirme migration dos buckets, MIME, tamanho e que o caminho começa pelo UUID autenticado.

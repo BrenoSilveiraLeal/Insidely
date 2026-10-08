@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Role } from "@/lib/domain";
 import { requireUser } from "@/lib/session";
@@ -12,6 +12,7 @@ import { blockedContactPattern } from "@/lib/security";
 import { getAppUrl } from "@/lib/app-url";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
 import { sendBookingCancellationEmail, sendPaymentInstructionsEmail } from "@/lib/email";
+import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
 type RpcName = keyof Database["public"]["Functions"];
@@ -157,6 +158,46 @@ export async function createStripeCheckoutAction(id: string) {
     const message = error instanceof Error ? error.message : "Não foi possível iniciar o pagamento.";
     redirect(`/checkout/${id}?erro=${encodeURIComponent(message)}`);
   }
+}
+
+export async function simulateBookingPaymentAction(id: string, formData: FormData) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const method = String(formData.get("method") || "");
+  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO"].includes(method)) {
+    redirect(`/checkout/${id}?erro=${encodeURIComponent("Selecione uma forma de pagamento.")}`);
+  }
+
+  // The provider metadata columns are maintained by migrations beyond the generated legacy type.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: booking, error: bookingError } = await supabase.from("Booking")
+    .select("id, customerId, status").eq("id", id).eq("customerId", user.id).maybeSingle();
+  if (bookingError || !booking) notFound();
+  if (booking.status !== "PENDING_PAYMENT") redirect(`/checkout/${id}`);
+
+  const now = new Date().toISOString();
+  const { data: payment, error: paymentError } = await supabase.from("Payment")
+    .select("id, status").eq("bookingId", id).maybeSingle();
+  if (paymentError || !payment) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível localizar o pagamento.")}`);
+  if (payment.status === "PENDING") {
+    const { error } = await supabase.from("Payment").update({
+      status: "PAID_HELD", provider: "SIMULATION", providerRef: `demo-${method.toLowerCase()}-${id}`,
+      paidAt: now, updatedAt: now,
+    }).eq("id", payment.id).eq("status", "PENDING");
+    if (error) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível confirmar o pagamento simulado.")}`);
+    const { error: confirmError } = await supabase.from("Booking").update({
+      status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
+    }).eq("id", id).eq("status", "PENDING_PAYMENT");
+    if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
+    try { await ensureGoogleMeetForBooking(supabase, id); }
+    catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
+  }
+
+  revalidatePath(`/checkout/${id}`);
+  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/dashboard");
+  revalidatePath("/consultor/consultas");
+  redirect(`/checkout/${id}?status=simulated`);
 }
 
 export async function startStripeConnectOnboardingAction() {
