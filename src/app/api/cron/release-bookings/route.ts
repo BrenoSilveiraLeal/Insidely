@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     // The migration adds provider-specific columns beyond the generated legacy type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceClient() as any;
+    const { data: expired, error: expiryError } = await supabase.rpc("expire_past_unpaid_bookings");
+    if (expiryError) return Response.json({ error: "expiration_failed", detail: expiryError.message }, { status: 500 });
     const { data: bookings, error } = await supabase.from("Booking").select("id, status, autoReleaseAt, startsAt, durationMinutes, payment:Payment(status)").in("status", ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING"]).is("disputedAt", null);
     if (error) return Response.json({ error: "release_failed", detail: error.message }, { status: 500 });
     let released = 0;
@@ -22,7 +24,7 @@ export async function GET(request: Request) {
         if (await releaseBookingTransfer(booking.id)) released++;
       }
     }
-    return Response.json({ ok: true, released });
+    return Response.json({ ok: true, released, expired: Number(expired ?? 0) });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "release_failed" }, { status: 500 });
   }

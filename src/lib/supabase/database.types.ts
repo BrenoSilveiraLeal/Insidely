@@ -141,6 +141,7 @@ export type Database = {
           autoReleaseAt: string | null
           availabilityId: string | null
           consultantConfirmedAt: string | null
+          consultantRecordingConsent: boolean
           createdAt: string
           customerConfirmedAt: string | null
           customerId: string
@@ -166,6 +167,7 @@ export type Database = {
           autoReleaseAt?: string | null
           availabilityId?: string | null
           consultantConfirmedAt?: string | null
+          consultantRecordingConsent?: boolean
           createdAt?: string
           customerConfirmedAt?: string | null
           customerId: string
@@ -191,6 +193,7 @@ export type Database = {
           autoReleaseAt?: string | null
           availabilityId?: string | null
           consultantConfirmedAt?: string | null
+          consultantRecordingConsent?: boolean
           createdAt?: string
           customerConfirmedAt?: string | null
           customerId?: string
@@ -1492,6 +1495,7 @@ export type Database = {
       search_public_profiles: { Args: { p_query?: string; p_company_slug?: string; p_profession_slug?: string; p_work_mode?: string; p_location?: string; p_limit?: number; p_offset?: number }; Returns: Json }
       release_eligible_bookings_for_user: { Args: Record<PropertyKey, never>; Returns: number }
       release_eligible_bookings_system: { Args: Record<PropertyKey, never>; Returns: number }
+      expire_past_unpaid_bookings: { Args: Record<PropertyKey, never>; Returns: number }
       remove_consultant_availability: {
         Args: { p_availability_id: string }
         Returns: string
@@ -1696,6 +1700,7 @@ export const Constants = {
         "DISPUTED",
         "IN_PROGRESS",
         "COMPLETED_RELEASE_PENDING",
+        "EXPIRED",
       ],
       PaymentStatus: [
         "PENDING",

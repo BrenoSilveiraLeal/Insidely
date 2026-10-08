@@ -2,13 +2,13 @@ import { cancelBookingAction, completeBookingAction, confirmConversationAction, 
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
-import { shortDate } from "@/lib/format";
+import { bookingCountdown, shortDate } from "@/lib/format";
 import { getConsultantBookings, getConsultantMessages } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { canSendBookingMessage } from "@/lib/booking-policy";
 
 export const dynamic = "force-dynamic";
-function stateLabel(status: string) { return ({ PENDING_PAYMENT: "Solicitação recebida · aguardando pagamento", CONFIRMED: "Confirmada · valor retido", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED: "Concluída · repasse liberado", CANCELLED: "Cancelada pelo consultor", DISPUTED: "Em análise pelo suporte" } as Record<string, string>)[status] ?? status; }
+function stateLabel(status: string) { return ({ PENDING_PAYMENT: "Solicitação recebida · aguardando pagamento", CONFIRMED: "Confirmada · valor retido", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED: "Concluída · repasse liberado", CANCELLED: "Cancelada pelo consultor", EXPIRED: "Expirada · não aconteceu", DISPUTED: "Em análise pelo suporte" } as Record<string, string>)[status] ?? status; }
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
@@ -24,6 +24,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     {bookings.items.map(booking => <article className="panel" key={booking.id}>
       <span className="eyebrow">{stateLabel(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.customer.name}</h2><p>{booking.goals}</p>
       {booking.status === "PENDING_PAYMENT" && <div className="meeting-policy compact"><strong>Pedido ainda não pago</strong><p>A conversa e as mensagens serão liberadas após a confirmação do pagamento.</p></div>}
+      {booking.status === "PENDING_PAYMENT" && <p className="muted">{bookingCountdown(booking.startsAt)} para o encontro.</p>}
+      {booking.status === "EXPIRED" && <p className="muted">Pagamento não concluído a tempo. O horário foi liberado; este registro permanece no histórico.</p>}
       {booking.status === "CONFIRMED" && new Date(booking.startsAt.getTime() + booking.durationMinutes * 60000) <= new Date() && <form action={completeBookingAction.bind(null, booking.id)}><button className="button button-dark button-sm">Informar fim da conversa</button></form>}
       {booking.status === "AWAITING_CONFIRMATION" && <div className="meeting-policy compact"><strong>Confirmação dupla</strong><p>{booking.consultantConfirmedAt ? "Você confirmou. Aguardando a outra pessoa ou o prazo automático." : "Confirme que a conversa aconteceu para agilizar a liberação."}</p>{!booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent button-sm">Confirmar conversa realizada</button></form>}<form className="form-stack" style={{ marginTop: 12 }} action={disputeBookingAction.bind(null, booking.id)}><textarea className="textarea" name="description" minLength={20} placeholder="Houve algum problema? Explique para o suporte."/><button className="button button-ghost button-sm">Reportar problema</button></form></div>}
       {booking.status === "DISPUTED" && <p className="form-error">O repasse está suspenso até a análise do suporte.</p>}

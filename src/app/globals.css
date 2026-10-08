@@ -150,6 +150,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .profile-title { margin: 18px 0 8px; font: 800 clamp(2.8rem, 6vw, 6rem)/.86 var(--display); letter-spacing: -.065em; }
 .detail-list { display: grid; gap: 12px; padding: 0; list-style: none; }
 .detail-list li { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.availability-preview { display: grid; gap: 11px; margin: 22px 0; padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.48); }
+.availability-preview-list { display: grid; gap: 7px; }
+.availability-preview-item { display: flex; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; color: inherit; font-size: .86rem; font-weight: 750; text-decoration: none; }
+.availability-preview-item span:last-child { color: var(--forest); white-space: nowrap; }
+.availability-preview-item:hover { border-color: var(--forest); background: rgba(255,255,255,.75); }
 
 .auth-page { min-height: 100svh; height: 100dvh; display: grid; grid-template-columns: 1.05fr .95fr; overflow: hidden; background: var(--ink); }
 .auth-art { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: end; padding: 64px; color: var(--ink); background: var(--mineral); }
