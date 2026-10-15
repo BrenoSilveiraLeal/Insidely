@@ -9,6 +9,7 @@ import { getFavoriteState, getProfessional } from "@/lib/queries";
 import { getAuthenticatedUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profile = await getProfessional((await params).id); return { title: profile ? "Perfil de " + publicName(profile) + " | Insidely" : "Perfil profissional | Insidely" }; }
 
 export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string }> }) {
   const { id } = await params;
@@ -20,18 +21,20 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
   const availability = profile.availability ?? [];
+  const now = new Date();
+  const immediateCutoff = now.getTime() + 15 * 60_000;
   const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
   const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const cover = profile.privacy?.showPhoto ? profile.coverImage : null;
   const verification = profile.verificationStatus === "VERIFIED"
-    ? { label: "Experiência verificada", detail: "A Insiderly conferiu a comprovação profissional enviada para este perfil." }
+    ? { label: "Experiência verificada", detail: "A Insidely conferiu a comprovação profissional enviada para este perfil." }
     : profile.verificationStatus === "PENDING"
-      ? { label: "Comprovação em análise", detail: "A experiência e o vínculo com a empresa foram informados pela própria pessoa e ainda estão em análise pela Insiderly." }
+      ? { label: "Comprovação em análise", detail: "A experiência e o vínculo com a empresa foram informados pela própria pessoa e ainda estão em análise pela Insidely." }
       : profile.verificationStatus === "MORE_INFO_REQUIRED"
-        ? { label: "Comprovação incompleta", detail: "A Insiderly pediu informações adicionais. Até a conclusão da análise, a experiência e o vínculo com a empresa não estão comprovados." }
+        ? { label: "Comprovação incompleta", detail: "A Insidely pediu informações adicionais. Até a conclusão da análise, a experiência e o vínculo com a empresa não estão comprovados." }
         : profile.verificationStatus === "REJECTED"
-          ? { label: "Experiência não comprovada", detail: "A comprovação não foi aprovada. A experiência e o vínculo com a empresa permanecem sem validação da Insiderly." }
-          : { label: "Experiência não comprovada", detail: "A experiência e o vínculo com a empresa foram declarados pela própria pessoa e ainda não foram comprovados à Insiderly." };
+          ? { label: "Experiência não comprovada", detail: "A comprovação não foi aprovada. A experiência e o vínculo com a empresa permanecem sem validação da Insidely." }
+          : { label: "Experiência não comprovada", detail: "A experiência e o vínculo com a empresa foram declarados pela própria pessoa e ainda não foram comprovados à Insidely." };
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
@@ -50,7 +53,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
           <article className="profile-main"><span className="eyebrow">Sobre a experiência</span><h2>Contexto que posso compartilhar</h2><p>{profile.bio}</p><div className="card-meta">{profile.topics.map(topic => <span className="badge" key={topic}>{topic}</span>)}</div></article>
           <article className="profile-main"><span className="eyebrow">Trajetória</span><h2>Experiência declarada</h2><ul className="detail-list">{profile.experiences.map(exp => <li key={exp.id}><div><strong>{exp.title}</strong><br/><span className="muted">{exp.profession.name} · {exp.company.name}</span></div><BriefcaseBusiness/></li>)}</ul><p className="muted">Datas exatas e histórico completo respeitam as escolhas de privacidade do consultor.</p></article>
           <article className="profile-main"><span className="eyebrow">Limites claros</span><h2>O que não entra na conversa</h2><ul>{profile.boundaries.map(item => <li key={item}>{item}</li>)}</ul></article>
-          <article className="profile-main"><span className="eyebrow">{reviews.length} avaliações</span><h2>Depois das conversas</h2>{reviews.length ? <div className="list">{reviews.map(review => <div className="list-row" key={review.id}><div><strong>{review.user.name.split(" ")[0]}</strong><p>{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>)}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
+          <article className="profile-main"><span className="eyebrow">{reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</span><h2>Depois das conversas</h2>{reviews.length ? <div className="list">{reviews.map(review => <div className="list-row" key={review.id}><div><strong>{review.user.name.split(" ")[0]}</strong><p>{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>)}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
         </div>
 
         <aside className="booking-box">
@@ -60,7 +63,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 5).map(slot => <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>)}</div> : <p className="muted">Este perfil ainda não abriu horários para conversa.</p>}
+            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 5).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <p className="muted">Este perfil ainda não abriu horários para conversa.</p>}
           </div>
 
           {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}

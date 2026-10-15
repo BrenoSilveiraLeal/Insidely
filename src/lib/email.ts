@@ -22,21 +22,23 @@ export async function sendBookingConfirmationEmails(supabase: any, bookingId: st
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
   const { data: consultant } = profile ? await supabase.from("User").select("email, name").eq("id", profile.userId).maybeSingle() : { data: null };
-  const recipients = [customer, consultant].filter((recipient): recipient is BookingRecipient => Boolean(recipient?.email)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
+  const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
+  const safeConsultantName = Array.isArray(publicProfile?.user) ? publicProfile.user[0]?.name : (publicProfile?.user as { name?: string } | null)?.name;
+  const recipients = [customer, consultant ? { ...consultant, name: safeConsultantName || "Pessoa da comunidade" } : null].filter((recipient): recipient is BookingRecipient => Boolean(recipient?.email)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
   const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const link = meetingUrl ? `<p><a href="${escapeHtml(meetingUrl)}">Entrar na sala do Google Meet</a></p>` : "<p>O link da sala será disponibilizado no painel assim que a integração for concluída.</p>";
+  const link = meetingUrl ? `<p><a href="${escapeHtml(meetingUrl)}">Entrar na videochamada</a></p>` : "<p>A sala estará disponível no painel no horário combinado.</p>";
   for (const recipient of recipients) await sendTransactionalEmail({ to: recipient.email, subject: "Sua conversa na Insidely foi confirmada", html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>Sua conversa foi confirmada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p>${link}<p>Acesse seu painel para acompanhar os detalhes.</p>` });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendPaymentInstructionsEmail(supabase: any, bookingId: string, checkoutUrl: string) {
   if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
-  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, totalCents, customerId, professional:ProfessionalProfile(user:User(name))").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, totalCents, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`payment_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   if (!customer?.email) return;
-  const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
-  const professionalUser = Array.isArray(professional?.user) ? professional.user[0] : professional?.user;
+  const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
+  const professionalUser = Array.isArray(publicProfile?.user) ? publicProfile.user[0] : publicProfile?.user;
   const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const pixKey = process.env.PIX_RECEIVER_KEY?.trim();
   const pixCode = pixKey ? directPixPayload({ key: pixKey, name: "INSIDELY", city: "SAO PAULO", amount: Number(booking.totalCents) / 100 }) : null;
@@ -47,7 +49,7 @@ export async function sendPaymentInstructionsEmail(supabase: any, bookingId: str
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendBookingCancellationEmail(supabase: any, bookingId: string, reason: string, refunded: boolean) {
   if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
-  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professional:ProfessionalProfile(user:User(name))").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`cancellation_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   if (!customer?.email) return;

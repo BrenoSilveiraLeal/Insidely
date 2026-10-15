@@ -97,7 +97,7 @@ test.describe("fluxo autenticado cliente + consultor", () => {
 
       await test.step("pagamento é iniciado e webhook mockado confirma", async () => {
         await customer.goto(`/checkout/${state.bookingId}`);
-        await customer.getByRole("button", { name: "Pagar com Stripe" }).click();
+        await customer.getByRole("button", { name: "Confirmar pagamento simulado" }).click();
         await expect(customer).toHaveURL(new RegExp(`/checkout/${state.bookingId}\\?status=mock_checkout_started`));
         const webhook = await sendStripePaymentWebhook(request);
         expect(webhook.ok()).toBeTruthy();

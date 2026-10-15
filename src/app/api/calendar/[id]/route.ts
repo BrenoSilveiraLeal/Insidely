@@ -17,7 +17,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!booking) return new Response("Not found", { status: 404 });
 
   const end = new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000);
-  const description = ["Conversa profissional pela Insidely", booking.goals, booking.meetingUrl ? `Sala: ${booking.meetingUrl}` : "Sala online a confirmar"].filter(Boolean).join("\\n\\n");
+  const description = ["Conversa profissional pela Insidely", booking.goals, booking.meetingUrl ? `Sala: ${booking.meetingUrl}` : "Sala online a confirmar"].filter(Boolean).join("\n\n");
   const body = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Insidely//Conversa profissional//PT-BR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "BEGIN:VEVENT", `UID:insidely-${booking.id}@insidely`, `DTSTAMP:${icsDate(new Date())}`, `DTSTART:${icsDate(booking.startsAt)}`, `DTEND:${icsDate(end)}`,

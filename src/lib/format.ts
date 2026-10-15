@@ -25,10 +25,20 @@ export function bookingCountdown(date: Date | string, now = new Date()) {
 }
 
 export function publicName(profile: { privacyMode: string; pseudonym: string | null; user: { name: string } }) {
-  return profile.user.name || profile.pseudonym || "Profissional verificado";
+  return profile.user.name || profile.pseudonym || "Pessoa da comunidade";
 }
 
 export function initials(value: string) {
   return value.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
+
+export function meetingRoomOpeningText(startsAt: Date | string) {
+  const parts = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).formatToParts(new Date(startsAt));
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "--";
+  return `A sala abre às ${part("hour")}:${part("minute")} de ${part("day")}/${part("month")} (10 min antes).`;
+}
+
+export function bookingStatusLabel(status: string) {
+  return ({ PENDING_PAYMENT: "Aguardando pagamento", CONFIRMED: "Confirmada", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED_RELEASE_PENDING: "Concluída – repasse pendente", COMPLETED: "Concluída", CANCELLED: "Cancelada", EXPIRED: "Expirada", DISPUTED: "Em disputa", NO_SHOW: "Não compareceu" } as Record<string, string>)[status] ?? status;
+}

@@ -8,10 +8,10 @@ import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
-import { blockedContactPattern } from "@/lib/security";
+import { blockedContactPattern, safeInternalPath } from "@/lib/security"
 import { getAppUrl } from "@/lib/app-url";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendBookingCancellationEmail, sendPaymentInstructionsEmail } from "@/lib/email";
+import { sendBookingCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -76,7 +76,7 @@ export async function loginAction(_: string | undefined, formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email.toLowerCase(), password: parsed.data.password });
   if (error?.code === "email_not_confirmed") return "Confirme seu e-mail antes de entrar.";
   if (error) return "E-mail ou senha incorretos.";
-  redirect("/continuar");
+  redirect(safeInternalPath(String(formData.get("next") || "/continuar")));
 }
 
 export async function requestPasswordResetAction(_: string | undefined, formData: FormData) { const parsed = z.object({ email: z.string().email() }).safeParse(Object.fromEntries(formData)); if (!parsed.success) return "Digite um e-mail válido."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email.toLowerCase(), { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/redefinir-senha` }); if (error) return "Não foi possível enviar o e-mail de recuperação."; return "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; }
@@ -137,7 +137,7 @@ export async function createBookingAction(profileId: string, formData: FormData)
     redirect(`/agendar/${profileId}?erro=${reason}`);
   }
   try {
-    await sendPaymentInstructionsEmail(await createSupabaseServerClient(), booking, `${getAppUrl()}/checkout/${booking}`);
+    await sendPaymentInstructionsEmail(createSupabaseServiceClient(), booking, `${getAppUrl()}/checkout/${booking}`);
   } catch (error) {
     console.error("payment_instructions_email_failed", { booking, error });
   }
@@ -171,7 +171,7 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: booking, error: bookingError } = await supabase.from("Booking")
-    .select("id, customerId, status").eq("id", id).eq("customerId", user.id).maybeSingle();
+    .select("id, customerId, professionalProfileId, status").eq("id", id).eq("customerId", user.id).maybeSingle();
   if (bookingError || !booking) notFound();
   if (booking.status !== "PENDING_PAYMENT") redirect(`/checkout/${id}`);
 
@@ -189,8 +189,18 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
       status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
     }).eq("id", id).eq("status", "PENDING_PAYMENT");
     if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
-    try { await ensureGoogleMeetForBooking(supabase, id); }
+    let meetingUrl: string | null = null;
+    try { meetingUrl = await ensureGoogleMeetForBooking(supabase, id); }
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
+    const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
+    const notificationRows = [
+      { id: crypto.randomUUID(), userId: booking.customerId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. Consulte o agendamento para acompanhar a sala.", href: "/dashboard/agendamentos", createdAt: now },
+      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Pagamento confirmado – nova conversa marcada", body: "Uma nova conversa foi confirmada no seu perfil.", href: "/consultor/consultas", createdAt: now }] : []),
+    ];
+    const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
+    if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
+    try { await sendBookingConfirmationEmails(supabase, id, meetingUrl); }
+    catch (error) { console.error("simulated_payment_email_failed", { bookingId: id, error }); }
   }
 
   revalidatePath(`/checkout/${id}`);
@@ -223,15 +233,31 @@ export async function createAvailabilityAction(_: FormState, formData: FormData)
     return { status: "success", message: "Horário adicionado à sua agenda e ao seu perfil." };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (message.includes("invalid_time_range")) return { status: "error", message: "Escolha um horário com pelo menos 15 minutos de antecedência." };
+    if (message.includes("invalid_time_range")) return { status: "error", message: "Escolha um horário que não tenha terminado há mais de um minuto." };
     if (message.includes("availability_conflict")) return { status: "error", message: "Esse horário se sobrepõe a outro da sua agenda." };
     return { status: "error", message: "Não foi possível salvar este horário. Tente novamente." };
+  }
+}
+
+export async function createInstantAvailabilityAction(_: FormState, _formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const startsAt = new Date();
+  try {
+    await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + 30 * 60_000).toISOString() });
+    revalidatePath("/consultor/agenda");
+    revalidatePath("/buscar");
+    return { status: "success", message: "Disponibilidade imediata aberta por 30 minutos." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (message.includes("availability_conflict")) return { status: "error", message: "Esse horário se sobrepõe a outro da sua agenda." };
+    return { status: "error", message: "Não foi possível abrir a disponibilidade imediata. Tente novamente." };
   }
 }
 export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("remove_consultant_availability", { p_availability_id: id }); revalidatePath("/consultor/agenda"); }
 export async function releaseEligibleBookings() { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); await rpc("release_eligible_bookings_for_user", {}); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
-export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
+export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
@@ -253,8 +279,8 @@ export async function cancelBookingAction(id: string, formData: FormData) {
 }
 export async function sendMessageAction(id: string, formData: FormData) { await requireUser(); const body = String(formData.get("body") || "").trim(); if (!body || body.length > 2000 || blockedContactPattern.test(body)) throw new Error("A mensagem está vazia, longa demais ou contém contato/link não permitido."); await rpc("send_message", { p_conversation_id: id, p_body: body }); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
-export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("update_privacy", { p_payload: formText(formData) }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const payload = formText(formData); const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, experiences } }); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return "Perfil profissional atualizado."; }
+export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; await rpc("submit_verification", { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: String(formData.get("method") || "company_email") }); revalidatePath("/consultor/perfil"); return "Solicitação enviada com segurança."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateProfileImage(file); if (!moderation.allowed) return moderation.message; const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {

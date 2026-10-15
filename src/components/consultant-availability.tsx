@@ -3,23 +3,28 @@
 import { CalendarPlus, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createAvailabilityAction, removeAvailabilityAction } from "@/app/actions";
+import { createAvailabilityAction, createInstantAvailabilityAction, removeAvailabilityAction } from "@/app/actions";
 
 type Slot = { id: string; startsAt: string; endsAt: string; isBooked: boolean; label: string };
 
 export function AvailabilityManager({ slots }: { slots: Slot[] }) {
   const [state, action, pending] = useActionState(createAvailabilityAction, undefined);
+  const [instantState, instantAction, instantPending] = useActionState(createInstantAvailabilityAction, undefined);
   const localDateInput = useRef<HTMLInputElement>(null);
   const utcDateInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  useEffect(() => { if (state?.status === "success") router.refresh(); }, [router, state]);
+  useEffect(() => { if (state?.status === "success" || instantState?.status === "success") router.refresh(); }, [router, state, instantState]);
 
   return <div className="agenda-grid">
     <section className="panel">
       <span className="eyebrow">Novo horário</span>
       <h2>Abra sua agenda.</h2>
       <p className="muted">Adicione uma data e hora para que seu perfil apareça com opções reais de conversa.</p>
+      <form action={instantAction} className="form-stack" style={{ marginBottom: 18 }}>
+        {instantState && <p className={instantState.status === "error" ? "form-error" : "form-feedback"} role={instantState.status === "error" ? "alert" : "status"}>{instantState.message}</p>}
+        <button className="button button-dark" disabled={instantPending}>{instantPending ? "Abrindo disponibilidade..." : "Estou disponível agora (30 min)"}</button>
+      </form>
       <form className="form-stack" action={action} onSubmit={() => {
         const localValue = localDateInput.current?.value;
         if (localValue && utcDateInput.current) utcDateInput.current.value = new Date(localValue).toISOString();

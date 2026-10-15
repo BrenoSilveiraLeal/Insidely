@@ -4,7 +4,8 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { getAuthenticatedUser } from "@/lib/session";
 import { getConsultantDashboard, getViewerDashboard } from "@/lib/queries";
 import { Role } from "@/lib/domain";
-import { shortDate } from "@/lib/format";
+import { meetingRoomOpeningText, shortDate } from "@/lib/format";
+import { meetingRoomState } from "@/lib/booking-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,8 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
     otherPerson = booking?.professional.user.name ?? "seu consultor";
   }
 
-  if (!booking || booking.status !== "CONFIRMED" || !booking.meetingUrl) notFound();
+  if (!booking || !["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) notFound();
+  const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
   return <DashboardShell mode={user.role === Role.CONSULTANT ? "consultant" : "user"} title="Sua consulta">
     <div className="profile-layout">
       <section className="panel">
@@ -31,9 +33,9 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
         <p className="muted">{shortDate(booking.startsAt)} · {booking.durationMinutes} minutos</p>
         <div className="meeting-policy">
           <strong>Sala protegida pela Insidely</strong>
-          <p>O link só aparece depois da confirmação do pagamento. Abra a sala no horário combinado para iniciar a conversa.</p>
+          <p>{roomState === "upcoming" ? meetingRoomOpeningText(booking.startsAt) : roomState === "ended" ? "O horário de entrada da sala já terminou." : "A sala fica disponível até o fim da conversa."}</p>
         </div>
-        <a className="button button-accent" href={booking.meetingUrl} target="_blank" rel="noreferrer">Entrar no Google Meet</a>
+        {roomState === "open" && booking.meetingUrl ? <a className="button button-accent" href={booking.meetingUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a> : !booking.meetingUrl ? <p className="muted">A sala da conversa está sendo preparada.</p> : null}
         <Link className="button button-ghost" href={user.role === Role.CONSULTANT ? "/consultor/consultas" : "/dashboard/agendamentos"}>Voltar para consultas</Link>
       </section>
       <aside className="booking-box">

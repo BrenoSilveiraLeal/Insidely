@@ -18,9 +18,9 @@ export async function getAuthenticatedUser() {
   return null;
 }
 
-export async function requireUser(roles?: Role[], options?: { allowIncomplete?: boolean }) {
+export async function requireUser(roles?: Role[], options?: { allowIncomplete?: boolean; nextPath?: string }) {
   const stored = await getAuthenticatedUser();
-  if (!stored) redirect("/entrar");
+  if (!stored) redirect(options?.nextPath ? "/entrar?next=" + encodeURIComponent(options.nextPath) : "/entrar");
   if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
   if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect("/onboarding");
   return stored;

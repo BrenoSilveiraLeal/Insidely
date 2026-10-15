@@ -21,6 +21,10 @@ async function getGoogleAccessToken() {
   return payload.access_token;
 }
 
+export function getFallbackMeetingUrl(bookingId: string) {
+  return "https://meet.jit.si/Insidely-" + bookingId;
+}
+
 export async function createGoogleMeetSpace() {
   if (process.env.GOOGLE_MEET_ENABLED !== "true") return null;
   if (process.env.E2E_MOCK_EXTERNALS === "true") return "https://meet.google.com/e2e-insidely-room";
@@ -30,7 +34,7 @@ export async function createGoogleMeetSpace() {
   const response = await fetch("https://meet.googleapis.com/v2/spaces", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ config: { accessType: "OPEN" } }),
     cache: "no-store",
   });
   if (!response.ok) throw new Error(`Google Meet space creation failed: ${response.status} ${await response.text()}`);
@@ -42,13 +46,27 @@ export async function createGoogleMeetSpace() {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ensureGoogleMeetForBooking(supabase: any, bookingId: string) {
-  if (process.env.GOOGLE_MEET_ENABLED !== "true") return null;
-  const { data: booking, error } = await supabase.from("Booking").select("id, meetingUrl").eq("id", bookingId).maybeSingle();
-  if (error) throw new Error(`meet_booking_lookup: ${error.message}`);
-  if (!booking || booking.meetingUrl) return booking?.meetingUrl ?? null;
-  const meetingUrl = await createGoogleMeetSpace();
-  if (!meetingUrl) return null;
-  const { error: updateError } = await supabase.from("Booking").update({ meetingUrl, updatedAt: new Date().toISOString() }).eq("id", bookingId).is("meetingUrl", null);
-  if (updateError) throw new Error(`meet_booking_update: ${updateError.message}`);
-  return meetingUrl;
+  const { data: booking, error } = await supabase.from("Booking").select("id, status, meetingUrl").eq("id", bookingId).maybeSingle();
+  if (error) throw new Error("meet_booking_lookup: " + error.message);
+  if (!booking) return null;
+  if (booking.meetingUrl) return booking.meetingUrl;
+  if (!["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(booking.status)) return null;
+
+  let meetingUrl: string | null = null;
+  if (process.env.GOOGLE_MEET_ENABLED === "true") {
+    try { meetingUrl = await createGoogleMeetSpace(); }
+    catch (error) { console.error("google_meet_creation_failed", { bookingId, error }); }
+  }
+  meetingUrl ??= getFallbackMeetingUrl(bookingId);
+
+  const { data: updated, error: updateError } = await supabase.from("Booking")
+    .update({ meetingUrl, updatedAt: new Date().toISOString() })
+    .eq("id", bookingId).is("meetingUrl", null).select("meetingUrl").maybeSingle();
+  if (updateError) throw new Error("meet_booking_update: " + updateError.message);
+  if (updated?.meetingUrl) return updated.meetingUrl;
+
+  const { data: latest, error: latestError } = await supabase.from("Booking")
+    .select("meetingUrl").eq("id", bookingId).maybeSingle();
+  if (latestError) throw new Error("meet_booking_refresh: " + latestError.message);
+  return latest?.meetingUrl ?? meetingUrl;
 }

@@ -99,3 +99,17 @@ Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs
 - 2FA não desafia: confira se há fator `verified` e se TOTP Challenge/Verify está habilitado.
 - Meet não aparece: configure `GOOGLE_MEET_ENABLED=true`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN` com escopo de criação de salas do Meet.
 - Upload negado: confirme migration dos buckets, MIME, tamanho e que o caminho começa pelo UUID autenticado.
+
+
+## Admin de demonstração
+
+Para habilitar o painel administrativo em um ambiente de demonstração, crie a conta normalmente e, após confirmar seu e-mail, execute no SQL Editor do Supabase:
+
+    update public."User" set role = 'ADMIN' where email = 'email-da-conta@example.com';
+
+Aplique as novas migrations em ordem antes de usar o painel. Não use uma conta de cliente como administrador em produção.
+
+
+## Histórico de migrations
+
+O projeto continha duas migrations locais com a versão 20260826070000. A lista remota consultada não contém essa versão; por isso, a migration de fixture E2E foi renumerada para 20260826070001. As migrations novas deste conjunto começam em 20261016000100 e devem ser aplicadas em ordem.

@@ -3,7 +3,8 @@ import { BookingStatus, Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getViewerDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
-import { shortDate } from "@/lib/format";
+import { meetingRoomOpeningText, shortDate } from "@/lib/format";
+import { isMeetingRoomOpen, meetingRoomState } from "@/lib/booking-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,6 @@ export default async function Dashboard() {
 
   return <DashboardShell mode="user" title={`Olá, ${data.name.split(" ")[0]}.`} notifications={notifications} canConsultant={user.role === Role.CONSULTANT}>
     <div className="grid grid-3"><div className="metric"><span>Próximas conversas</span><strong>{upcoming.length}</strong></div><div className="metric"><span>Perfis salvos</span><strong>{data.favorites.length}</strong></div><div className="metric"><span>Total de conversas</span><strong>{data.customerBookings.length}</strong></div></div>
-    <section className="section" style={{ paddingBottom: 0 }}><div className="section-head"><div><span className="eyebrow">Agenda</span><h2>Próximos encontros</h2></div><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></div><div className="list">{upcoming.map((booking) => <div className="list-row" key={booking.id}><div><strong>{booking.professional.user.name}</strong><p className="muted">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><span className="status">Confirmada</span>{booking.meetingUrl && <Link className="button button-accent button-sm" href={`/consulta/${booking.id}`}>Entrar na consulta</Link>}</div></div>)}{!upcoming.length && <div className="panel">Nenhuma conversa futura. Explore os perfis e escolha um horário.</div>}</div></section>
+    <section className="section" style={{ paddingBottom: 0 }}><div className="section-head"><div><span className="eyebrow">Agenda</span><h2>Próximos encontros</h2></div><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></div><div className="list">{upcoming.map((booking) => <div className="list-row" key={booking.id}><div><strong>{booking.professional.user.name}</strong><p className="muted">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</p></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><span className="status">Confirmada</span>{booking.meetingUrl && isMeetingRoomOpen(booking.startsAt, booking.durationMinutes) ? <Link className="button button-accent button-sm" href={`/consulta/${booking.id}`}>Entrar na videochamada</Link> : meetingRoomState(booking.startsAt, booking.durationMinutes) === "upcoming" ? <span className="muted">{meetingRoomOpeningText(booking.startsAt)}</span> : null}</div></div>)}{!upcoming.length && <div className="panel">Nenhuma conversa futura. Explore os perfis e escolha um horário.</div>}</div></section>
   </DashboardShell>;
 }

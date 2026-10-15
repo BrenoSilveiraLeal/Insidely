@@ -92,7 +92,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .story { background: var(--forest); color: var(--paper); padding: 110px 0 170px; }
 .story-intro { max-width: 900px; margin-bottom: 70px; }
 .story-intro h2 { margin: 18px 0; font: 800 clamp(3rem, 7vw, 7rem)/.86 var(--display); letter-spacing: -.07em; }
-.story-stack { --story-offset: 150px; position: relative; min-height: calc(100svh + 620px); }
+.story-stack { --story-offset: 150px; --story-peek: 34px; position: relative; min-height: calc(100svh + 620px); }
 .story-stage { position: sticky; top: 105px; min-height: min(560px, calc(100svh - 145px)); }
 .story-card { position: absolute; inset: 0; min-height: 360px; display: grid; grid-template-columns: 130px 1fr 280px; gap: 32px; align-items: center; padding: 38px; color: var(--ink); border: 1px solid rgba(21,23,20,.5); border-radius: 44px; box-shadow: var(--shadow); transform-origin: center top; }
 .story-card:nth-child(1) { background: var(--amber); }
@@ -467,7 +467,6 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 /* Responsive guardrails: keep the existing composition inside the viewport. */
 @media (max-width: 1100px) {
   .container { width: min(100% - 32px, 1240px); }
-  .inside-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); }
   .inside-scene { transform: none; margin-right: 0; }
   .inside-hero-content { transform: none; }
   .profile-layout { grid-template-columns: minmax(0, 1fr) minmax(280px, .55fr); }
@@ -525,12 +524,12 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .google-mark { width: 18px; height: 18px; flex: 0 0 18px; }
 
 @media (max-width: 950px) {
-  .story-stack { --story-offset: 115px; }
+  .story-stack { --story-offset: 115px; --story-peek: 28px; }
 }
 
 @media (max-width: 620px) {
-  .story-stack { --story-offset: 105px; min-height: calc(100svh + 480px); }
-  .story-stage { min-height: calc(100svh - 130px); }
+  .story-stack { --story-offset: 105px; --story-peek: 22px; min-height: calc(100svh + 480px); }
+  .story-stage { min-height: max(430px, calc(100svh - 130px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

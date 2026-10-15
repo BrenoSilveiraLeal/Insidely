@@ -19,29 +19,44 @@ export function StoryMotion() {
     if (reduced || !scope.current) return;
 
     gsap.registerPlugin(ScrollTrigger);
+    let removeResizeListener: (() => void) | undefined;
     const context = gsap.context(() => {
       const stack = scope.current?.querySelector<HTMLElement>(".story-stack");
       const cards = gsap.utils.toArray<HTMLElement>(".story-card");
-      if (!stack || cards.length < 2) return;
+      if (!stack || cards.length < 3) return;
 
-      const offset = Number.parseFloat(getComputedStyle(stack).getPropertyValue("--story-offset")) || 150;
-      cards.forEach((card, index) => gsap.set(card, { y: index * offset }));
+      const offset = () => Number.parseFloat(getComputedStyle(stack).getPropertyValue("--story-offset")) || 150;
+      const peek = () => Number.parseFloat(getComputedStyle(stack).getPropertyValue("--story-peek")) || 34;
+      const startingY = (index: number) => index === 0 ? 0 : cards[index].offsetHeight + (index === 2 ? offset() : 0);
+      cards.forEach((card, index) => gsap.set(card, { y: startingY(index), zIndex: index === 2 ? 1 : index === 1 ? cards.length + 1 : cards.length }));
 
       const timeline = gsap.timeline({
         scrollTrigger: {
           trigger: stack,
           start: "top top+=105",
           end: "bottom bottom-=105",
-          scrub: 0.8,
+          scrub: 0.65,
           invalidateOnRefresh: true,
         },
       });
-      cards.slice(1).forEach((card) => timeline.to(card, { y: 0, ease: "none" }, 0));
+      timeline
+        .to(cards[1], { y: () => peek(), duration: 1, ease: "none" }, 0)
+        .set(cards[2], { zIndex: cards.length + 2 }, 1)
+        .to(cards[2], { y: () => peek() * 2, duration: 1, ease: "none" }, 1);
 
+      const refreshStack = () => {
+        cards.forEach((card, index) => gsap.set(card, { y: startingY(index) }));
+        ScrollTrigger.refresh();
+      };
+      window.addEventListener("resize", refreshStack);
+      removeResizeListener = () => window.removeEventListener("resize", refreshStack);
       ScrollTrigger.refresh();
     }, scope);
 
-    return () => context.revert();
+    return () => {
+      removeResizeListener?.();
+      context.revert();
+    };
   }, [reduced]);
 
   return (
@@ -60,8 +75,8 @@ export function StoryMotion() {
         </motion.div>
         <div className="story-stack">
           <div className="story-stage">
-            {steps.map((step, index) => (
-              <article className="story-card" key={step.number} style={{ zIndex: index + 1 }}>
+            {steps.map((step) => (
+              <article className="story-card" key={step.number}>
                 <div className="story-number">{step.number}</div>
                 <div>
                   <span className="eyebrow">{step.eyebrow}</span>

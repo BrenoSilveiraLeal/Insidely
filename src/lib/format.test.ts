@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { bookingCountdown } from "./format";
+import { bookingCountdown, meetingRoomOpeningText } from "./format";
 
 describe("booking countdown", () => {
   const now = new Date("2026-10-08T15:00:00-03:00");
@@ -12,5 +12,11 @@ describe("booking countdown", () => {
   it("shows today's local time and marks past meetings expired", () => {
     expect(bookingCountdown("2026-10-08T17:30:00-03:00", now)).toBe("Hoje · 17:30");
     expect(bookingCountdown("2026-10-08T14:59:00-03:00", now)).toBe("Expirado");
+  });
+});
+
+describe("meeting room opening label", () => {
+  it("uses Brasília time and day/month", () => {
+    expect(meetingRoomOpeningText("2026-10-20T15:00:00.000Z")).toBe("A sala abre às 12:00 de 20/10 (10 min antes).");
   });
 });
