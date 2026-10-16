@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
+import { ConfirmAction } from "@/components/confirm-action";
 import { clearAllNotificationsAction, markAllNotificationsReadAction, markNotificationReadAction, openNotificationAction } from "@/app/actions";
 
 type NotificationItem = { id: string; title: string; body: string; href: string | null; readAt: string | null };
@@ -25,7 +26,7 @@ export function NotificationPopover({ notifications }: { notifications: Notifica
       <Bell size={19} aria-hidden="true" />{unread.length > 0 && <span>{unread.length > 99 ? "99+" : unread.length}</span>}
     </button>
     {open && <div className="notification-popover" role="dialog" aria-label="Notificações">
-      <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{notifications.length > 0 && <form action={clearAllNotificationsAction} onSubmit={(event) => { if (!window.confirm("Apagar todas as notificações? Essa ação não pode ser desfeita.")) event.preventDefault(); }}><button className="notification-popover-link" type="submit" aria-label="Limpar todas as notificações">Limpar todas</button></form>}</div></div>
+      <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{notifications.length > 0 && <ConfirmAction action={clearAllNotificationsAction} label="Limpar todas" title="Limpar histórico de notificações?" description="Tem certeza de que deseja excluir todas as notificações? Essa ação não pode ser desfeita." confirmLabel="Excluir notificações" className="notification-popover-link"/>}</div></div>
       {notifications.length === 0 ? <p className="muted">Nenhuma notificação.</p> : <div className="notification-popover-list">{notifications.slice(0, 10).map((notification) => <div className={`notification-popover-item ${notification.readAt ? "" : "is-unread"}`} key={notification.id}>
         <strong>{notification.title}</strong><p>{notification.body}</p>
         <div className="notification-popover-actions">{notification.href && <form action={openNotificationAction.bind(null, notification.id, notification.href)}><button className="button button-ghost button-sm" type="submit">Abrir</button></form>}{!notification.readAt && <form action={markNotificationReadAction.bind(null, notification.id)}><button className="button button-ghost button-sm" type="submit">Lida</button></form>}</div>

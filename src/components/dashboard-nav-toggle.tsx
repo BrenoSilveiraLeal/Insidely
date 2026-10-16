@@ -8,8 +8,14 @@ export function DashboardNavToggle({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    ref.current?.querySelectorAll("a").forEach((link) => {
-      if (link.getAttribute("href") === pathname) link.setAttribute("aria-current", "page");
+    const links = [...(ref.current?.querySelectorAll("a") ?? [])];
+    const exact = links.filter((link) => link.getAttribute("href")?.split("?")[0] === pathname);
+    const active = exact.length ? exact : links.filter((link) => {
+      const href = link.getAttribute("href")?.split("?")[0];
+      return Boolean(href && href !== "/" && pathname.startsWith(`${href}/`));
+    }).sort((a, b) => (b.getAttribute("href")?.length ?? 0) - (a.getAttribute("href")?.length ?? 0)).slice(0, 1);
+    links.forEach((link) => {
+      if (active.includes(link)) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     });
   }, [pathname]);

@@ -550,6 +550,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Dashboard navigation: current page and the collapsible "Menu" on small screens. */
 .side-nav a[aria-current="page"] { background: rgba(255,255,255,.12); color: white; }
+.side-nav a[aria-current="page"] { box-shadow: inset 3px 0 0 var(--amber); font-weight: 850; }
 .nav-toggle { display: none; }
 .side-nav-wrap { display: contents; }
 @media (max-width: 950px) {
@@ -567,6 +568,16 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Customer cancellation, collapsed by default so it is a deliberate action. */
 .cancel-booking-details { margin-top: 14px; }
+.booking-box > .button-block { margin-top: 16px; }
+.booking-box > .favorite-actions { margin-top: 14px; gap: 10px; }
+.booking-box > .muted { margin: 18px 0; line-height: 1.65; }
+.confirm-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 20, 30, .62); backdrop-filter: blur(4px); }
+.confirm-dialog { width: min(100%, 440px); padding: 26px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); box-shadow: 0 24px 80px rgba(0,0,0,.25); }
+.confirm-dialog h2 { margin: 0 0 10px; font: 850 1.45rem/1.05 var(--display); }
+.confirm-dialog p { margin: 0; color: var(--muted); line-height: 1.6; }
+.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.confirm-dialog-actions form { margin: 0; }
+.confirm-dialog-actions .button { min-height: 44px; }
 .cancel-booking-details > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 15px; border: 1px solid var(--red); border-radius: 999px; background: var(--red); color: #fff; cursor: pointer; font-size: .82rem; font-weight: 800; list-style: none; transition: background-color .18s ease, transform .18s ease; }
 .cancel-booking-details > summary::-webkit-details-marker { display: none; }
 .cancel-booking-details > summary::marker { content: ""; }

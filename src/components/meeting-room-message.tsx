@@ -1,4 +1,5 @@
-import { isMeetingRoomOpen } from "@/lib/booking-policy";
+﻿import { isMeetingRoomOpen } from "@/lib/booking-policy";
+import { googleCalendarUrl } from "@/lib/calendar";
 import { getAppUrl } from "@/lib/app-url";
 import { shortDate } from "@/lib/format";
 
@@ -11,12 +12,12 @@ export function MeetingRoomMessage({ booking, calendarSide = "customer" }: { boo
   // The Insidely link checks participant and schedule before redirecting to the Meet room.
   const roomUrl = `${getAppUrl()}/sala/${booking.id}`;
   return <div className="message message-system" role="note">
-    <small>Insidely · mensagem automática</small>
+    <small>Insidely Â· mensagem automÃ¡tica</small>
     <p><strong>Sala da conversa: {shortDate(booking.startsAt)} ({booking.durationMinutes} min)</strong></p>
     {booking.meetingUrl ? <>
-      <p>{open ? "A sala está aberta. Entre pelo link abaixo." : "Use este link no horário marcado. Ele só abre a sala do Google Meet a partir de 10 minutos antes."}</p>
+      <p>{open ? "A sala estÃ¡ aberta. Entre pelo link abaixo." : "Use este link no horÃ¡rio marcado. Ele sÃ³ abre a sala do Google Meet a partir de 10 minutos antes."}</p>
       <a className="message-system-link" href={roomUrl} target="_blank" rel="noreferrer">{roomUrl.replace(/^https?:\/\//, "")}</a>
-      <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<a className="button button-ghost button-sm" href={"/api/calendar/" + booking.id + "?side=" + calendarSide}>Adicionar ao calendário</a></div>
-    </> : <p>O link da sala está sendo gerado e aparecerá aqui em instantes.</p>}
+      <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<a className="button button-ghost button-sm" href={googleCalendarUrl({ startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, goals: "", roomUrl: booking.meetingUrl })} target="_blank" rel="noreferrer">Adicionar ao Google Calendar</a></div>
+    </> : <p>O link da sala estÃ¡ sendo gerado e aparecerÃ¡ aqui em instantes.</p>}
   </div>;
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Role } from "@/lib/domain";
@@ -86,14 +87,6 @@ export async function requestPasswordResetAction(_: string | undefined, formData
 export async function updatePasswordAction(_: string | undefined, formData: FormData) { const password = String(formData.get("password") || ""); const confirmation = String(formData.get("confirmation") || ""); if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número."; if (password !== confirmation) return "As senhas não coincidem."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.updateUser({ password }); if (error) return "O link expirou ou não é mais válido. Solicite outra recuperação."; redirect("/entrar?senha=alterada"); }
 export async function changePasswordAction(_: string | undefined, formData: FormData) { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const password = String(formData.get("password") || ""); const confirmation = String(formData.get("confirmation") || ""); if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número."; if (password !== confirmation) return "As senhas não coincidem."; const currentPassword = String(formData.get("currentPassword") || ""); if (!currentPassword) return "Informe sua senha atual."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.updateUser({ password, current_password: currentPassword }); if (error) return /current|invalid|credentials/i.test(`${error.code} ${error.message}`) ? "Senha atual incorreta." : error.code === "same_password" ? "A nova senha precisa ser diferente da atual." : "Não foi possível alterar sua senha agora. Tente novamente."; return "Senha alterada com sucesso."; }
 
-
-export async function socialSignInAction(provider: "google") {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${getAppUrl()}/auth/callback?next=/continuar` } });
-  if (error || !data.url) redirect("/entrar?social=erro");
-  redirect(data.url);
-}
-
 export async function registerAction(_: string | undefined, formData: FormData) {
   const parsed = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8).regex(/[A-Z]/).regex(/\d/), confirmPassword: z.string(), role: z.enum(["USER", "CONSULTANT"]), terms: z.literal("on") }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número.";
@@ -159,11 +152,9 @@ export async function createBookingAction(profileId: string, formData: FormData)
     const reason = message.includes("slot_too_soon") ? "muito_cedo" : message.includes("slot_unavailable") ? "indisponivel" : message.includes("unauthorized") ? "sessao" : "temporario";
     redirect(`/agendar/${profileId}?erro=${reason}`);
   }
-  try {
-    await sendPaymentInstructionsEmail(createSupabaseServiceClient(), booking, `${getAppUrl()}/checkout/${booking}`);
-  } catch (error) {
-    console.error("payment_instructions_email_failed", { booking, error });
-  }
+  // Sent after the response so the checkout opens without waiting on the mail server.
+  const checkoutUrl = `${getAppUrl()}/checkout/${booking}`;
+  after(() => sendPaymentInstructionsEmail(createSupabaseServiceClient(), booking, checkoutUrl).catch((error) => console.error("payment_instructions_email_failed", { booking, error })));
   redirect(`/checkout/${booking}`);
 }
 
@@ -196,14 +187,14 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
   // The provider metadata columns are maintained by migrations beyond the generated legacy type.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: booking, error: bookingError } = await supabase.from("Booking")
-    .select("id, customerId, professionalProfileId, status, startsAt").eq("id", id).eq("customerId", user.id).maybeSingle();
+  const [{ data: booking, error: bookingError }, { data: payment, error: paymentError }] = await Promise.all([
+    supabase.from("Booking").select("id, customerId, professionalProfileId, status, startsAt").eq("id", id).eq("customerId", user.id).maybeSingle(),
+    supabase.from("Payment").select("id, status").eq("bookingId", id).maybeSingle(),
+  ]);
   if (bookingError || !booking) notFound();
   if (booking.status !== "PENDING_PAYMENT") redirect(`/checkout/${id}`);
 
   const now = new Date().toISOString();
-  const { data: payment, error: paymentError } = await supabase.from("Payment")
-    .select("id, status").eq("bookingId", id).maybeSingle();
   if (paymentError || !payment) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível localizar o pagamento.")}`);
   if (payment.status === "PENDING") {
     const { error } = await supabase.from("Payment").update({
@@ -217,15 +208,19 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
     if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
     try { await ensureGoogleMeetForBooking(supabase, id); }
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
-    const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
-    const notificationRows = [
-      { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da conversa e no seu e-mail.`, href: "/dashboard/mensagens", createdAt: now },
-      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da consulta e no seu e-mail.`, href: "/consultor/consultas", createdAt: now }] : []),
-    ];
-    const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
-    if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
-    try { await sendBookingConfirmationEmails(supabase, id); }
-    catch (error) { console.error("simulated_payment_email_failed", { bookingId: id, error }); }
+    // Notifications and e-mails run after the response: the payment is already confirmed and the
+    // room link saved, so the customer sees the confirmation without waiting on them.
+    after(async () => {
+      const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
+      const notificationRows = [
+        { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da conversa e no seu e-mail.`, href: "/dashboard/mensagens", createdAt: now },
+        ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da consulta e no seu e-mail.`, href: "/consultor/consultas", createdAt: now }] : []),
+      ];
+      const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
+      if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
+      try { await sendBookingConfirmationEmails(supabase, id); }
+      catch (error) { console.error("simulated_payment_email_failed", { bookingId: id, error }); }
+    });
   }
 
   revalidatePath(`/checkout/${id}`);
@@ -279,7 +274,6 @@ export async function createInstantAvailabilityAction(): Promise<FormState> {
   }
 }
 export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); try { await rpc("remove_consultant_availability", { p_availability_id: id }); } catch (error) { console.error("remove_availability_failed", { id, error }); /* booked meanwhile: the refreshed agenda shows it as reserved */ } revalidatePath("/consultor/agenda"); revalidatePath("/buscar"); }
-export async function releaseEligibleBookings() { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); await rpc("release_eligible_bookings_for_user", {}); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
@@ -371,6 +365,7 @@ async function markNotificationRead(id: string, userId: string) {
 export async function markNotificationReadAction(id: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
 export async function markAllNotificationsReadAction() { const user = await requireUser(); const supabase = createSupabaseServiceClient(); const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("userId", user.id).is("readAt", null); if (error) throw new Error(`Não foi possível marcar as notificações como lidas: ${error.message}`); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
 export async function clearAllNotificationsAction() { const user = await requireUser(); const supabase = createSupabaseServiceClient(); const { error } = await supabase.from("Notification").delete().eq("userId", user.id); if (error) throw new Error(`Não foi possível limpar as notificações: ${error.message}`); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
+export async function archiveCustomerBookingAction(id: string) { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("archive_customer_booking", { p_booking_id: id }); if (error) throw new Error("Não foi possível ocultar este histórico agora."); revalidatePath("/dashboard/agendamentos"); revalidatePath("/dashboard/mensagens"); }
 export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(safeInternalPath(href)); }
 export async function reportProfileAction(profileId: string, formData: FormData) { await requireUser(); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED") { await requireUser([Role.ADMIN]); await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id); revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); }

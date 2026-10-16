@@ -8,7 +8,6 @@ import { PublicShell } from "@/components/public-shell";
 import { meetingRoomOpeningText, money, shortDate } from "@/lib/format";
 import { meetingRoomState, paymentDeadline } from "@/lib/booking-policy";
 import { requireUser } from "@/lib/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 
 export const metadata = { title: "Pagamento" };
@@ -18,7 +17,7 @@ export default async function CheckoutPage({ params, searchParams }: { params: P
   const user = await requireUser();
   const { id } = await params;
   const query = await searchParams;
-  await (await createSupabaseServerClient()).rpc("expire_past_unpaid_bookings", {});
+  // getViewerDashboard already expires stale unpaid bookings before reading.
   const booking = await getBookingForUser(id, user.id);
   if (!booking) notFound();
   const meetingUrl = (booking as typeof booking & { meetingUrl?: string | null }).meetingUrl;

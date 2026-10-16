@@ -2,7 +2,11 @@ const MEET_SCOPE = "https://www.googleapis.com/auth/meetings.space.created";
 
 type MeetSpaceResponse = { meetingUri?: string; meetingSpace?: { meetingUri?: string } };
 
+// Access tokens last about an hour; reusing one saves an OAuth round trip on every payment.
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
 async function getGoogleAccessToken() {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim();
@@ -15,9 +19,10 @@ async function getGoogleAccessToken() {
     cache: "no-store",
   });
   if (!response.ok) throw new Error(`Google OAuth failed: ${response.status}`);
-  const payload = await response.json() as { access_token?: string; scope?: string };
+  const payload = await response.json() as { access_token?: string; scope?: string; expires_in?: number };
   if (!payload.access_token) throw new Error("Google OAuth did not return an access token.");
   if (payload.scope && !payload.scope.split(" ").includes(MEET_SCOPE)) throw new Error("The Google refresh token is missing the Meet scope.");
+  cachedToken = { value: payload.access_token, expiresAt: Date.now() + Math.max(0, (payload.expires_in ?? 3600) - 300) * 1000 };
   return payload.access_token;
 }
 

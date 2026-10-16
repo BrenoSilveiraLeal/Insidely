@@ -35,9 +35,3 @@ export async function createSupabaseServerClient() {
     },
   });
 }
-
-export async function getSupabaseUser() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  return error ? null : user;
-}

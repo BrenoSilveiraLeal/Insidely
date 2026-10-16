@@ -11,12 +11,19 @@ function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (characte
 export const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 
+// Built once per server instance; each message still opens its own connection.
+let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
+function smtpTransport() {
+  if (transport) return transport;
+  const port = Number(process.env.SMTP_PORT?.trim() || 465);
+  transport = nodemailer.createTransport({ host: process.env.SMTP_HOST?.trim(), port, secure: port === 465, auth: { user: process.env.SMTP_USER?.trim(), pass: process.env.SMTP_PASS?.replace(/\s/g, "") } });
+  return transport;
+}
+
 export async function sendTransactionalEmail({ to, subject, html, ics }: { to: string; subject: string; html: string; ics?: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   if (smtpConfigured()) {
-    const port = Number(process.env.SMTP_PORT?.trim() || 465);
-    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST?.trim(), port, secure: port === 465, auth: { user: process.env.SMTP_USER?.trim(), pass: process.env.SMTP_PASS?.replace(/s/g, "")} });
-    await transport.sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
+    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
     return true;
   }
   const apiKey = process.env.RESEND_API_KEY;
