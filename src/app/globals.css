@@ -185,7 +185,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .side-nav-label { padding: 10px 14px 2px; color: #7f887f; font: 700 .66rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
 .side-nav-secondary { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
 .side-nav-footer { display: grid; gap: 6px; margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
-.side-nav-profile { color: var(--paper) !important; background: rgba(255,255,255,.08); }
+.side-nav-profile { color: var(--paper) !important; border: 1px solid rgba(255,255,255,.22); }
 .side-nav-footer form { margin-top: 6px; }
 .dash-main { min-width: 0; padding: 38px clamp(24px, 5vw, 70px) 80px; }
 .dash-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 48px; }
@@ -544,4 +544,21 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .story-stage { position: static; min-height: 0; }
   .story-card { position: relative; inset: auto; transform: none !important; }
   .story-card + .story-card { margin-top: 28px; }
+}
+
+/* Dashboard navigation: current page and the collapsible "Menu" on small screens. */
+.side-nav a[aria-current="page"] { background: rgba(255,255,255,.12); color: white; }
+.nav-toggle { display: none; }
+.side-nav-wrap { display: contents; }
+@media (max-width: 950px) {
+  .sidebar { flex-wrap: wrap; }
+  .nav-toggle { display: inline-flex; align-items: center; margin-left: auto; min-height: 42px; padding: 0 18px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; background: transparent; color: var(--paper); font: 700 .86rem/1 inherit; cursor: pointer; }
+  .side-nav-wrap { display: none; flex-basis: 100%; width: 100%; }
+  .side-nav-wrap[data-open="true"] { display: block; max-height: calc(100dvh - 72px); overflow-y: auto; padding: 6px 0 12px; }
+  .side-nav-wrap .side-nav { display: grid; gap: 4px; overflow: visible; }
+  .side-nav-wrap .side-nav-section, .side-nav-wrap .side-nav-footer { display: grid; gap: 4px; }
+  .side-nav-wrap .side-nav-label { display: block; }
+  .side-nav-wrap .side-nav-secondary, .side-nav-wrap .side-nav-footer { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1); }
+  .side-nav-wrap .side-nav a { display: flex; white-space: normal; }
+  .side-nav-wrap .side-nav form { margin: 6px 0 0; }
 }

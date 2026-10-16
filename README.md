@@ -22,20 +22,23 @@ Variáveis:
 - `NEXT_PUBLIC_APP_URL`: origem pública da aplicação, sem barra final.
 - `NEXT_PUBLIC_SUPABASE_URL`: URL do projeto Supabase.
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: chave publicável; é segura no navegador quando RLS está correto.
-- `PIX_RECEIVER_KEY`: chave da plataforma exibida no checkout. Não há fallback.
+- `SUPABASE_SERVICE_ROLE_KEY`: chave server-side usada para provisionar perfis, gerar links de cadastro e tarefas protegidas.
+- `CRON_SECRET`: protege os endpoints `/api/cron/*`.
+- `PIX_RECEIVER_KEY`: legado e opcional; o checkout demonstrativo não usa chave Pix real.
 - `OPENAI_API_KEY`: opcional, somente para moderação avançada de avatar. A validação local continua funcionando sem ela.
-- `GOOGLE_MEET_ENABLED`: ativa a integração Google Meet somente quando toda a configuração OAuth estiver pronta.
-- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: credenciais server-side para uma futura integração Meet; nunca recebem prefixo `NEXT_PUBLIC_`.
+- `GOOGLE_MEET_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN`: criação das salas do Google Meet (veja [`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)).
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM`: envio de e-mails (Gmail com senha de app); `RESEND_API_KEY`/`RESEND_FROM_EMAIL` são a alternativa (veja [`docs/EMAIL-SETUP.md`](docs/EMAIL-SETUP.md)).
 
 Nunca exponha uma chave secret/service-role em `NEXT_PUBLIC_*`.
 
 ## Supabase
 
-`supabase/baseline/schema.sql` é o snapshot reproduzível do esquema legado. Em um projeto vazio, aplique-o uma vez e depois execute, em ordem, as migrations incrementais de `supabase/migrations`. Em projetos já existentes, aplique apenas as migrations ainda não registradas:
+`supabase/baseline/schema.sql` é o snapshot reproduzível do esquema legado. Em um projeto vazio, aplique-o uma vez e depois execute, em ordem, as migrations incrementais de `supabase/migrations`. Em projetos novos, aplique as migrations com `npx supabase db push`. No projeto atual, aplique cada migration nova isoladamente (veja "Histórico de migrations" no fim deste arquivo):
 
 ```bash
 npx supabase link --project-ref <project-ref>
-npx supabase db push
+npx supabase db query --linked -f supabase/migrations/<arquivo>.sql
+npx supabase migration repair --status applied <versão> --linked
 ```
 
 Elas criam/atualizam RPCs com validação de `auth.uid()`, índices, RLS e os buckets:
@@ -54,6 +57,8 @@ Ela exige JWT, confirmação do e-mail, remove arquivos, anonimiza o registro ne
 ## Autenticação
 
 Google e LinkedIn usam Supabase Auth. Configure os client IDs/secrets no painel Supabase e cadastre `<APP_URL>/auth/callback` nos provedores. O callback aceita apenas caminhos locais e sincroniza ambos os provedores pela RPC genérica `sync_social_profile`.
+
+Cadastro com e-mail e senha: quando o SMTP está configurado, a aplicação gera o link de confirmação (Supabase Admin `generateLink`), envia pelo próprio SMTP e o valida em `/auth/confirm`; o mesmo vale para "Esqueci minha senha". O perfil da aplicação (`public."User"`) é criado no callback, na confirmação ou no primeiro login, o que for primeiro. O papel escolhido no cadastro (cliente ou consultor) vem pré-selecionado no onboarding, que também pede o valor da conversa do consultor.
 
 O 2FA usa Supabase MFA TOTP: cadastro de fator, QR Code, confirmação, listagem, remoção, desafio após login e verificação AAL2. Se Challenge/Verify estiver desativado no painel Auth, habilite-o para TOTP.
 
@@ -98,13 +103,16 @@ Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs
 - Documentos de verificação nunca usam URL pública.
 - RPCs privilegiadas revogam execução de `PUBLIC` e derivam identidade de `auth.uid()`.
 - Revise periodicamente os advisors de segurança/desempenho do Supabase.
+- `npm audit`: o único alerta restante é do `braces` (dependência da ferramenta de lint `eslint-config-next`), sem versão corrigida publicada; ele não faz parte do site publicado.
 
 ## Solução de problemas
 
 - `Invalid Version` no npm: use Node 24 (veja `.nvmrc`) e o lockfile versionado; não reutilize `node_modules` antigo.
 - Login social volta com erro: confira URL de callback e credenciais no painel Supabase/provedor.
 - 2FA não desafia: confira se há fator `verified` e se TOTP Challenge/Verify está habilitado.
-- Meet não aparece: configure `GOOGLE_MEET_ENABLED=true`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN` com escopo de criação de salas do Meet.
+- Link da sala sai como `meet.jit.si`: a criação no Google falhou. `Google OAuth failed: 400` nos logs indica refresh token vencido; deixe o app OAuth "Em produção" e gere um token novo ([`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)).
+- E-mails não chegam: `Resend failed: 403` indica domínio do remetente não verificado; configure o Gmail SMTP ([`docs/EMAIL-SETUP.md`](docs/EMAIL-SETUP.md)).
+- Cadastro mostra "Não foi possível enviar o e-mail de confirmação": o SMTP não está configurado ou recusou o envio.
 - Upload negado: confirme migration dos buckets, MIME, tamanho e que o caminho começa pelo UUID autenticado.
 
 

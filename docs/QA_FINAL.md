@@ -1,5 +1,24 @@
 # QA final — auditoria de segurança e produção
 
+## Atualização — 2026-10-16 (teste de ponta a ponta em produção)
+
+Testado no navegador (Playwright/Chromium) em https://insidely.vercel.app, com contas temporárias de consultor e cliente removidas ao final, em desktop e celular (390 px).
+
+| Fluxo | Resultado |
+|---|---|
+| Cadastro pela tela e link de confirmação por e-mail | PASS: link reutilizado é recusado |
+| Primeiro login e onboarding (papel e valor da conversa) | PASS |
+| Menus do consultor (13 itens) e do cliente (9 itens) | PASS: nenhuma página quebrada; menu recolhível no celular |
+| Conversa imediata e horário agendado | PASS |
+| Checkout simulado (Pix, crédito, débito, boleto) | PASS |
+| Link do Google Meet no chat dos dois participantes | PASS: `meet.google.com/...` |
+| E-mails de pagamento e confirmação (Gmail SMTP) | PASS: sem erros nos logs |
+| Mensagens entre cliente e consultor | PASS |
+| Confirmação dupla, avaliação e ganhos | PASS |
+| TypeScript, ESLint, 23 testes, build (Next.js 16.3.8) | PASS |
+
+Correções desta rodada: perfil criado no primeiro login (antes só pelo link de e-mail, e o Next memoizava a busca repetida); datas do banco lidas como UTC (antes deslocavam 3 h conforme o fuso); preço definido no onboarding (antes R$ 0,00); link da sala como mensagem fixada no chat; e-mail sem código Pix real; cadastro e recuperação de senha enviados pelo SMTP da aplicação; token do Google Meet renovado com o app OAuth em produção; Next.js atualizado de 16.3.5 para 16.3.8 (corrige uma RCE crítica e outras falhas). Restou no `npm audit` apenas o `braces`, da ferramenta de lint, sem correção publicada.
+
 ## Atualização — 2026-10-15
 
 Pagamentos agora são **simulados** (Pix, crédito, débito e boleto, sem Stripe); os itens de Stripe abaixo descrevem a integração original, que permanece no código mas fora do checkout.
