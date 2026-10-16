@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BriefcaseBusiness, CalendarDays, Clock, ShieldCheck, Star } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Clock, MapPin, ShieldCheck, Star } from "lucide-react";
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PublicShell } from "@/components/public-shell";
@@ -44,6 +44,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         <p className="verification-disclosure" role="note">{verification.detail}</p>
         <h1 className="profile-title">{name}</h1>
         <p className="section-copy">{profile.headline}</p>
+        {profile.location && <p className="section-copy" style={{ display: "flex", alignItems: "center", gap: 6 }}><MapPin size={16} aria-hidden="true" />{profile.location}</p>}
       </div>
     </section>
 
