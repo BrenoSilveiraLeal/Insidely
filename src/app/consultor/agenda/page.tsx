@@ -5,6 +5,7 @@ import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { shortDate } from "@/lib/format";
 
+export const metadata = { title: "Agenda" };
 export const dynamic = "force-dynamic";
 
 export default async function Page() {

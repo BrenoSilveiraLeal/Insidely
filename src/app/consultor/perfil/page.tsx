@@ -7,6 +7,7 @@ import { ProfileImageForm } from "@/components/profile-image-form";
 import { ProfileCoverForm } from "@/components/profile-cover-form";
 import { requireUser } from "@/lib/session";
 
+export const metadata = { title: "Perfil e verificação" };
 export const dynamic = "force-dynamic";
 const statusContent = { NOT_SUBMITTED: { label: "Ainda não verificado", copy: "Solicite a análise para mostrar que sua experiência profissional foi validada.", icon: CircleAlert }, PENDING: { label: "Em análise", copy: "Sua solicitação chegou à equipe.", icon: Clock3 }, VERIFIED: { label: "Experiência verificada", copy: "Seu perfil já exibe o selo de experiência verificada.", icon: BadgeCheck }, REJECTED: { label: "Solicitação não aprovada", copy: "Você pode enviar uma nova solicitação.", icon: CircleAlert }, MORE_INFO_REQUIRED: { label: "Precisamos de mais informações", copy: "Envie uma nova solicitação.", icon: CircleAlert } } as const;
 

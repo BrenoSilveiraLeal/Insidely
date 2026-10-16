@@ -563,3 +563,8 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
   .side-nav-wrap .side-nav a { display: flex; white-space: normal; }
   .side-nav-wrap .side-nav form { margin: 6px 0 0; }
 }
+
+/* Customer cancellation, collapsed by default so it is a deliberate action. */
+.cancel-booking-details { margin-top: 12px; }
+.cancel-booking-details summary { cursor: pointer; color: var(--muted); font-size: .85rem; font-weight: 700; }
+.cancel-booking-details[open] summary { margin-bottom: 10px; }

@@ -4,6 +4,7 @@ import { money, shortDate } from "@/lib/format";
 import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
+export const metadata = { title: "Painel do consultor" };
 export const dynamic = "force-dynamic";
 
 export default async function ConsultantDashboard() {

@@ -5,6 +5,7 @@ import { money } from "@/lib/format";
 import { getAdminData } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
+export const metadata = { title: "Administração" };
 export const dynamic = "force-dynamic";
 
 export default async function Page() {

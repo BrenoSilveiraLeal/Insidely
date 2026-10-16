@@ -1493,6 +1493,7 @@ export type Database = {
       get_viewer_dashboard: { Args: { p_user_id: string }; Returns: Json }
       health_check: { Args: Record<PropertyKey, never>; Returns: Json }
       search_public_profiles: { Args: { p_query?: string; p_company_slug?: string; p_profession_slug?: string; p_work_mode?: string; p_location?: string; p_limit?: number; p_offset?: number }; Returns: Json }
+      customer_cancel_booking: { Args: { p_booking_id: string; p_reason?: string }; Returns: undefined }
       release_eligible_bookings_for_user: { Args: Record<PropertyKey, never>; Returns: number }
       release_eligible_bookings_system: { Args: Record<PropertyKey, never>; Returns: number }
       expire_past_unpaid_bookings: { Args: Record<PropertyKey, never>; Returns: number }

@@ -1,16 +1,20 @@
 import { ReviewForm } from "@/components/review-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireUser } from "@/lib/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getViewerDashboard } from "@/lib/queries";
 import { shortDate } from "@/lib/format";
 import { Role } from "@/lib/domain";
 
+export const metadata = { title: "Avaliações" };
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const dashboard = await getViewerDashboard(user.id);
-  const pending = dashboard?.customerBookings.filter((booking) => booking.status === "COMPLETED" && !booking.review) ?? [];
+  // A consultant may test-book their own profile, but cannot review it (the database refuses).
+  const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
+  const pending = dashboard?.customerBookings.filter((booking) => booking.status === "COMPLETED" && !booking.review && booking.professional.id !== ownProfile?.id) ?? [];
   const published = dashboard?.customerBookings.filter((booking) => booking.review) ?? [];
   return <DashboardShell mode="user" title="Avaliações" canConsultant={user.role === Role.CONSULTANT}>
     <div className="profile-management-stack"><section><span className="eyebrow">Depois da conversa</span><h2 className="section-title">Avaliações verificadas.</h2><p className="muted">Só quem participou de uma conversa concluída pode publicar uma avaliação, uma vez por encontro.</p></section>

@@ -11,6 +11,7 @@ import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 
+export const metadata = { title: "Pagamento" };
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ status?: string; erro?: string }> }) {

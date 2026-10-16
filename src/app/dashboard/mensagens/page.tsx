@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/session";
 import { canSendBookingMessage } from "@/lib/booking-policy";
 import { money, shortDate } from "@/lib/format";
 
+export const metadata = { title: "Mensagens" };
 export const dynamic = "force-dynamic";
 
 function requestStatus(status: string) {

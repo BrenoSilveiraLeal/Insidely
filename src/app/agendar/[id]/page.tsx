@@ -6,6 +6,7 @@ import { money, publicName, shortDate } from "@/lib/format";
 import { getProfessional } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
+export const metadata = { title: "Agendar conversa" };
 export const dynamic = "force-dynamic";
 
 export default async function BookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; slot?: string }> }) {

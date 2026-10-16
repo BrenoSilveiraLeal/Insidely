@@ -7,6 +7,7 @@ import { Role } from "@/lib/domain";
 import { meetingRoomOpeningText, shortDate } from "@/lib/format";
 import { meetingRoomState } from "@/lib/booking-policy";
 
+export const metadata = { title: "Sua consulta" };
 export const dynamic = "force-dynamic";
 
 export default async function ConsultationPage({ params }: { params: Promise<{ id: string }> }) {

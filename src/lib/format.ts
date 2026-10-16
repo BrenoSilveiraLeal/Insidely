@@ -49,3 +49,7 @@ export function parseDbDate(value: string | Date) {
   if (value instanceof Date) return value;
   return new Date(/(Z|[+-]\d{2}:?\d{2})$/i.test(value) || !/\d{2}:\d{2}/.test(value) ? value : value.replace(" ", "T") + "Z");
 }
+
+export function reportStatusLabel(status: string) {
+  return ({ OPEN: "Aberto", IN_REVIEW: "Em análise", RESOLVED: "Resolvido", DISMISSED: "Arquivado" } as Record<string, string>)[status] ?? status;
+}

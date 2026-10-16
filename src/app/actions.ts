@@ -371,3 +371,11 @@ export async function openNotificationAction(id: string, href: string) { const u
 export async function reportProfileAction(profileId: string, formData: FormData) { await requireUser(); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED") { await requireUser([Role.ADMIN]); await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id); revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); }
 export async function resolveReportAction(id: string) { await requireUser([Role.ADMIN]); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
+export async function customerCancelBookingAction(id: string, formData: FormData) {
+  await requireUser();
+  let ok = true;
+  try { await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: String(formData.get("reason") || "").trim().slice(0, 300) }); }
+  catch (error) { ok = false; console.error("customer_cancel_failed", { bookingId: id, error }); }
+  revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
+  redirect(`/dashboard/agendamentos?cancelamento=${ok ? "ok" : "erro"}`);
+}

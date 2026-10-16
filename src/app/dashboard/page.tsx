@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { meetingRoomOpeningText, shortDate } from "@/lib/format";
 import { isMeetingRoomOpen, meetingRoomState } from "@/lib/booking-policy";
 
+export const metadata = { title: "Painel" };
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
