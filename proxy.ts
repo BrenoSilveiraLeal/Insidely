@@ -3,6 +3,8 @@ import { updateSupabaseSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
   const startedAt = performance.now();
+  // Lets requireUser() send people back here after login or onboarding.
+  request.headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
   const response = await updateSupabaseSession(request);
   const durationMs = Math.round(performance.now() - startedAt);
   response.headers.set("Server-Timing", `supabase_session;dur=${durationMs}`);

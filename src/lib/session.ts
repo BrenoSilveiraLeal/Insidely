@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Role } from "@/lib/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,10 +29,16 @@ export async function getAuthenticatedUser() {
   return null;
 }
 
+async function currentPath() {
+  const path = (await headers()).get("x-pathname");
+  return path && path.startsWith("/") && !path.startsWith("//") && !/^\/(entrar|onboarding|continuar|auth)/.test(path) ? path : undefined;
+}
+
 export async function requireUser(roles?: Role[], options?: { allowIncomplete?: boolean; nextPath?: string }) {
   const stored = await getAuthenticatedUser();
-  if (!stored) redirect(options?.nextPath ? "/entrar?next=" + encodeURIComponent(options.nextPath) : "/entrar");
+  const nextPath = options?.nextPath ?? await currentPath();
+  if (!stored) redirect(nextPath ? "/entrar?next=" + encodeURIComponent(nextPath) : "/entrar");
   if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
-  if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(options?.nextPath ? "/onboarding?next=" + encodeURIComponent(options.nextPath) : "/onboarding");
+  if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(nextPath ? "/onboarding?next=" + encodeURIComponent(nextPath) : "/onboarding");
   return stored;
 }
