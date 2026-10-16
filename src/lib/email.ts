@@ -1,12 +1,22 @@
+import nodemailer from "nodemailer";
 import { parseDbDate } from "./format";
-
 
 type BookingRecipient = { email: string; name: string };
 
 function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] ?? character); }
 
+// SMTP (e.g. Gmail with an app password) takes precedence; Resend needs a verified domain.
+const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+
 export async function sendTransactionalEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
+  if (smtpConfigured()) {
+    const port = Number(process.env.SMTP_PORT || 465);
+    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port, secure: port === 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+    await transport.sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html });
+    return true;
+  }
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) return false;
@@ -17,7 +27,7 @@ export async function sendTransactionalEmail({ to, subject, html }: { to: string
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendBookingConfirmationEmails(supabase: any, bookingId: string, meetingUrl: string | null) {
-  if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
+  if (!emailConfigured()) return;
   const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
@@ -33,7 +43,7 @@ export async function sendBookingConfirmationEmails(supabase: any, bookingId: st
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendPaymentInstructionsEmail(supabase: any, bookingId: string, checkoutUrl: string) {
-  if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
+  if (!emailConfigured()) return;
   const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, totalCents, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`payment_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
@@ -47,7 +57,7 @@ export async function sendPaymentInstructionsEmail(supabase: any, bookingId: str
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendBookingCancellationEmail(supabase: any, bookingId: string, reason: string, refunded: boolean) {
-  if (process.env.E2E_MOCK_EXTERNALS !== "true" && (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) return;
+  if (!emailConfigured()) return;
   const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`cancellation_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
