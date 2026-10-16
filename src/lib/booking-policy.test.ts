@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRetryTransfer, canSendBookingMessage, isMeetingRoomOpen } from "./booking-policy";
+import { canRetryTransfer, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
 
 describe("booking policy", () => {
   it("does not allow messages before payment confirmation", () => {
@@ -24,5 +24,15 @@ describe("meeting room window", () => {
     expect(isMeetingRoomOpen(startsAt, 30, new Date("2026-10-20T14:50:00.000Z"))).toBe(true);
     expect(isMeetingRoomOpen(startsAt, 30, new Date("2026-10-20T15:30:00.000Z"))).toBe(true);
     expect(isMeetingRoomOpen(startsAt, 30, new Date("2026-10-20T15:30:00.001Z"))).toBe(false);
+  });
+});
+
+describe("payment deadline", () => {
+  it("allows 30 minutes for future bookings", () => {
+    expect(paymentDeadline(new Date("2026-10-20T12:00:00.000Z"), new Date("2026-10-21T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T12:30:00.000Z"));
+  });
+
+  it("keeps instant bookings payable until the conversation ends", () => {
+    expect(paymentDeadline(new Date("2026-10-20T15:20:00.000Z"), new Date("2026-10-20T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T15:30:00.000Z"));
   });
 });

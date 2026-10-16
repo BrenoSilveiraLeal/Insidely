@@ -1,5 +1,23 @@
 # QA final — auditoria de segurança e produção
 
+## Atualização — 2026-10-15
+
+Pagamentos agora são **simulados** (Pix, crédito, débito e boleto, sem Stripe); os itens de Stripe abaixo descrevem a integração original, que permanece no código mas fora do checkout.
+
+| Item | Resultado | Observação |
+|---|---|---|
+| TypeScript, ESLint, testes unitários (21), build | PASS | sem avisos de lint |
+| Rotas públicas e redirecionamento de rotas protegidas em produção | PASS | |
+| Busca, perfil público e agendamento | CORRIGIDO | `public_profile_cards` havia sido recriada com `security_invoker`, gerando `permission denied for table PrivacySettings` para visitantes; restaurada em `20261016000100` |
+| Conversa imediata | CORRIGIDO | a reserva expirava logo após ser criada porque o horário já tinha começado; expiração agora considera o fim do horário |
+| Pagamento após o prazo de 30 minutos | CORRIGIDO | checkout expira reservas vencidas antes de exibir/aceitar o pagamento |
+| Ganhos do consultor | CORRIGIDO | lista passou a incluir pagamentos simulados (`PAID_HELD`) |
+| Conclusão e avaliação | CORRIGIDO | confirmação liberada após o início da conversa; conclusão automática em 24 h também para pagamentos simulados; auto-agendamento de teste não trava; autoavaliação bloqueada |
+| Redirecionamento de notificações | CORRIGIDO | usa `safeInternalPath` |
+| E2E autenticado | PENDENTE | requer projeto Supabase de teste e contas E2E dedicadas (`docs/E2E_TESTS.md`) |
+
+## Auditoria anterior
+
 Data: 2026-08-26
 
 ## Status geral

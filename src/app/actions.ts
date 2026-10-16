@@ -167,6 +167,9 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
     redirect(`/checkout/${id}?erro=${encodeURIComponent("Selecione uma forma de pagamento.")}`);
   }
 
+  // Expire stale requests first so a booking past its 30-minute payment window cannot be paid.
+  await (await createSupabaseServerClient()).rpc("expire_past_unpaid_bookings", {});
+
   // The provider metadata columns are maintained by migrations beyond the generated legacy type.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
@@ -239,7 +242,7 @@ export async function createAvailabilityAction(_: FormState, formData: FormData)
   }
 }
 
-export async function createInstantAvailabilityAction(_: FormState, _formData: FormData): Promise<FormState> {
+export async function createInstantAvailabilityAction(): Promise<FormState> {
   const user = await requireUser([Role.CONSULTANT]);
   const startsAt = new Date();
   try {
@@ -345,7 +348,7 @@ async function markNotificationRead(id: string, userId: string) {
 }
 export async function markNotificationReadAction(id: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
 export async function markAllNotificationsReadAction() { const user = await requireUser(); const supabase = createSupabaseServiceClient(); const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("userId", user.id).is("readAt", null); if (error) throw new Error(`Não foi possível marcar as notificações como lidas: ${error.message}`); revalidatePath("/dashboard"); revalidatePath("/consultor"); }
-export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(href.startsWith("/") ? href : "/"); }
+export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(safeInternalPath(href)); }
 export async function reportProfileAction(profileId: string, formData: FormData) { await requireUser(); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED") { await requireUser([Role.ADMIN]); await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id); revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); }
 export async function resolveReportAction(id: string) { await requireUser([Role.ADMIN]); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }

@@ -9,6 +9,11 @@ export function canRetryTransfer(bookingStatus: string, paymentStatus: string) {
   return ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(bookingStatus) && RETRYABLE_PAYMENT_STATUSES.has(paymentStatus);
 }
 
+// Mirrors expire_past_unpaid_bookings: 30 minutes after the request or the end of the conversation.
+export function paymentDeadline(createdAt: Date, startsAt: Date, durationMinutes: number) {
+  return new Date(Math.min(createdAt.getTime() + 30 * 60_000, startsAt.getTime() + durationMinutes * 60_000));
+}
+
 export function isMeetingRoomOpen(startsAt: Date, durationMinutes: number, now = new Date()) {
   const opensAt = startsAt.getTime() - 10 * 60_000;
   const closesAt = startsAt.getTime() + durationMinutes * 60_000;

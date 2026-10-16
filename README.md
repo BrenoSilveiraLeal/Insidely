@@ -61,6 +61,13 @@ O 2FA usa Supabase MFA TOTP: cadastro de fator, QR Code, confirmação, listagem
 
 O checkout atual é uma **simulação**: oferece Pix, cartão de crédito, cartão de débito e boleto, mas não coleta dados financeiros nem chama a Stripe. Ao confirmar, registra o pagamento como simulado e confirma a reserva. Não há cobrança ou repasse de dinheiro. A integração Stripe permanece no código para possível evolução futura e não faz parte do checkout demonstrativo.
 
+Regras do ciclo da conversa:
+
+- O pagamento precisa ser confirmado em até 30 minutos após a solicitação (ou até o fim do horário, no caso de conversa imediata); depois disso a reserva expira e o horário é liberado.
+- Só aparecem para agendamento horários com pelo menos 10 minutos restantes.
+- Depois que a conversa começa, consultor e cliente podem confirmar que ela aconteceu; com as duas confirmações ela é concluída e o cliente pode avaliar. Sem contestação, a conclusão é automática 24 horas após o fim.
+- O consultor pode agendar no próprio perfil para testes (a confirmação vale pelos dois lados), mas não pode avaliar a si mesmo.
+
 ## Comandos
 
 ```bash
@@ -86,7 +93,7 @@ Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs
 ## Segurança e operação
 
 - RLS permanece habilitado; autorização não usa `user_metadata`.
-- As seis views públicas são projeções deliberadamente limitadas e usam `security_definer` porque as tabelas-base não são expostas a `anon`; qualquer nova coluna precisa de revisão de privacidade. Views internas usam `security_invoker`.
+- As views públicas são projeções deliberadamente limitadas e rodam com os direitos do dono (sem `security_invoker`) porque as tabelas-base não são expostas a `anon`; recriar uma delas com `security_invoker = true` quebra a busca e os perfis públicos. Qualquer nova coluna precisa de revisão de privacidade. Views internas usam `security_invoker`.
 - O endpoint `/api/health` chama uma RPC sem acesso a dados e nunca revela nomes de tabelas ou mensagens internas.
 - Documentos de verificação nunca usam URL pública.
 - RPCs privilegiadas revogam execução de `PUBLIC` e derivam identidade de `auth.uid()`.
@@ -94,7 +101,7 @@ Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs
 
 ## Solução de problemas
 
-- `Invalid Version` no npm: use Node 22 e o lockfile versionado; não reutilize `node_modules` antigo.
+- `Invalid Version` no npm: use Node 24 (veja `.nvmrc`) e o lockfile versionado; não reutilize `node_modules` antigo.
 - Login social volta com erro: confira URL de callback e credenciais no painel Supabase/provedor.
 - 2FA não desafia: confira se há fator `verified` e se TOTP Challenge/Verify está habilitado.
 - Meet não aparece: configure `GOOGLE_MEET_ENABLED=true`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN` com escopo de criação de salas do Meet.
@@ -112,4 +119,6 @@ Aplique as novas migrations em ordem antes de usar o painel. Não use uma conta 
 
 ## Histórico de migrations
 
-O projeto continha duas migrations locais com a versão 20260826070000. A lista remota consultada não contém essa versão; por isso, a migration de fixture E2E foi renumerada para 20260826070001. As migrations novas deste conjunto começam em 20261016000100 e devem ser aplicadas em ordem.
+O projeto continha duas migrations locais com a versão 20260826070000. A lista remota consultada não contém essa versão; por isso, a migration de fixture E2E foi renumerada para 20260826070001.
+
+O histórico remoto não registra várias migrations antigas aplicadas por outros meios, então `supabase db push` tentaria reaplicá-las. Para aplicar uma migration nova isoladamente: `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql` seguido de `npx supabase migration repair --status applied <versão> --linked`.
