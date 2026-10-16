@@ -38,6 +38,9 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   const stored = await getAuthenticatedUser();
   const nextPath = options?.nextPath ?? await currentPath();
   if (!stored) redirect(nextPath ? "/entrar?next=" + encodeURIComponent(nextPath) : "/entrar");
+  // Accounts with 2FA must complete the code before any protected page, whatever path led here.
+  const { data: assurance } = await (await createSupabaseServerClient()).auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2") redirect(nextPath ? "/mfa?next=" + encodeURIComponent(nextPath) : "/mfa");
   if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
   if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(nextPath ? "/onboarding?next=" + encodeURIComponent(nextPath) : "/onboarding");
   return stored;

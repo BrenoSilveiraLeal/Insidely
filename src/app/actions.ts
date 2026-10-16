@@ -77,7 +77,9 @@ export async function loginAction(_: string | undefined, formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email.toLowerCase(), password: parsed.data.password });
   if (error?.code === "email_not_confirmed") return "Confirme seu e-mail antes de entrar.";
   if (error) return "E-mail ou senha incorretos.";
-  redirect(safeInternalPath(String(formData.get("next") || "/continuar")));
+  // Always pass through /continuar so MFA and onboarding run before the requested page.
+  const next = safeInternalPath(String(formData.get("next") || ""), "");
+  redirect(next && next !== "/continuar" ? `/continuar?next=${encodeURIComponent(next)}` : "/continuar");
 }
 
 export async function requestPasswordResetAction(_: string | undefined, formData: FormData) { const parsed = z.object({ email: z.string().email() }).safeParse(Object.fromEntries(formData)); if (!parsed.success) return "Digite um e-mail válido."; const done = "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; if (smtpConfigured()) { const email = parsed.data.email.toLowerCase(); const { data, error } = await createSupabaseServiceClient().auth.admin.generateLink({ type: "recovery", email }); if (error || !data.properties?.hashed_token) return done; try { await sendAuthLinkEmail({ to: email, name: String(data.user?.user_metadata?.name ?? ""), kind: "recovery", link: `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery` }); } catch (mailError) { console.error("recovery_email_failed", mailError); return "Não foi possível enviar o e-mail de recuperação."; } return done; } const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email.toLowerCase(), { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/redefinir-senha` }); if (error) return "Não foi possível enviar o e-mail de recuperação."; return "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; }

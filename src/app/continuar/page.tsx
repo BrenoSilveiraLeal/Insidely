@@ -6,7 +6,7 @@ export default async function ContinuePage({ searchParams }: { searchParams: Pro
   const { next } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2") redirect("/mfa");
+  if (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2") redirect(next ? `/mfa?next=${encodeURIComponent(next)}` : "/mfa");
   const user = await requireUser(undefined, { allowIncomplete: true });
   if (!user.onboardingCompleted) redirect(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
   if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) redirect(next);
