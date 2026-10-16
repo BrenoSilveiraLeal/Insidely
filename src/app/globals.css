@@ -207,6 +207,9 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .message-system p { margin: 0; }
 .message-system-link { font-weight: 600; overflow-wrap: anywhere; text-decoration: underline; }
 .message-system-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.message-form { display: flex; gap: 8px; }
+.message-form .input { flex: 1; min-width: 0; }
+.message-form .button { flex: none; }
 .notification-unread { border-color: var(--mineral); box-shadow: 0 0 0 3px rgba(255,118,87,.12); }
 .notification-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--surface); }
 .notification-bell:hover, .notification-bell:focus-visible { color: var(--mineral); border-color: var(--mineral); }

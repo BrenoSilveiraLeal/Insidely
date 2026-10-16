@@ -17,7 +17,7 @@ describe("booking countdown", () => {
 
 describe("meeting room opening label", () => {
   it("uses Brasília time and day/month", () => {
-    expect(meetingRoomOpeningText("2026-10-20T15:00:00.000Z")).toBe("A sala abre às 12:00 de 20/10 (10 min antes).");
+    expect(meetingRoomOpeningText("2026-10-20T15:00:00.000Z")).toBe("A sala abre às 11:50 de 20/10, 10 minutos antes da conversa.");
   });
 });
 
