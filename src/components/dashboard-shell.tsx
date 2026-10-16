@@ -5,7 +5,7 @@ import { NotificationPopover } from "@/components/notification-popover";
 
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
-  consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Perfil e verificação"], ["/dashboard/configuracoes", "Conta e segurança"]],
+  consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Perfil e verificação"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
   admin: [["/admin", "Visão geral"], ["/admin/verificacoes", "Verificações"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"]],
 } as const;
 
@@ -17,7 +17,7 @@ export function DashboardShell({ mode, title, children, profileId, notifications
     {mode === "consultant" ? <>
       <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
       <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span>{menus.consultant.slice(4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
-      <div className="side-nav-footer"><Link className="side-nav-profile" href={profileHref}>Visualizar seu perfil</Link><Link href="/dashboard/favoritos">Meus favoritos</Link><Link href="/dashboard">Modo cliente</Link><Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form></div>
+      <div className="side-nav-footer"><Link className="side-nav-profile" href={profileHref}>Visualizar seu perfil</Link><Link href="/dashboard/favoritos?context=consultant">Meus favoritos</Link><Link href="/dashboard">Modo cliente</Link><Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="button button-ghost button-sm" type="submit">Sair</button></form></div>
     </> : <>
       {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}

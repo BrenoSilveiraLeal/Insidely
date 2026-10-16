@@ -5,7 +5,7 @@ import { shortDate } from "@/lib/format";
 const PAID_STATUSES = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED"];
 
 // Pinned platform message that delivers the video room link inside the booking chat.
-export function MeetingRoomMessage({ booking }: { booking: { id: string; status: string; startsAt: Date; durationMinutes: number; meetingUrl: string | null } }) {
+export function MeetingRoomMessage({ booking, calendarSide = "customer" }: { booking: { id: string; status: string; startsAt: Date; durationMinutes: number; meetingUrl: string | null }; calendarSide?: "customer" | "consultant" }) {
   if (!PAID_STATUSES.includes(booking.status)) return null;
   const open = isMeetingRoomOpen(booking.startsAt, booking.durationMinutes);
   // The Insidely link checks participant and schedule before redirecting to the Meet room.
@@ -16,7 +16,7 @@ export function MeetingRoomMessage({ booking }: { booking: { id: string; status:
     {booking.meetingUrl ? <>
       <p>{open ? "A sala está aberta. Entre pelo link abaixo." : "Use este link no horário marcado. Ele só abre a sala do Google Meet a partir de 10 minutos antes."}</p>
       <a className="message-system-link" href={roomUrl} target="_blank" rel="noreferrer">{roomUrl.replace(/^https?:\/\//, "")}</a>
-      <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<a className="button button-ghost button-sm" href={`/api/calendar/${booking.id}`}>Adicionar ao calendário</a></div>
+      <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<a className="button button-ghost button-sm" href={"/api/calendar/" + booking.id + "?side=" + calendarSide}>Adicionar ao calendário</a></div>
     </> : <p>O link da sala está sendo gerado e aparecerá aqui em instantes.</p>}
   </div>;
 }

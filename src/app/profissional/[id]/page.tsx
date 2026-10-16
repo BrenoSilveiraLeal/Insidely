@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BriefcaseBusiness, CalendarDays, Clock, MapPin, ShieldCheck, Star } from "lucide-react";
+import { after } from "next/server";
+import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star } from "lucide-react";
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PublicShell } from "@/components/public-shell";
@@ -15,11 +16,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string }> }) {
   const { id } = await params;
   const { denuncia } = await searchParams;
-  const profile = await getProfessional(id);
+  const [profile, viewer, requestHeaders] = await Promise.all([
+    getProfessional(id),
+    getAuthenticatedUser(),
+    headers(),
+  ]);
   if (!profile) notFound();
-  const viewer = await getAuthenticatedUser();
-  const requestHeaders = await headers();
-  await recordProfileView(profile.id, { userId: viewer?.id, fingerprint: `${requestHeaders.get("x-forwarded-for")?.split(",")[0] ?? ""}|${requestHeaders.get("user-agent") ?? ""}` }).catch(() => {});
+  const fingerprint = [requestHeaders.get("x-forwarded-for")?.split(",")[0] ?? "", requestHeaders.get("user-agent") ?? ""].join("|");
+  after(() => recordProfileView(profile.id, { userId: viewer?.id, fingerprint }).catch(() => {}));
   const isFavorite = viewer ? await getFavoriteState(profile.id, viewer.id) : false;
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
@@ -67,14 +71,14 @@ export default async function ProfessionalPage({ params, searchParams }: { param
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 5).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <p className="muted">Este perfil ainda não abriu horários para conversa.</p>}
+            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <p className="muted">Este perfil ainda não abriu horários para conversa.</p>}
           </div>
 
           {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
           <FavoriteButton profileId={profile.id} initialSaved={isFavorite}/>
           <p className="muted" style={{fontSize:12}}>A plataforma protege dados privados e libera a conversa somente após a confirmação do pagamento.</p>
 
-          <details className="profile-report"><summary>Denunciar este perfil</summary>{denuncia === "enviada" && <p className="form-feedback" role="status">Denúncia enviada para análise.</p>}{denuncia === "erro" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}<form action={reportProfileAction.bind(null, profile.id)} className="form-stack"><label className="field"><span>Motivo</span><select className="select" name="category" required><option>Foto inadequada</option><option>Informação falsa</option><option>Assédio ou comportamento abusivo</option><option>Outro</option></select></label><label className="field"><span>O que aconteceu?</span><textarea className="textarea" name="description" minLength={20} maxLength={2000} required placeholder="Explique o motivo da denúncia."/></label><button className="button button-ghost button-block" type="submit">Enviar denúncia</button></form></details>
+          <details className="profile-report"><summary><Flag size={15} aria-hidden="true"/><span>Denunciar este perfil</span><ChevronDown className="profile-report-chevron" size={15} aria-hidden="true"/></summary>{denuncia === "enviada" && <p className="form-feedback" role="status">Denúncia enviada para análise.</p>}{denuncia === "erro" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}<form action={reportProfileAction.bind(null, profile.id)} className="form-stack"><label className="field"><span>Motivo</span><select className="select" name="category" required><option>Foto inadequada</option><option>Informação falsa</option><option>Assédio ou comportamento abusivo</option><option>Outro</option></select></label><label className="field"><span>O que aconteceu?</span><textarea className="textarea" name="description" minLength={20} maxLength={2000} required placeholder="Explique o motivo da denúncia."/></label><button className="button button-ghost button-block" type="submit">Enviar denúncia</button></form></details>
         </aside>
       </div>
     </section>

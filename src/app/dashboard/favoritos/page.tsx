@@ -10,14 +10,16 @@ import { requireUser } from "@/lib/session";
 export const metadata = { title: "Favoritos" };
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ context?: string }> }) {
+  const params = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const consultantContext = user.role === Role.CONSULTANT && params.context === "consultant";
   const dashboard = await getViewerDashboard(user.id);
   const history = Array.from(new Map((dashboard?.customerBookings ?? []).sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime()).map((booking) => [booking.professional.id, booking.professional])).values());
   const favorites = dashboard?.favorites ?? [];
   const visibleFavorites = favorites.filter((favorite) => favorite.professionalProfile.id);
 
-  return <DashboardShell mode="user" title="Favoritos" canConsultant={user.role === Role.CONSULTANT}>
+  return <DashboardShell mode={consultantContext ? "consultant" : "user"} title="Favoritos" canConsultant={user.role === Role.CONSULTANT}>
     <section>
       <div className="section-head"><div><span className="eyebrow">Seus perfis</span><h2>Perfis salvos</h2><p className="muted">Aqui ficam os profissionais que você marcou para consultar depois.</p></div><span className="status">{favorites.length} salvos</span></div>
       <div className="grid grid-3">{visibleFavorites.map((favorite, index) => <div className="favorite-profile-item" key={favorite.id}><ProfessionalCard profile={favorite.professionalProfile} index={index} /><div className="favorite-card-actions"><FavoriteButton profileId={favorite.professionalProfile.id} initialSaved showShare={false} /><ProfileShareButton profileId={favorite.professionalProfile.id} /></div></div>)}</div>
