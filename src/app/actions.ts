@@ -12,7 +12,7 @@ import { blockedContactPattern, safeInternalPath } from "@/lib/security"
 import { getAppUrl } from "@/lib/app-url";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendAuthLinkEmail, sendBookingCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, smtpConfigured } from "@/lib/email";
+import { sendAuthLinkEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, smtpConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -275,13 +275,13 @@ export async function createInstantAvailabilityAction(): Promise<FormState> {
     return { status: "error", message: "Não foi possível abrir a disponibilidade imediata. Tente novamente." };
   }
 }
-export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("remove_consultant_availability", { p_availability_id: id }); revalidatePath("/consultor/agenda"); }
+export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); try { await rpc("remove_consultant_availability", { p_availability_id: id }); } catch (error) { console.error("remove_availability_failed", { id, error }); /* booked meanwhile: the refreshed agenda shows it as reserved */ } revalidatePath("/consultor/agenda"); revalidatePath("/buscar"); }
 export async function releaseEligibleBookings() { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); await rpc("release_eligible_bookings_for_user", {}); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
-export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }
-export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
+export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
+export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment.trim().slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);
@@ -358,7 +358,7 @@ export async function removeProfileCoverAction() {
   if (error) throw new Error("Não foi possível remover a capa.");
   revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); revalidatePath("/profissional/[id]", "page");
 }
-export async function deleteAccountAction(_: string | undefined, formData: FormData) { const user = await requireUser(); const confirmation = String(formData.get("confirmation") || "").trim().toLowerCase(); if (confirmation !== user.email.trim().toLowerCase()) return "Digite exatamente o e-mail da sua conta para confirmar a exclusão."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.functions.invoke("delete-account", { body: { confirmation } }); if (error) return `Não foi possível concluir a remoção segura da conta: ${error.message}`; await supabase.auth.signOut(); redirect("/?conta=excluida"); }
+export async function deleteAccountAction(_: string | undefined, formData: FormData) { const user = await requireUser(); const confirmation = String(formData.get("confirmation") || "").trim().toLowerCase(); if (confirmation !== user.email.trim().toLowerCase()) return "Digite exatamente o e-mail da sua conta para confirmar a exclusão."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.functions.invoke("delete-account", { body: { confirmation } }); if (error) { let code = ""; try { code = String((await (error as { context?: Response }).context?.json())?.error ?? ""); } catch { /* resposta sem corpo JSON */ } return code === "active_obligations" ? "Você tem conversas pendentes, agendadas ou em andamento. Conclua, cancele ou aguarde o fim delas antes de excluir a conta." : "Não foi possível excluir a conta agora. Tente novamente ou fale com o suporte."; } await supabase.auth.signOut(); redirect("/?conta=excluida"); }
 export async function submitSupportAction(formData: FormData) { await requireUser(); await rpc("create_support_report", { p_category: String(formData.get("category") || ""), p_description: String(formData.get("description") || "") }); redirect("/suporte?enviado=1"); }
 async function markNotificationRead(id: string, userId: string) {
   const supabase = createSupabaseServiceClient();
@@ -374,8 +374,10 @@ export async function resolveReportAction(id: string) { await requireUser([Role.
 export async function customerCancelBookingAction(id: string, formData: FormData) {
   await requireUser();
   let ok = true;
-  try { await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: String(formData.get("reason") || "").trim().slice(0, 300) }); }
+  const reason = String(formData.get("reason") || "").trim().slice(0, 300);
+  try { await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: reason }); }
   catch (error) { ok = false; console.error("customer_cancel_failed", { bookingId: id, error }); }
+  if (ok) { try { await sendCustomerCancellationEmail(createSupabaseServiceClient(), id, reason); } catch (error) { console.error("customer_cancellation_email_failed", { bookingId: id, error }); } }
   revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
   redirect(`/dashboard/agendamentos?cancelamento=${ok ? "ok" : "erro"}`);
 }

@@ -106,3 +106,17 @@ export async function sendAuthLinkEmail({ to, name, kind, link }: { to: string; 
     : { subject: "Redefina sua senha da Insidely", intro: "Recebemos um pedido para criar uma nova senha.", action: "Criar nova senha" };
   await sendTransactionalEmail({ to, subject: copy.subject, html: `<p>Olá, ${escapeHtml(name || "!")}</p><p>${copy.intro}</p><p><a href="${escapeHtml(link)}">${copy.action}</a></p><p>Se você não fez esse pedido, ignore este e-mail.</p>` });
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendCustomerCancellationEmail(supabase: any, bookingId: string, reason: string) {
+  if (!emailConfigured()) return;
+  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  if (error || !booking) throw new Error(`customer_cancellation_email_lookup: ${error?.message ?? "not_found"}`);
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
+  const { data: consultant } = profile ? await supabase.from("User").select("email, name").eq("id", profile.userId).maybeSingle() : { data: null };
+  const { data: customer } = await supabase.from("User").select("name").eq("id", booking.customerId).maybeSingle();
+  if (!consultant?.email || profile?.userId === booking.customerId) return;
+  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const why = reason ? `<p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p>` : "";
+  await sendTransactionalEmail({ to: consultant.email, subject: "Uma conversa na Insidely foi cancelada pelo cliente", html: `<p>Olá, ${escapeHtml(consultant.name || "!")}</p><p>${escapeHtml(customer?.name || "O cliente")} cancelou a conversa marcada para <strong>${escapeHtml(date)}</strong> (${booking.durationMinutes} minutos).</p>${why}<p>O horário voltou a ficar disponível no seu perfil.</p>` });
+}
