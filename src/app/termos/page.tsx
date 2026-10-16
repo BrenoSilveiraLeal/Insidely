@@ -1,4 +1,5 @@
 import { PublicShell } from "@/components/public-shell";
+export const metadata = { title: "Termos de Uso", description: "Termos de uso da plataforma Insidely." };
 const sections=[
   ["1. O que é a Insidely","A Insidely aproxima pessoas que estão pesquisando uma carreira ou empresa de profissionais que aceitam compartilhar experiências. A plataforma não representa empresas citadas e não garante contratação, salário, promoção ou resultado profissional."],
   ["2. Conta e informações","Para criar uma conta, o usuário deve informar nome, e-mail válido e senha. Quem compartilhar experiências profissionais também deve concluir o perfil com dados verdadeiros e manter as informações atualizadas."],

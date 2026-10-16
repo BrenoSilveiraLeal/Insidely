@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "@/components/auth-form";
 import { RememberLogin } from "@/components/remember-login";
 
+export const metadata = { title: "Entrar", description: "Acesse sua conta na Insidely." };
 const socialMessages: Record<string, string> = {
 	pendente: "O login social ainda precisa de configuração.",
 	erro: "Não foi possível completar o login social.",

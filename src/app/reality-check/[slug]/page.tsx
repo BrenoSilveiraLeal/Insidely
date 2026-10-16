@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 const routineLabels: Record<string,string> = { foco: "Foco", revisao: "Revisão", revisão: "Revisão", suporte: "Suporte", reunioes: "Reuniões", reuniões: "Reuniões", atendimento: "Atendimento", planejamento: "Planejamento" };
 const labelRoutine = (value: string) => routineLabels[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/^./, char => char.toUpperCase());
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) { const { slug } = await params; const item = await getRealityCheckBySlug(slug).catch(() => null); return item ? { title: `${item.title}`, description: `Reality Check: ${item.profession?.name ?? "profissão"}` } : { title: "Reality Check não encontrada" }; }
 export default async function RealityDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const item = await getRealityCheckBySlug(slug).catch(() => null);

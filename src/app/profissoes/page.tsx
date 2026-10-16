@@ -2,6 +2,7 @@ import { PublicShell } from "@/components/public-shell";
 import { ProfessionCard } from "@/components/cards";
 import { getPublicProfessionsPage } from "@/lib/queries";
 
+export const metadata = { title: "Profissões", description: "Explore profissões e converse com quem vive a rotina de cada área." };
 export default async function ProfessionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const result = await getPublicProfessionsPage(page).catch(() => ({ items: [], total: 0, page, pageSize: 25 }));
