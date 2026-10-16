@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getAppUrl } from "./app-url";
 import { buildConversationIcs } from "./calendar";
 import { parseDbDate } from "./format";
 
@@ -42,10 +43,12 @@ async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "co
   const startsAt = parseDbDate(booking.startsAt);
   const date = startsAt.toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const time = startsAt.toLocaleString("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, meetingUrl: booking.meetingUrl });
+  const appUrl = getAppUrl();
+  // Share the schedule-checked Insidely room link; the raw Meet link would work at any time.
+  const roomUrl = `${appUrl}/sala/${booking.id}`;
+  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, roomUrl: booking.meetingUrl ? roomUrl : null });
   const room = booking.meetingUrl
-    ? `<p><strong>Link da sala:</strong> <a href="${escapeHtml(booking.meetingUrl)}">${escapeHtml(booking.meetingUrl)}</a></p><p>A entrada é liberada 10 minutos antes do horário.</p>`
+    ? `<p><strong>Link da sala:</strong> <a href="${escapeHtml(roomUrl)}">${escapeHtml(roomUrl)}</a></p><p>O link abre a sala do Google Meet a partir de 10 minutos antes do horário (é preciso estar logado na Insidely).</p>`
     : "<p>O link da sala aparece no chat da conversa assim que estiver pronto.</p>";
   const recipients = [
     customer?.email ? { email: customer.email, name: customer.name, with: consultantPublicName, chat: "/dashboard/mensagens" } : null,
