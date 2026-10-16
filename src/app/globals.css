@@ -42,9 +42,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .section { padding: 104px 0; }
 .section-head { display: flex; justify-content: space-between; gap: 40px; align-items: end; margin-bottom: 40px; }
 .section-title { margin: 14px 0 0; max-width: 900px; font: 700 clamp(2.4rem, 6vw, 5.6rem)/.92 var(--display); letter-spacing: -.06em; }
+.reviews-page-subtitle { margin: 24px 0 0; }
 .section-copy { max-width: 500px; font-size: 1.06rem; }
 .grid { display: grid; gap: 20px; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.appointment-grid { align-items: start; }
+.appointment-card { display: grid; align-content: start; gap: 10px; }
+.appointment-card[data-booking-status="CANCELLED"] { border-color: rgba(201,79,71,.3); background: rgba(201,79,71,.045); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
@@ -221,6 +225,9 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .notification-popover-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .notification-popover-head-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
 .notification-popover-link { border: 0; padding: 0; color: var(--ink); background: transparent; font: 700 .72rem/1.2 var(--body); text-decoration: underline; cursor: pointer; }
+.notification-clear-button { display: inline-grid; width: 32px; height: 32px; place-items: center; padding: 0; border: 1px solid rgba(201,79,71,.24); border-radius: 10px; color: var(--red); background: rgba(201,79,71,.07); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.notification-clear-button:hover { border-color: var(--red); background: rgba(201,79,71,.14); transform: translateY(-1px); }
+.notification-clear-button:focus-visible { outline: 3px solid rgba(201,79,71,.28); outline-offset: 3px; }
 .notification-popover-list { display: grid; gap: 10px; max-height: min(420px, 60vh); overflow-y: auto; padding-top: 10px; }
 .notification-popover-item { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fffdf8; opacity: 1; }
 .notification-popover-item.is-unread { border-color: var(--mineral); }

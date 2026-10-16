@@ -1,0 +1,1 @@
+export default function ConsultationLoading(){return <main className="route-loading" aria-busy="true" aria-label="Carregando consulta"><div className="loading-line loading-line-short"/><div className="loading-title"/><div className="loading-panel loading-panel-small"/></main>}

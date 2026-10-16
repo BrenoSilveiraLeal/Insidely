@@ -6,7 +6,7 @@ import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireUser } from "@/lib/session";
-import { measureRpc } from "@/lib/observability";
+import { measureRpc, recordMetric } from "@/lib/observability";
 import { parseDbDate } from "@/lib/format";
 
 type ProfileRow = Database["public"]["Views"]["public_profile_cards"]["Row"];
@@ -76,7 +76,40 @@ export async function getCompanyBySlug(slug:string){const{data,error}=await crea
 export async function getProfessionBySlug(slug:string){const{data,error}=await createSupabasePublicClient().from("public_profession_details").select("*").eq("slug",slug).maybeSingle();if(error)throw new Error(error.message);return data}
 export async function getRealityCheckBySlug(slug:string){const{data,error}=await createSupabasePublicClient().from("RealityCheck").select("*, profession:Profession!inner(*)").eq("profession.slug",slug).maybeSingle();if(error)throw new Error(error.message);return data?{...data,imagined:data.imagined??[],practical:data.practical??[]}:null}
 export async function getUserById(id:string){const{data,error}=await(await createSupabaseServerClient()).from("User").select("id, name, email, image").eq("id",id).maybeSingle();if(error)throw new Error(error.message);return data}
-export async function getBookingForUser(id:string,userId:string){const dashboard=await getViewerDashboard(userId);return dashboard?.customerBookings.find((booking)=>booking.id===id)??null}
+export async function getBookingForParticipant(id:string,userId:string,role:Role){
+  const startedAt=performance.now();
+  const service=createSupabaseServiceClient();
+  let professionalProfileId:string|undefined;
+  if(role===Role.CONSULTANT){
+    const{data:professional,error}=await service.from("ProfessionalProfile").select("id").eq("userId",userId).maybeSingle();
+    if(error)throw new Error(error.message);
+    if(!professional)return null;
+    professionalProfileId=professional.id;
+  }
+  let bookingQuery=service.from("Booking").select("*").eq("id",id);
+  bookingQuery=role===Role.CONSULTANT?bookingQuery.eq("professionalProfileId",professionalProfileId!):bookingQuery.eq("customerId",userId);
+  const{data:booking,error}=await bookingQuery.maybeSingle();
+  if(error)throw new Error(error.message);
+  if(!booking)return null;
+  const[customerResult,paymentResult,conversationResult,professionalResult]=await Promise.all([
+    service.from("User").select("name").eq("id",booking.customerId).maybeSingle(),
+    service.from("Payment").select("status, amountCents").eq("bookingId",id).maybeSingle(),
+    service.from("Conversation").select("id").eq("bookingId",id).maybeSingle(),
+    createSupabasePublicClient().from("public_profile_cards").select("*").eq("id",booking.professionalProfileId).maybeSingle(),
+  ]);
+  const relatedError=customerResult.error??paymentResult.error??conversationResult.error??professionalResult.error;
+  if(relatedError)throw new Error(relatedError.message);
+  if(!professionalResult.data)return null;
+  const parsed=parseBooking({
+    ...booking,
+    customer:{name:customerResult.data?.name??"Cliente"},
+    payment:paymentResult.data,
+    conversation:conversationResult.data,
+  } as unknown as Json);
+  recordMetric("booking.detail",{route:role===Role.CONSULTANT?"consulta/consultor":"checkout/cliente",durationMs:Math.round(performance.now()-startedAt)});
+  return {...parsed,professional:profile(professionalResult.data),customerConfirmedAt:booking.customerConfirmedAt?date(booking.customerConfirmedAt as unknown as Json):null,review:null};
+}
+export async function getBookingForUser(id:string,userId:string){return getBookingForParticipant(id,userId,Role.USER)}
 // Names and e-mails behind report/support entries, for the admin queues (service role, admin pages only).
 export async function getReportPeople(reports:Array<{reporterId?:string|null;targetUserId?:string|null}>){await requireUser([Role.ADMIN]);const ids=[...new Set(reports.flatMap(r=>[r.reporterId,r.targetUserId]).filter((id):id is string=>Boolean(id)))];if(!ids.length)return new Map<string,{name:string;email:string}>();const{data,error}=await createSupabaseServiceClient().from("User").select("id, name, email").in("id",ids);if(error)throw new Error(error.message);return new Map((data??[]).map(u=>[u.id,{name:u.name??"",email:u.email??""}]))}
 // Counts at most one view per visitor, profile and day; the owner's own visits are ignored. The visitor

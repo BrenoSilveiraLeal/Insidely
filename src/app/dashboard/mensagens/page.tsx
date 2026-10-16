@@ -8,6 +8,7 @@ import { getViewerDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { canSendBookingMessage } from "@/lib/booking-policy";
 import { money, shortDate } from "@/lib/format";
+import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
 
 export const metadata = { title: "Mensagens" };
 export const dynamic = "force-dynamic";
@@ -16,13 +17,13 @@ function requestStatus(status: string) {
   return ({ PENDING_PAYMENT: "Pedido aguardando pagamento", CONFIRMED: "Agendamento confirmado", AWAITING_CONFIRMATION: "Conversa realizada", COMPLETED: "Conversa concluída", CANCELLED: "Conversa cancelada", EXPIRED: "Pedido expirado", DISPUTED: "Pedido em análise" } as Record<string, string>)[status] ?? "Pedido de agendamento";
 }
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string }> }) {
   const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const dashboard = await getViewerDashboard(user.id);
   const requests = dashboard?.customerBookings ?? [];
 
-  return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}>
+  return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}><GoogleCalendarFeedback code={query.calendar}/>
     <div className="section-head"><div><span className="eyebrow">Acompanhe seus pedidos</span><h2>Agendamentos e conversas</h2><p className="muted">Todo pedido de agendamento aparece aqui. A conversa é liberada depois que o pagamento for confirmado.</p></div><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
     {query.mensagem && <p className="form-error" role="alert">{query.mensagem === "longa" ? "A mensagem passou de 2.000 caracteres." : "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links ou redes sociais. A conversa acontece pela sala da Insidely."}</p>}
     <div className="grid grid-2">{requests.map((booking) => <article className="panel message-request-card" key={booking.id}>

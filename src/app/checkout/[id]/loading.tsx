@@ -1,0 +1,1 @@
+export default function CheckoutLoading(){return <main className="route-loading" aria-busy="true" aria-label="Carregando pagamento"><div className="loading-line loading-line-short"/><div className="loading-title"/><div className="loading-panel"/></main>}

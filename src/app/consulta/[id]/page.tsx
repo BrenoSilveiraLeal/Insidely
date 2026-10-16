@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getAuthenticatedUser } from "@/lib/session";
-import { getConsultantDashboard, getViewerDashboard } from "@/lib/queries";
+import { getBookingForParticipant } from "@/lib/queries";
 import { Role } from "@/lib/domain";
 import { meetingRoomOpeningText, shortDate } from "@/lib/format";
 import { meetingRoomState } from "@/lib/booking-policy";
@@ -14,13 +14,11 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
   const user = await getAuthenticatedUser();
   if (!user) redirect("/entrar");
   const { id } = await params;
-  let booking;
+  const booking = await getBookingForParticipant(id,user.id,user.role);
   let otherPerson = "seu consultor";
   if (user.role === Role.CONSULTANT) {
-    booking = (await getConsultantDashboard(user.id))?.bookings.find((item) => item.id === id);
     otherPerson = booking?.customer.name ?? "seu cliente";
   } else {
-    booking = (await getViewerDashboard(user.id))?.customerBookings.find((item) => item.id === id);
     otherPerson = booking?.professional.user.name ?? "seu consultor";
   }
 

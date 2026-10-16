@@ -16,15 +16,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string }> }) {
   const { id } = await params;
   const { denuncia } = await searchParams;
-  const [profile, viewer, requestHeaders] = await Promise.all([
+  const viewerPromise = getAuthenticatedUser();
+  const [profile, viewer, requestHeaders, isFavorite] = await Promise.all([
     getProfessional(id),
-    getAuthenticatedUser(),
+    viewerPromise,
     headers(),
+    viewerPromise.then((currentViewer) => currentViewer ? getFavoriteState(id,currentViewer.id) : false),
   ]);
   if (!profile) notFound();
   const fingerprint = [requestHeaders.get("x-forwarded-for")?.split(",")[0] ?? "", requestHeaders.get("user-agent") ?? ""].join("|");
   after(() => recordProfileView(profile.id, { userId: viewer?.id, fingerprint }).catch(() => {}));
-  const isFavorite = viewer ? await getFavoriteState(profile.id, viewer.id) : false;
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
   const availability = profile.availability ?? [];
