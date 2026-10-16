@@ -1,4 +1,5 @@
-import { directPixPayload } from "./pix";
+import { parseDbDate } from "./format";
+
 
 type BookingRecipient = { email: string; name: string };
 
@@ -25,7 +26,7 @@ export async function sendBookingConfirmationEmails(supabase: any, bookingId: st
   const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
   const safeConsultantName = Array.isArray(publicProfile?.user) ? publicProfile.user[0]?.name : (publicProfile?.user as { name?: string } | null)?.name;
   const recipients = [customer, consultant ? { ...consultant, name: safeConsultantName || "Pessoa da comunidade" } : null].filter((recipient): recipient is BookingRecipient => Boolean(recipient?.email)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
-  const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const link = meetingUrl ? `<p><a href="${escapeHtml(meetingUrl)}">Entrar na videochamada</a></p>` : "<p>A sala estará disponível no painel no horário combinado.</p>";
   for (const recipient of recipients) await sendTransactionalEmail({ to: recipient.email, subject: "Sua conversa na Insidely foi confirmada", html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>Sua conversa foi confirmada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p>${link}<p>Acesse seu painel para acompanhar os detalhes.</p>` });
 }
@@ -39,11 +40,9 @@ export async function sendPaymentInstructionsEmail(supabase: any, bookingId: str
   if (!customer?.email) return;
   const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
   const professionalUser = Array.isArray(publicProfile?.user) ? publicProfile.user[0] : publicProfile?.user;
-  const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const pixKey = process.env.PIX_RECEIVER_KEY?.trim();
-  const pixCode = pixKey ? directPixPayload({ key: pixKey, name: "INSIDELY", city: "SAO PAULO", amount: Number(booking.totalCents) / 100 }) : null;
-  const pix = pixCode ? `<h3>Pagamento por Pix</h3><p>Copie o código Pix abaixo no aplicativo do seu banco:</p><p><code>${escapeHtml(pixCode)}</code></p>` : "";
-  await sendTransactionalEmail({ to: customer.email, subject: "Finalize o pagamento da sua conversa na Insidely", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>Sua conversa com ${escapeHtml(professionalUser?.name || "o consultor")} está reservada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p><p><a href="${escapeHtml(checkoutUrl)}">Abrir checkout seguro</a></p>${pix}<p>A conversa só será liberada depois que o pagamento for confirmado.</p>` });
+  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  // The checkout is a simulation: never e-mail a real Pix code that someone could actually pay.
+  await sendTransactionalEmail({ to: customer.email, subject: "Finalize o pagamento da sua conversa na Insidely", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>Sua conversa com ${escapeHtml(professionalUser?.name || "o consultor")} está reservada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p><p><a href="${escapeHtml(checkoutUrl)}">Abrir checkout</a></p><p>O pagamento desta versão é demonstrativo e nenhum valor é cobrado. A conversa é liberada assim que o pagamento for confirmado no checkout.</p>` });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,7 +54,7 @@ export async function sendBookingCancellationEmail(supabase: any, bookingId: str
   if (!customer?.email) return;
   const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
   const professionalUser = Array.isArray(professional?.user) ? professional.user[0] : professional?.user;
-  const date = new Date(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const refundMessage = refunded ? "O reembolso integral foi solicitado ao meio de pagamento utilizado. O prazo para aparecer na sua conta depende da instituição financeira." : "Como o pagamento ainda não havia sido confirmado, não houve cobrança concluída.";
   await sendTransactionalEmail({ to: customer.email, subject: "Sua conversa na Insidely foi cancelada", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>O consultor ${escapeHtml(professionalUser?.name || "responsável pela conversa")} precisou cancelar a conversa marcada para <strong>${escapeHtml(date)}</strong>.</p><p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p><p>${refundMessage}</p><p>Você pode voltar à plataforma para escolher outro profissional e horário.</p>` });
 }

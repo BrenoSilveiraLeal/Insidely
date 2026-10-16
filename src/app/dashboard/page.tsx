@@ -12,7 +12,7 @@ export default async function Dashboard() {
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const data = await getViewerDashboard(user.id);
   if (!data) return null;
-  const upcoming = data.customerBookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && booking.startsAt > new Date());
+  const upcoming = data.customerBookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && meetingRoomState(booking.startsAt, booking.durationMinutes) !== "ended");
   const notifications = data.notifications.map(({ id, title, body, href, readAt }) => ({ id, title, body, href, readAt: readAt?.toISOString() ?? null }));
 
   return <DashboardShell mode="user" title={`Olá, ${data.name.split(" ")[0]}.`} notifications={notifications} canConsultant={user.role === Role.CONSULTANT}>

@@ -105,7 +105,13 @@ export async function registerAction(_: string | undefined, formData: FormData) 
   } catch {
     return "Não foi possível criar sua conta agora. Verifique a conexão com o Supabase e tente novamente.";
   }
-  if (signUpError) return signUpError;
+  if (signUpError) {
+    const message = signUpError.toLowerCase();
+    if (message.includes("already registered")) return "Já existe uma conta com este e-mail. Entre ou recupere sua senha.";
+    if (message.includes("sending confirmation email")) return "Não foi possível enviar o e-mail de confirmação agora. Tente novamente em alguns minutos.";
+    if (message.includes("rate limit")) return "Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente.";
+    return "Não foi possível criar sua conta agora. Tente novamente.";
+  }
   if (!hasSession) redirect("/entrar?cadastro=confirmar");
   redirect("/onboarding");
 }
@@ -197,8 +203,8 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
     const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
     const notificationRows = [
-      { id: crypto.randomUUID(), userId: booking.customerId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. Consulte o agendamento para acompanhar a sala.", href: "/dashboard/agendamentos", createdAt: now },
-      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Pagamento confirmado – nova conversa marcada", body: "Uma nova conversa foi confirmada no seu perfil.", href: "/consultor/consultas", createdAt: now }] : []),
+      { id: crypto.randomUUID(), userId: booking.customerId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. O link da sala está no chat da conversa e no seu e-mail.", href: "/dashboard/mensagens", createdAt: now },
+      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Pagamento confirmado – nova conversa marcada", body: "Uma nova conversa foi confirmada no seu perfil. O link da sala está no chat da consulta e no seu e-mail.", href: "/consultor/consultas", createdAt: now }] : []),
     ];
     const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
     if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
@@ -262,7 +268,7 @@ export async function completeBookingAction(id: string) { await requireUser([Rol
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); await rpc("dispute_booking", { p_booking_id: id, p_description: String(formData.get("description") || "") }); revalidatePath("/dashboard/agendamentos"); }
-export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); return { status: "success", message: "Avaliação publicada." }; }
+export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (rating < 1 || rating > 5 || comment.length < 12) return { status: "error", message: "Revise sua avaliação." }; await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment }); revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);

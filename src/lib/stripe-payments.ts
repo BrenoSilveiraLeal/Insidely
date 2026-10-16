@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getStripe } from "@/lib/stripe";
+import { parseDbDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { canRetryTransfer } from "@/lib/booking-policy";
 
@@ -163,7 +164,7 @@ export async function cancelBookingAndRefund({ bookingId, consultantId, reason }
   const { data: booking, error } = await supabase.from("Booking").select("id, customerId, availabilityId, startsAt, status, totalCents, payment:Payment(*)").eq("id", bookingId).eq("professionalProfileId", profile.id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!booking) throw new Error("Conversa não encontrada.");
-  if (!["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) || new Date(booking.startsAt).getTime() <= Date.now()) throw new Error("Esta conversa não pode mais ser cancelada pelo consultor.");
+  if (!["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) || parseDbDate(booking.startsAt).getTime() <= Date.now()) throw new Error("Esta conversa não pode mais ser cancelada pelo consultor.");
   const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
   const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));
   if (paid && payment?.provider === "STRIPE" && !payment.stripePaymentIntentId) throw new Error("O pagamento não tem uma referência segura para reembolso.");

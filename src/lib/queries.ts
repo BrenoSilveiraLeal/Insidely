@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireUser } from "@/lib/session";
 import { measureRpc } from "@/lib/observability";
+import { parseDbDate } from "@/lib/format";
 
 type ProfileRow = Database["public"]["Views"]["public_profile_cards"]["Row"];
 type CompanyRow = Database["public"]["Views"]["public_company_cards"]["Row"];
@@ -33,7 +34,7 @@ const array = (value: Json | undefined): Json[] => Array.isArray(value) ? value 
 const string = (value: Json | undefined, fallback="") => typeof value === "string" ? value : fallback;
 const number = (value: Json | undefined) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 const boolean = (value: Json | undefined) => typeof value === "boolean" ? value : false;
-const date = (value: Json | undefined) => new Date(string(value));
+const date = (value: Json | undefined) => parseDbDate(string(value));
 
 function profile(row: ProfileRow): PublicProfile {
   const user=object(row.user ?? undefined); const privacy=row.privacy === null ? null : object(row.privacy);

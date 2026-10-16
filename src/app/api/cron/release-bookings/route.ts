@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { releaseBookingTransfer } from "@/lib/stripe-payments";
+import { parseDbDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
       try {
       const payment = Array.isArray(booking.payment) ? booking.payment[0] : booking.payment;
       if (payment?.provider === "SIMULATION") continue;
-      const releaseAt = booking.autoReleaseAt ?? new Date(new Date(booking.startsAt).getTime() + (Number(booking.durationMinutes) + 1440) * 60_000).toISOString();
+      const releaseAt = booking.autoReleaseAt ?? new Date(parseDbDate(booking.startsAt).getTime() + (Number(booking.durationMinutes) + 1440) * 60_000).toISOString();
       if (new Date(releaseAt) <= new Date() && ["HELD", "PAID_HELD", "TRANSFER_FAILED"].includes(payment?.status)) {
         if (await releaseBookingTransfer(booking.id)) released++;
       }

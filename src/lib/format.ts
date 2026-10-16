@@ -42,3 +42,10 @@ export function meetingRoomOpeningText(startsAt: Date | string) {
 export function bookingStatusLabel(status: string) {
   return ({ PENDING_PAYMENT: "Aguardando pagamento", CONFIRMED: "Confirmada", AWAITING_CONFIRMATION: "Aguardando confirmação", COMPLETED_RELEASE_PENDING: "Concluída – repasse pendente", COMPLETED: "Concluída", CANCELLED: "Cancelada", EXPIRED: "Expirada", DISPUTED: "Em disputa", NO_SHOW: "Não compareceu" } as Record<string, string>)[status] ?? status;
 }
+
+// Postgres "timestamp without time zone" columns hold UTC but serialize without an offset;
+// read them as UTC so dates don't shift with the server's or browser's time zone.
+export function parseDbDate(value: string | Date) {
+  if (value instanceof Date) return value;
+  return new Date(/(Z|[+-]\d{2}:?\d{2})$/i.test(value) || !/\d{2}:\d{2}/.test(value) ? value : value.replace(" ", "T") + "Z");
+}

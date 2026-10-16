@@ -203,6 +203,10 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .message-thread { display: grid; gap: 10px; max-height: 400px; overflow: auto; padding: 10px; }
 .message { max-width: 76%; padding: 12px 15px; border-radius: 16px; background: var(--paper-2); font-size: .86rem; }
 .message-own { margin-left: auto; background: var(--mineral); }
+.message-system { max-width: 100%; background: var(--paper); border: 1px dashed var(--mineral); display: grid; gap: 6px; }
+.message-system p { margin: 0; }
+.message-system-link { font-weight: 600; overflow-wrap: anywhere; text-decoration: underline; }
+.message-system-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .notification-unread { border-color: var(--mineral); box-shadow: 0 0 0 3px rgba(255,118,87,.12); }
 .notification-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--surface); }
 .notification-bell:hover, .notification-bell:focus-visible { color: var(--mineral); border-color: var(--mineral); }
