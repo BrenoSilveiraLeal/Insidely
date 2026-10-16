@@ -11,7 +11,7 @@ import { canSendBookingMessage } from "@/lib/booking-policy";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
@@ -22,6 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   for (const list of byConversation.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const roomStates = new Map(bookings.items.map((booking) => [booking.id, meetingRoomState(booking.startsAt, booking.durationMinutes)]));
   return <DashboardShell mode="consultant" title="Consultas e solicitações"><div className="grid grid-2">
+    {query.mensagem && <p className="form-error" role="alert">{query.mensagem === "longa" ? "A mensagem passou de 2.000 caracteres." : "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links ou redes sociais. A conversa acontece pela sala da Insidely."}</p>}
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
     {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar esta conversa. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
@@ -38,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       {booking.status === "CONFIRMED" && roomStates.get(booking.id) === "upcoming" && <p className="muted">{meetingRoomOpeningText(booking.startsAt)}</p>}
       <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="consent-inline"><label><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o participante também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>
       <MeetingRoomMessage booking={booking} />
-      {booking.conversation && <><div className="message-thread">{(byConversation.get(booking.conversation.id) ?? []).map(message => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br/>{message.body}</div>)}</div>{canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input className="input" name="body" placeholder="Responder"/><button className="button button-dark">Enviar</button></form> : <p className="muted">A conversa será liberada após a confirmação do pagamento.</p>}</>}
+      {booking.conversation && <><div className="message-thread">{(byConversation.get(booking.conversation.id) ?? []).map(message => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br/>{message.body}</div>)}</div>{canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input type="hidden" name="returnTo" value="/consultor/consultas"/><input className="input" name="body" placeholder="Responder"/><button className="button button-dark">Enviar</button></form> : <p className="muted">A conversa será liberada após a confirmação do pagamento.</p>}</>}
     </article>)}
   </div>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
 }

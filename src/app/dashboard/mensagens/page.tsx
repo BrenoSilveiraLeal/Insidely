@@ -15,20 +15,22 @@ function requestStatus(status: string) {
   return ({ PENDING_PAYMENT: "Pedido aguardando pagamento", CONFIRMED: "Agendamento confirmado", AWAITING_CONFIRMATION: "Conversa realizada", COMPLETED: "Conversa concluída", DISPUTED: "Pedido em análise" } as Record<string, string>)[status] ?? "Pedido de agendamento";
 }
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string }> }) {
+  const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const dashboard = await getViewerDashboard(user.id);
   const requests = dashboard?.customerBookings ?? [];
 
   return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}>
     <div className="section-head"><div><span className="eyebrow">Acompanhe seus pedidos</span><h2>Agendamentos e conversas</h2><p className="muted">Todo pedido de agendamento aparece aqui. A conversa é liberada depois que o pagamento for confirmado.</p></div><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
+    {query.mensagem && <p className="form-error" role="alert">{query.mensagem === "longa" ? "A mensagem passou de 2.000 caracteres." : "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links ou redes sociais. A conversa acontece pela sala da Insidely."}</p>}
     <div className="grid grid-2">{requests.map((booking) => <article className="panel message-request-card" key={booking.id}>
       <div className="message-request-heading"><div><span className="eyebrow">{requestStatus(booking.status)}</span><h2>{booking.professional.user.name}</h2></div><span className="status">{shortDate(booking.startsAt)}</span></div>
       <p className="muted">{booking.durationMinutes} min · {money(booking.totalCents)} · pedido de agendamento</p>
       <div className="meeting-policy compact"><span>◷</span><div><strong>{booking.status === "PENDING_PAYMENT" ? "Finalize o pedido" : booking.conversation ? "Conversa protegida" : "Pedido recebido"}</strong><p>{booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento." : booking.conversation ? "Use este espaço para alinhar os últimos detalhes." : "Assim que este pedido avançar, as mensagens aparecerão aqui."}</p></div></div>
       <MeetingRoomMessage booking={booking} />
       {booking.conversation && <RealtimeMessageThread conversationId={booking.conversation.id} currentUserId={user.id} initialMessages={booking.conversation.messages.map((message) => ({ id: message.id, body: message.body, senderId: message.senderId }))}/>}
-      {booking.status === "PENDING_PAYMENT" ? <Link className="button button-accent button-block" href={`/checkout/${booking.id}`}>Continuar pagamento</Link> : booking.conversation && canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input className="input" name="body" aria-label={`Mensagem para ${booking.professional.user.name}`} placeholder="Escreva uma mensagem"/><button className="button button-dark">Enviar</button></form> : <p className="muted">O pedido está aguardando a próxima etapa.</p>}
+      {booking.status === "PENDING_PAYMENT" ? <Link className="button button-accent button-block" href={`/checkout/${booking.id}`}>Continuar pagamento</Link> : booking.conversation && canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input type="hidden" name="returnTo" value="/dashboard/mensagens"/><input className="input" name="body" aria-label={`Mensagem para ${booking.professional.user.name}`} placeholder="Escreva uma mensagem"/><button className="button button-dark">Enviar</button></form> : <p className="muted">O pedido está aguardando a próxima etapa.</p>}
     </article>)}</div>
     {!requests.length && <section className="panel"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}
   </DashboardShell>;
