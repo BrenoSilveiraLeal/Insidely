@@ -12,8 +12,8 @@ const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpC
 export async function sendTransactionalEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   if (smtpConfigured()) {
-    const port = Number(process.env.SMTP_PORT || 465);
-    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port, secure: port === 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+    const port = Number(process.env.SMTP_PORT?.trim() || 465);
+    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST?.trim(), port, secure: port === 465, auth: { user: process.env.SMTP_USER?.trim(), pass: process.env.SMTP_PASS?.replace(/s/g, "") } });
     await transport.sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html });
     return true;
   }

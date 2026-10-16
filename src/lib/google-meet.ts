@@ -3,9 +3,9 @@ const MEET_SCOPE = "https://www.googleapis.com/auth/meetings.space.created";
 type MeetSpaceResponse = { meetingUri?: string; meetingSpace?: { meetingUri?: string } };
 
 async function getGoogleAccessToken() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim();
   if (!clientId || !clientSecret || !refreshToken) return null;
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -26,7 +26,7 @@ export function getFallbackMeetingUrl(bookingId: string) {
 }
 
 export async function createGoogleMeetSpace() {
-  if (process.env.GOOGLE_MEET_ENABLED !== "true") return null;
+  if (process.env.GOOGLE_MEET_ENABLED?.trim() !== "true") return null;
   if (process.env.E2E_MOCK_EXTERNALS === "true") return "https://meet.google.com/e2e-insidely-room";
   const accessToken = await getGoogleAccessToken();
   if (!accessToken) return null;
@@ -53,7 +53,7 @@ export async function ensureGoogleMeetForBooking(supabase: any, bookingId: strin
   if (!["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(booking.status)) return null;
 
   let meetingUrl: string | null = null;
-  if (process.env.GOOGLE_MEET_ENABLED === "true") {
+  if (process.env.GOOGLE_MEET_ENABLED?.trim() === "true") {
     try { meetingUrl = await createGoogleMeetSpace(); }
     catch (error) { console.error("google_meet_creation_failed", { bookingId, error }); }
   }
