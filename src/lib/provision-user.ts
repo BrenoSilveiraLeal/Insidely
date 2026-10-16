@@ -30,6 +30,8 @@ export async function provisionAppUser(user: AuthUser): Promise<ProvisionResult>
     const created = await service.from("User").insert({ id: crypto.randomUUID(), name, email, image, auth_user_id: user.id, updatedAt: new Date().toISOString() }).select("id, name, image, role, onboardingCompleted").single();
     profile = created.data;
     profileError = created.error;
+    // A concurrent request created the row first (unique violation): use that one.
+    if (created.error?.code === "23505") ({ data: profile, error: profileError } = await service.from("User").select("id, name, image, role, onboardingCompleted").eq("auth_user_id", user.id).maybeSingle());
   }
   if (profileError || !profile) return { status: "error" };
   return { status: "ok", profile: { id: profile.id, onboardingCompleted: profile.onboardingCompleted } };

@@ -10,7 +10,8 @@ export async function getAuthenticatedUser() {
     const lookup = () => supabase.from("User").select("id, name, email, image, role, onboardingCompleted").eq("auth_user_id", supabaseUser.id).maybeSingle();
     let { data: stored, error } = await lookup();
     // First password login of an account whose confirmation link never reached /auth/callback.
-    if (!stored && !error && (await provisionAppUser(supabaseUser)).status === "ok") ({ data: stored, error } = await lookup());
+    // Parallel renders may race to create it, so always look it up again afterwards.
+    if (!stored && !error) { await provisionAppUser(supabaseUser); ({ data: stored, error } = await lookup()); }
     if (stored) return { ...stored, role: stored.role as Role };
     if (error) {
       if (error.message.includes("JWT issued at future")) {
