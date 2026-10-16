@@ -4,7 +4,7 @@ Data: 26/08/2026
 
 ## Observabilidade
 
-- `proxy.ts` registra duração da sessão Supabase por rota e adiciona `Server-Timing: supabase_session`.
+- `src/proxy.ts` registra duração da sessão Supabase por rota e adiciona `Server-Timing: supabase_session`.
 - `src/lib/observability.ts` registra RPC, rota, duração, tamanho UTF-8 do JSON de resposta e erro sem registrar payload ou dados pessoais.
 - Consultar esses eventos nos logs da Vercel/Drain e criar alertas para erro de rota/RPC, p95 de TTFB e crescimento do JSON.
 - O tempo medido pelo proxy é o custo do middleware; TTFB completo deve ser medido no navegador/RUM ou no APM da Vercel.

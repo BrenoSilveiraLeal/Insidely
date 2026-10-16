@@ -1,5 +1,24 @@
 # QA final — auditoria de segurança e produção
 
+## Ciclo de QA até zerar — 2026-10-16: regressão final 168/168
+
+Ciclos de "checar, corrigir e checar de novo" em produção, até uma regressão completa (seis baterias, contas novas a cada uma) não encontrar mais nada: fluxos 67/67, checagem ampliada 37/37, segurança 35/35, volta 1 14/14, volta 3 6/6, volta 4 9/9. Logs da Vercel sem erros inesperados.
+
+Corrigido nos ciclos:
+- **Middleware nunca rodava.** O `proxy.ts` estava na raiz, mas com `src/app` ele precisa ficar em `src/`. A sessão do Supabase não era renovada nos cookies (logout depois que o token expirava) e o caminho da página não chegava ao servidor.
+- **2FA podia ser pulado com `?next=` no login.** Agora o login sempre passa pelo `/continuar`, e toda página protegida exige o segundo fator.
+- **Chat em tempo real nunca entregava mensagens.** O canal era assinado sem o token do usuário.
+- **Visualizações do perfil nunca eram registradas.**
+- **O destino se perdia** no login, no onboarding e no 2FA.
+- **Telas do admin:** as datas dos chamados e da lista de usuários saíam em UTC, os chamados mostravam um código (UUID) no lugar do solicitante, e os status estavam em inglês.
+- **Contestação vazia, avaliação duplicada e remoção de horário recém-reservado quebravam a página.**
+- **Exclusão de conta bloqueada mostrava texto técnico.**
+- **A tela oferecia autoavaliação.**
+- **Conversa em andamento sumia de "Próximas consultas".**
+- **Título duplicado no perfil, títulos genéricos nas páginas logadas e campos sem rótulo.**
+
+Implementado: cancelamento pelo cliente (com reembolso simulado, horário liberado e aviso ao consultor por notificação e e-mail).
+
 ## Checagem minuciosa — 2026-10-16: segurança, validações e privacidade (35/35)
 
 Foco em quebrar o sistema, em produção, com dois clientes e um consultor:
