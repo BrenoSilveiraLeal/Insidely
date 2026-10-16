@@ -11,7 +11,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern, safeInternalPath } from "@/lib/security"
 import { getAppUrl } from "@/lib/app-url";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendBookingCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail } from "@/lib/email";
+import { sendAuthLinkEmail, sendBookingCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, smtpConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -79,7 +79,7 @@ export async function loginAction(_: string | undefined, formData: FormData) {
   redirect(safeInternalPath(String(formData.get("next") || "/continuar")));
 }
 
-export async function requestPasswordResetAction(_: string | undefined, formData: FormData) { const parsed = z.object({ email: z.string().email() }).safeParse(Object.fromEntries(formData)); if (!parsed.success) return "Digite um e-mail válido."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email.toLowerCase(), { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/redefinir-senha` }); if (error) return "Não foi possível enviar o e-mail de recuperação."; return "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; }
+export async function requestPasswordResetAction(_: string | undefined, formData: FormData) { const parsed = z.object({ email: z.string().email() }).safeParse(Object.fromEntries(formData)); if (!parsed.success) return "Digite um e-mail válido."; const done = "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; if (smtpConfigured()) { const email = parsed.data.email.toLowerCase(); const { data, error } = await createSupabaseServiceClient().auth.admin.generateLink({ type: "recovery", email }); if (error || !data.properties?.hashed_token) return done; try { await sendAuthLinkEmail({ to: email, name: String(data.user?.user_metadata?.name ?? ""), kind: "recovery", link: `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery` }); } catch (mailError) { console.error("recovery_email_failed", mailError); return "Não foi possível enviar o e-mail de recuperação."; } return done; } const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email.toLowerCase(), { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/redefinir-senha` }); if (error) return "Não foi possível enviar o e-mail de recuperação."; return "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; }
 export async function updatePasswordAction(_: string | undefined, formData: FormData) { const password = String(formData.get("password") || ""); const confirmation = String(formData.get("confirmation") || ""); if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número."; if (password !== confirmation) return "As senhas não coincidem."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.updateUser({ password }); if (error) return "O link expirou ou não é mais válido. Solicite outra recuperação."; redirect("/entrar?senha=alterada"); }
 export async function changePasswordAction(_: string | undefined, formData: FormData) { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const password = String(formData.get("password") || ""); const confirmation = String(formData.get("confirmation") || ""); if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número."; if (password !== confirmation) return "As senhas não coincidem."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.updateUser({ password }); if (error) return "Não foi possível alterar sua senha agora. Tente novamente."; return "Senha alterada com sucesso."; }
 
@@ -95,6 +95,19 @@ export async function registerAction(_: string | undefined, formData: FormData) 
   const parsed = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8).regex(/[A-Z]/).regex(/\d/), confirmPassword: z.string(), role: z.enum(["USER", "CONSULTANT"]), terms: z.literal("on") }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um número.";
   if (parsed.data.password !== parsed.data.confirmPassword) return "As senhas não coincidem.";
+  // With app-level SMTP, generate the confirmation link ourselves instead of relying on Supabase's mailer.
+  if (smtpConfigured()) {
+    const email = parsed.data.email.toLowerCase();
+    const { data, error } = await createSupabaseServiceClient().auth.admin.generateLink({ type: "signup", email, password: parsed.data.password, options: { data: { name: parsed.data.name, role: parsed.data.role } } });
+    if (error) return error.message.toLowerCase().includes("already") ? "Já existe uma conta com este e-mail. Entre ou recupere sua senha." : "Não foi possível criar sua conta agora. Tente novamente.";
+    try {
+      await sendAuthLinkEmail({ to: email, name: parsed.data.name, kind: "signup", link: `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=signup&next=/onboarding` });
+    } catch (mailError) {
+      console.error("signup_email_failed", mailError);
+      return "Não foi possível enviar o e-mail de confirmação agora. Tente novamente em alguns minutos.";
+    }
+    redirect("/entrar?cadastro=confirmar");
+  }
   let signUpError: string | null = null;
   let hasSession = false;
   try {

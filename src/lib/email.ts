@@ -6,7 +6,7 @@ type BookingRecipient = { email: string; name: string };
 function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] ?? character); }
 
 // SMTP (e.g. Gmail with an app password) takes precedence; Resend needs a verified domain.
-const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+export const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 
 export async function sendTransactionalEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
@@ -67,4 +67,12 @@ export async function sendBookingCancellationEmail(supabase: any, bookingId: str
   const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const refundMessage = refunded ? "O reembolso integral foi solicitado ao meio de pagamento utilizado. O prazo para aparecer na sua conta depende da instituição financeira." : "Como o pagamento ainda não havia sido confirmado, não houve cobrança concluída.";
   await sendTransactionalEmail({ to: customer.email, subject: "Sua conversa na Insidely foi cancelada", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>O consultor ${escapeHtml(professionalUser?.name || "responsável pela conversa")} precisou cancelar a conversa marcada para <strong>${escapeHtml(date)}</strong>.</p><p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p><p>${refundMessage}</p><p>Você pode voltar à plataforma para escolher outro profissional e horário.</p>` });
+}
+
+// Sign-up confirmation and password recovery links, sent through the app's own mail transport.
+export async function sendAuthLinkEmail({ to, name, kind, link }: { to: string; name: string; kind: "signup" | "recovery"; link: string }) {
+  const copy = kind === "signup"
+    ? { subject: "Confirme seu cadastro na Insidely", intro: "Falta só um passo para ativar sua conta.", action: "Confirmar meu e-mail" }
+    : { subject: "Redefina sua senha da Insidely", intro: "Recebemos um pedido para criar uma nova senha.", action: "Criar nova senha" };
+  await sendTransactionalEmail({ to, subject: copy.subject, html: `<p>Olá, ${escapeHtml(name || "!")}</p><p>${copy.intro}</p><p><a href="${escapeHtml(link)}">${copy.action}</a></p><p>Se você não fez esse pedido, ignore este e-mail.</p>` });
 }

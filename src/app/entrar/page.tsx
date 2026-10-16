@@ -13,6 +13,7 @@ const socialMessages: Record<string, string> = {
 const accountMessages: Record<string, string> = {
 	confirmar: "Conta criada. Confira seu e-mail e confirme o cadastro antes de entrar.",
 	alterada: "Senha alterada com sucesso. Entre novamente com sua nova senha.",
+	link_invalido: "Este link expirou ou já foi usado. Entre na sua conta ou peça um novo link.",
 };
 
 export default async function LoginPage({searchParams}:{searchParams:Promise<{social?:string;cadastro?:string;senha?:string;next?:string;erro?:string}>}){
