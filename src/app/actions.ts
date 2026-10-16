@@ -137,7 +137,8 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   const role = formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER;
   if (formData.get("terms") !== "on") return "Aceite os termos da plataforma.";
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
-  redirect(role === Role.CONSULTANT ? "/consultor" : "/dashboard");
+  const next = String(formData.get("next") || "");
+  redirect(next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard");
 }
 
 export async function toggleFavoriteAction(profileId: string) { await requireUser(); await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath("/dashboard"); revalidatePath(`/profissional/${profileId}`); }

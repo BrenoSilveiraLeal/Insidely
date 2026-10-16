@@ -32,6 +32,6 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   const stored = await getAuthenticatedUser();
   if (!stored) redirect(options?.nextPath ? "/entrar?next=" + encodeURIComponent(options.nextPath) : "/entrar");
   if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
-  if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect("/onboarding");
+  if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(options?.nextPath ? "/onboarding?next=" + encodeURIComponent(options.nextPath) : "/onboarding");
   return stored;
 }

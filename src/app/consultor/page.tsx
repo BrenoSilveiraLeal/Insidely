@@ -1,6 +1,7 @@
 import { BookingStatus, PaymentStatus, Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { money, shortDate } from "@/lib/format";
+import { meetingRoomState } from "@/lib/booking-policy";
 import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -13,7 +14,7 @@ export default async function ConsultantDashboard() {
   if (!profile) return <DashboardShell mode="consultant" title="Complete seu perfil"><p className="panel">Seu perfil profissional ainda não existe. Conclua o onboarding.</p></DashboardShell>;
   const revenue = profile.bookings.filter((booking) => booking.payment?.status === PaymentStatus.RELEASED).reduce((sum, booking) => sum + (booking.payment?.amountCents ?? 0) - booking.feeCents, 0);
   const held = profile.bookings.filter((booking) => [PaymentStatus.HELD, PaymentStatus.PAID_HELD].includes(booking.payment?.status as PaymentStatus)).reduce((sum, booking) => sum + (booking.payment?.amountCents ?? 0) - booking.feeCents, 0);
-  const upcoming = profile.bookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && booking.startsAt > new Date());
+  const upcoming = profile.bookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && meetingRoomState(booking.startsAt, booking.durationMinutes) !== "ended");
   const requests = profile.bookings.filter((booking) => booking.status === BookingStatus.PENDING_PAYMENT || booking.payment?.status === "PAYMENT_REPORTED");
   const notifications = profile.notifications.map(({ id, title, body, href, readAt }) => ({ id, title, body, href, readAt: readAt?.toISOString() ?? null }));
 

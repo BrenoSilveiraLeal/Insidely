@@ -5,11 +5,12 @@ import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { PublicShell } from "@/components/public-shell";
 import { dateTimeInBrazil, initials, money, publicName, shortDate } from "@/lib/format";
-import { getFavoriteState, getProfessional } from "@/lib/queries";
+import { getFavoriteState, getProfessional, recordProfileView } from "@/lib/queries";
+import { headers } from "next/headers";
 import { getAuthenticatedUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profile = await getProfessional((await params).id); return { title: profile ? "Perfil de " + publicName(profile) + " | Insidely" : "Perfil profissional | Insidely" }; }
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profile = await getProfessional((await params).id); return { title: profile ? "Perfil de " + publicName(profile) : "Perfil profissional" }; }
 
 export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string }> }) {
   const { id } = await params;
@@ -17,6 +18,8 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const profile = await getProfessional(id);
   if (!profile) notFound();
   const viewer = await getAuthenticatedUser();
+  const requestHeaders = await headers();
+  await recordProfileView(profile.id, { userId: viewer?.id, fingerprint: `${requestHeaders.get("x-forwarded-for")?.split(",")[0] ?? ""}|${requestHeaders.get("user-agent") ?? ""}` }).catch(() => {});
   const isFavorite = viewer ? await getFavoriteState(profile.id, viewer.id) : false;
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { Role } from "@/lib/domain";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
@@ -78,3 +79,6 @@ export async function getBookingForUser(id:string,userId:string){const dashboard
 export function getProfessionalInclude(){return{}}
 // Names and e-mails behind report/support entries, for the admin queues (service role, admin pages only).
 export async function getReportPeople(reports:Array<{reporterId?:string|null;targetUserId?:string|null}>){await requireUser([Role.ADMIN]);const ids=[...new Set(reports.flatMap(r=>[r.reporterId,r.targetUserId]).filter((id):id is string=>Boolean(id)))];if(!ids.length)return new Map<string,{name:string;email:string}>();const{data,error}=await createSupabaseServiceClient().from("User").select("id, name, email").in("id",ids);if(error)throw new Error(error.message);return new Map((data??[]).map(u=>[u.id,{name:u.name??"",email:u.email??""}]))}
+// Counts at most one view per visitor, profile and day; the owner's own visits are ignored. The visitor
+// is stored only as a one-way hash (user id, or IP + browser for anonymous visitors).
+export async function recordProfileView(profileId:string,viewer:{userId?:string|null;fingerprint:string}){const s=createSupabaseServiceClient();const{data:profile}=await s.from("ProfessionalProfile").select("userId").eq("id",profileId).maybeSingle();if(!profile||(viewer.userId&&profile.userId===viewer.userId))return;const day=new Date().toISOString().slice(0,10);const viewerHash=createHash("sha256").update(`${viewer.userId??viewer.fingerprint}|${profileId}|${day}`).digest("hex");const{data:existing}=await s.from("ProfileView").select("id").eq("professionalProfileId",profileId).eq("viewerHash",viewerHash).maybeSingle();if(existing)return;const{error}=await s.from("ProfileView").insert({id:crypto.randomUUID(),professionalProfileId:profileId,viewerHash,viewedAt:new Date().toISOString()});if(error)console.error("profile_view_failed",{profileId,error:error.message})}
