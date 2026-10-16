@@ -1,5 +1,11 @@
 # QA final — auditoria de segurança e produção
 
+## Análise final — 2026-10-16: 67/67 verificações aprovadas
+
+Roteiro automatizado no navegador, em produção, com contas temporárias apagadas ao final: 12 páginas públicas, busca e filtros, detalhes de empresa/profissão/Reality Check, 404, login inválido, cadastro com e-mail de confirmação, recuperação de senha; consultor (onboarding, 12 links do menu, edição de perfil, foto, comprovante, privacidade, conversa imediata, adicionar/remover horários, perfil público); cliente (8 links do menu, busca, favoritos, denúncia, agendamento imediato e futuro, checkout com Pix/crédito/débito/boleto, confirmação do pagamento, link do Google Meet, `/sala` dentro e fora do horário, convite `.ics`, notificações, chat nos dois sentidos com bloqueio de contato, cancelamento pelo consultor, confirmação dupla, avaliação, ganhos, troca de nome e senha, 2FA, suporte); celular sem rolagem lateral; exclusão das duas contas pela tela, com o perfil saindo da busca. Nenhum erro nos logs da Vercel.
+
+Bugs encontrados e corrigidos nesta análise: salvar a privacidade sempre falhava (`update_privacy` atribuía `showFullHistory` duas vezes); a troca de senha sempre falhava (o Supabase exige a senha atual, que o formulário não pedia); mensagem com telefone/link derrubava a página do chat; o perfil de um consultor excluído continuava na busca; a cidade nunca aparecia no perfil público; mensagens de erro ilegíveis nos painéis claros.
+
 ## Atualização — 2026-10-16 (teste de ponta a ponta em produção)
 
 Testado no navegador (Playwright/Chromium) em https://insidely.vercel.app, com contas temporárias de consultor e cliente removidas ao final, em desktop e celular (390 px).
