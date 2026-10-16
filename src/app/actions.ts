@@ -10,6 +10,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { blockedContactPattern, safeInternalPath } from "@/lib/security"
 import { getAppUrl } from "@/lib/app-url";
+import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
 import { sendAuthLinkEmail, sendBookingCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, smtpConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
@@ -193,7 +194,7 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: booking, error: bookingError } = await supabase.from("Booking")
-    .select("id, customerId, professionalProfileId, status").eq("id", id).eq("customerId", user.id).maybeSingle();
+    .select("id, customerId, professionalProfileId, status, startsAt").eq("id", id).eq("customerId", user.id).maybeSingle();
   if (bookingError || !booking) notFound();
   if (booking.status !== "PENDING_PAYMENT") redirect(`/checkout/${id}`);
 
@@ -211,17 +212,16 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
       status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
     }).eq("id", id).eq("status", "PENDING_PAYMENT");
     if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
-    let meetingUrl: string | null = null;
-    try { meetingUrl = await ensureGoogleMeetForBooking(supabase, id); }
+    try { await ensureGoogleMeetForBooking(supabase, id); }
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
     const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
     const notificationRows = [
-      { id: crypto.randomUUID(), userId: booking.customerId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. O link da sala está no chat da conversa e no seu e-mail.", href: "/dashboard/mensagens", createdAt: now },
-      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Pagamento confirmado – nova conversa marcada", body: "Uma nova conversa foi confirmada no seu perfil. O link da sala está no chat da consulta e no seu e-mail.", href: "/consultor/consultas", createdAt: now }] : []),
+      { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da conversa e no seu e-mail.`, href: "/dashboard/mensagens", createdAt: now },
+      ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da consulta e no seu e-mail.`, href: "/consultor/consultas", createdAt: now }] : []),
     ];
     const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
     if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
-    try { await sendBookingConfirmationEmails(supabase, id, meetingUrl); }
+    try { await sendBookingConfirmationEmails(supabase, id); }
     catch (error) { console.error("simulated_payment_email_failed", { bookingId: id, error }); }
   }
 

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { buildConversationIcs } from "./calendar";
 import { parseDbDate } from "./format";
 
 type BookingRecipient = { email: string; name: string };
@@ -9,36 +10,62 @@ function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (characte
 export const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 
-export async function sendTransactionalEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+export async function sendTransactionalEmail({ to, subject, html, ics }: { to: string; subject: string; html: string; ics?: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   if (smtpConfigured()) {
     const port = Number(process.env.SMTP_PORT?.trim() || 465);
-    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST?.trim(), port, secure: port === 465, auth: { user: process.env.SMTP_USER?.trim(), pass: process.env.SMTP_PASS?.replace(/\s/g, "")} });
-    await transport.sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html });
+    const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST?.trim(), port, secure: port === 465, auth: { user: process.env.SMTP_USER?.trim(), pass: process.env.SMTP_PASS?.replace(/s/g, "")} });
+    await transport.sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
     return true;
   }
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) return false;
-  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, html }), cache: "no-store" });
+  const attachments = ics ? [{ filename: "conversa-insidely.ics", content: Buffer.from(ics).toString("base64") }] : undefined;
+  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, html, attachments }), cache: "no-store" });
   if (!response.ok) throw new Error(`Resend failed: ${response.status}`);
   return true;
 }
 
+// Confirmation (right after payment) and reminder (about an hour before) for both participants,
+// with the room link, date/time, a shortcut to the booking chat and a calendar invite.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendBookingConfirmationEmails(supabase: any, bookingId: string, meetingUrl: string | null) {
+async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "confirmation" | "reminder") {
   if (!emailConfigured()) return;
-  const { data: booking, error } = await supabase.from("Booking").select("startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, startsAt, durationMinutes, goals, meetingUrl, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
   const { data: consultant } = profile ? await supabase.from("User").select("email, name").eq("id", profile.userId).maybeSingle() : { data: null };
   const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
-  const safeConsultantName = Array.isArray(publicProfile?.user) ? publicProfile.user[0]?.name : (publicProfile?.user as { name?: string } | null)?.name;
-  const recipients = [customer, consultant ? { ...consultant, name: safeConsultantName || "Pessoa da comunidade" } : null].filter((recipient): recipient is BookingRecipient => Boolean(recipient?.email)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
-  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const link = meetingUrl ? `<p><a href="${escapeHtml(meetingUrl)}">Entrar na videochamada</a></p>` : "<p>A sala estará disponível no painel no horário combinado.</p>";
-  for (const recipient of recipients) await sendTransactionalEmail({ to: recipient.email, subject: "Sua conversa na Insidely foi confirmada", html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>Sua conversa foi confirmada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p>${link}<p>Acesse seu painel para acompanhar os detalhes.</p>` });
+  const consultantPublicName = (Array.isArray(publicProfile?.user) ? publicProfile.user[0]?.name : (publicProfile?.user as { name?: string } | null)?.name) || "a pessoa da comunidade";
+  const startsAt = parseDbDate(booking.startsAt);
+  const date = startsAt.toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const time = startsAt.toLocaleString("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, meetingUrl: booking.meetingUrl });
+  const room = booking.meetingUrl
+    ? `<p><strong>Link da sala:</strong> <a href="${escapeHtml(booking.meetingUrl)}">${escapeHtml(booking.meetingUrl)}</a></p><p>A entrada é liberada 10 minutos antes do horário.</p>`
+    : "<p>O link da sala aparece no chat da conversa assim que estiver pronto.</p>";
+  const recipients = [
+    customer?.email ? { email: customer.email, name: customer.name, with: consultantPublicName, chat: "/dashboard/mensagens" } : null,
+    consultant?.email ? { email: consultant.email, name: consultant.name, with: customer?.name || "seu cliente", chat: "/consultor/consultas" } : null,
+  ].filter((recipient): recipient is BookingRecipient & { with: string; chat: string } => Boolean(recipient)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
+  for (const recipient of recipients) {
+    const subject = kind === "confirmation" ? "Sua conversa na Insidely foi confirmada" : `Lembrete: sua conversa na Insidely começa às ${time}`;
+    const intro = kind === "confirmation" ? `Sua conversa com ${escapeHtml(recipient.with)} foi confirmada.` : `Sua conversa com ${escapeHtml(recipient.with)} começa em breve.`;
+    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "confirmation" ? ics : undefined, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p><a href="${escapeHtml(appUrl + recipient.chat)}">Abrir o chat da conversa</a></p>${kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : ""}` });
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendBookingConfirmationEmails(supabase: any, bookingId: string) {
+  await sendBookingRoomEmails(supabase, bookingId, "confirmation");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendBookingReminderEmails(supabase: any, bookingId: string) {
+  await sendBookingRoomEmails(supabase, bookingId, "reminder");
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

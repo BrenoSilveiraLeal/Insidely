@@ -55,8 +55,8 @@ export async function POST(request: Request) {
       await ensureUpdated(await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT"), "booking_confirmed");
       await notifyBookingParticipants(supabase, bookingId);
       try {
-        const meetingUrl = await ensureGoogleMeetForBooking(supabase, bookingId);
-        await sendBookingConfirmationEmails(supabase, bookingId, meetingUrl);
+        await ensureGoogleMeetForBooking(supabase, bookingId);
+        await sendBookingConfirmationEmails(supabase, bookingId);
       } catch (error) {
         console.error("booking_confirmation_integrations_failed", { bookingId, error });
       }
