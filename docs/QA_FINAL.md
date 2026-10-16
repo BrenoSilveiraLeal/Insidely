@@ -1,5 +1,18 @@
 # QA final — auditoria de segurança e produção
 
+## Checagem minuciosa — 2026-10-16: segurança, validações e privacidade (35/35)
+
+Foco em quebrar o sistema, em produção, com dois clientes e um consultor:
+
+- **Segurança.** Um cliente não abre checkout, sala, calendário ou consulta de outro. Pela API, com a sessão dele, não lê nem altera reservas, pagamentos, mensagens, notificações ou e-mails de terceiros, não confirma, contesta, avalia ou envia mensagem em conversa alheia, não mexe na agenda do consultor e não vira admin. A API anônima não lê nenhuma tabela privada. Documentos de verificação não são públicos. Admin e painel do consultor exigem o papel certo. Crons exigem segredo.
+- **Concorrência e validações.** Dois clientes no mesmo horário: só um reserva. Clique triplo em pagar gera um pagamento e uma notificação. Recusam: objetivo curto, nome fictício com telefone, preço abaixo de R$ 10, falso PDF, foto acima de 3 MB, mensagem vazia, com mais de 2.000 caracteres ou com e-mail. Cadastro recusa e-mail repetido, senha fraca e senhas diferentes.
+- **Fluxos.** Foto e capa são enviadas e removidas. Senha é redefinida pelo link do e-mail. O botão Google leva ao login do Google. Endereços inexistentes mostram "não encontrada". O `sitemap.xml` e o `robots.txt` estão válidos.
+- **Privacidade.** Com tudo oculto: sem nome real, sobrenome, empresa e cidade, e fora da busca por empresa. Com tudo visível: tudo aparece.
+- **Qualidade.** Sem imagens quebradas nem erros de console. Uma `h1` por página. Carga rápida.
+- **Dados de demonstração.** 80 de 82 perfis têm horários livres até janeiro de 2027.
+
+Corrigido: o React 19 limpava os campos depois de um erro de validação, obrigando a redigitar tudo (cadastro, login, onboarding e perfil); o erro do perfil aparecia com estilo de sucesso; 11 páginas públicas tinham o mesmo título.
+
 ## Checagem ampliada — 2026-10-16: 33/33 + regressão 67/67
 
 Segunda bateria, em produção, cobrindo o que a primeira não tocava: os 90 links internos de todas as páginas públicas (menus suspensos, rodapé e menu do celular); favoritar e desfavoritar (pelo perfil e pela página de favoritos); compartilhar perfil; denúncia resolvida pelo admin; aprovação de comprovante pelo admin (selo no perfil e notificação ao consultor); reserva sem pagamento expirando após 30 minutos e quando o horário passa (status "Expirada" para os dois lados, notificações, checkout bloqueado e horário liberado); nova reserva de um horário liberado; cancelamento de pedido não pago; notificações (abrir, marcar como lida, marcar todas); consentimento de gravação; download do `.ics`; contestação; conclusão automática 24 h depois de uma conversa paga sem confirmação (com avaliação e ganhos liberados); "Modo cliente"; sair da conta. Todas as 31 funções do banco chamadas pelo código existem.
