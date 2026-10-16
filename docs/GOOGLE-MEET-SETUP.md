@@ -6,7 +6,9 @@ Quando o pagamento (simulado) de uma conversa é confirmado, a aplicação cria 
 - o **e-mail de confirmação** enviado ao cliente e ao consultor;
 - o arquivo de calendário (`.ics`) do botão "Adicionar ao calendário".
 
-O botão "Entrar na videochamada" aparece 10 minutos antes do horário e some ao fim da conversa. Se o Google estiver indisponível, o pagamento continua confirmado e a sala usa o link reserva `https://meet.jit.si/Insidely-<id>` (o Jitsi exige que alguém entre com login para abrir a sala).
+Como uma sala do Google Meet nunca expira, o link do Meet **não é compartilhado**. Todos esses lugares mostram o link da Insidely `/sala/<id>`, que confere login, participação e horário: de 10 minutos antes até o fim da conversa, redireciona para o Meet; fora disso, mostra quando a sala abre. A tela logo após o pagamento já exibe dia, horário, link e o botão para o chat.
+
+Cerca de 1 hora antes, os dois participantes recebem um lembrete por e-mail e no app (sininho). O `pg_cron` do Supabase chama `/api/cron/reminders` a cada 5 minutos (migration `20261016000300`); cada conversa é lembrada uma vez só, e quem pagou dentro dessa janela não recebe lembrete duplicado. O convite `.ics` do e-mail de confirmação também tem alarme 30 minutos antes. Se o Google estiver indisponível, o pagamento continua confirmado e a sala usa o link reserva `https://meet.jit.si/Insidely-<id>` (o Jitsi exige que alguém entre com login para abrir a sala).
 
 ## Google Cloud
 

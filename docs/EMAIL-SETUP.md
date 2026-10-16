@@ -7,7 +7,8 @@ A aplicação envia estes e-mails:
 | Confirmação de cadastro | ao criar a conta com e-mail e senha | quem se cadastrou |
 | Redefinição de senha | em "Esqueci minha senha" | dono da conta |
 | Finalize o pagamento | ao reservar um horário | cliente |
-| Conversa confirmada (com o link do Meet) | ao confirmar o pagamento | cliente e consultor |
+| Conversa confirmada (link da sala, convite de calendário) | ao confirmar o pagamento | cliente e consultor |
+| Lembrete da conversa | cerca de 1 hora antes (via `pg_cron`) | cliente e consultor |
 | Conversa cancelada | quando o consultor cancela | cliente |
 
 ## Configuração recomendada: Gmail SMTP
