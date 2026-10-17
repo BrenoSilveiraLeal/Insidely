@@ -9,10 +9,10 @@ import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
-import { blockedContactPattern, safeInternalPath } from "@/lib/security"
+import { blockedContactPattern, maskUnsafeGoal, safeInternalPath } from "@/lib/security"
 import { getAppUrl } from "@/lib/app-url";
 import { parseDbDate, shortDate } from "@/lib/format";
-import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, releaseBookingTransfer } from "@/lib/stripe-payments";
+import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
 import { sendAuthLinkEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, smtpConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
@@ -137,20 +137,25 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
 }
 
 export async function toggleFavoriteAction(profileId: string) { await requireUser(); await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath("/dashboard"); revalidatePath(`/profissional/${profileId}`); }
-export async function createBookingAction(profileId: string, formData: FormData) {
-  await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+export async function createBookingAction(profileId: string, _previousState: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const slot = String(formData.get("slot") || "");
   const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
-  const goals = String(formData.get("goals") || "").trim();
-  if (!slot || goals.length < 12) redirect(`/agendar/${profileId}?erro=preencha`);
+  let goals = maskUnsafeGoal(String(formData.get("goals") || "").trim());
+  for (const namePart of user.name.split(/\s+/).filter((part) => part.length >= 3)) {
+    goals = goals.replace(new RegExp(`\\b${namePart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "giu"), (match) => "*".repeat(match.length));
+  }
+  if (!slot) return { status: "error", message: "Selecione um horário antes de continuar. Seus temas e seu texto continuam salvos aqui." };
+  if (goals.length < 12) return { status: "error", message: "Conte um pouco mais sobre o que você precisa decidir (mínimo de 12 caracteres)." };
   let booking: string;
   try {
     booking = await rpc("create_booking", { p_profile_id: profileId, p_slot_id: slot, p_duration: duration, p_topics: formData.getAll("topics").map(String), p_goals: goals });
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
-    const reason = message.includes("slot_too_soon") ? "muito_cedo" : message.includes("slot_unavailable") ? "indisponivel" : message.includes("unauthorized") ? "sessao" : "temporario";
-    redirect(`/agendar/${profileId}?erro=${reason}`);
+    if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
+    if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
+    return { status: "error", message: "Não foi possível criar a solicitação agora. Seus dados continuam no formulário; tente novamente." };
   }
   // Sent after the response so the checkout opens without waiting on the mail server.
   const checkoutUrl = `${getAppUrl()}/checkout/${booking}`;
@@ -274,7 +279,7 @@ export async function createInstantAvailabilityAction(): Promise<FormState> {
   }
 }
 export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); try { await rpc("remove_consultant_availability", { p_availability_id: id }); } catch (error) { console.error("remove_availability_failed", { id, error }); /* booked meanwhile: the refreshed agenda shows it as reserved */ } revalidatePath("/consultor/agenda"); revalidatePath("/buscar"); }
-export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await rpc("complete_booking", { p_booking_id: id }); revalidatePath("/consultor/consultas"); }
+export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await confirmConversationAction(id); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
@@ -371,11 +376,14 @@ export async function reportProfileAction(profileId: string, formData: FormData)
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED") { await requireUser([Role.ADMIN]); await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id); revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); }
 export async function resolveReportAction(id: string) { await requireUser([Role.ADMIN]); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
 export async function customerCancelBookingAction(id: string, formData: FormData) {
-  await requireUser();
+  const user = await requireUser();
   let ok = true;
   const reason = String(formData.get("reason") || "").trim().slice(0, 300);
   if (reason.length < 10) redirect("/dashboard/agendamentos?cancelamento=motivo");
-  try { await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: reason }); }
+  try {
+    await refundCustomerCancellation({ bookingId: id, customerId: user.id });
+    await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: reason });
+  }
   catch (error) { ok = false; console.error("customer_cancel_failed", { bookingId: id, error }); }
   if (ok) { try { await sendCustomerCancellationEmail(createSupabaseServiceClient(), id, reason); } catch (error) { console.error("customer_cancellation_email_failed", { bookingId: id, error }); } }
   revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");

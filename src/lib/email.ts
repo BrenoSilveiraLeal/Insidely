@@ -23,7 +23,7 @@ function smtpTransport() {
 export async function sendTransactionalEmail({ to, subject, html, ics }: { to: string; subject: string; html: string; ics?: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   if (smtpConfigured()) {
-    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || `Insidely <${process.env.SMTP_USER}>`, to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
+    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || "Insidely <admin@insidely.vercel.app>", to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
     return true;
   }
   const apiKey = process.env.RESEND_API_KEY;

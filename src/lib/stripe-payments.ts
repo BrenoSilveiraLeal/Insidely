@@ -116,13 +116,20 @@ export async function createBookingCheckout({ bookingId, customerId, customerEma
 
 export async function releaseBookingTransfer(bookingId: string) {
   const supabase = admin();
-  const { data: booking, error } = await supabase.from("Booking").select("id, status, totalCents, feeCents, professionalProfileId, payment:Payment(*), professional:ProfessionalProfile(stripeAccountId)").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, status, totalCents, feeCents, professionalProfileId, customerConfirmedAt, consultantConfirmedAt, disputedAt, autoReleaseAt, startsAt, durationMinutes, payment:Payment(*), professional:ProfessionalProfile(stripeAccountId)").eq("id", bookingId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!booking) return false;
   const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
-  if (!payment || payment.stripeTransferId || payment.status === "RELEASED") return true;
+  if (!payment) return false;
+  if (payment.stripeTransferId) return true;
+  if (payment.status === "RELEASED") return payment.provider === "SIMULATION";
   if (!canRetryTransfer(booking.status, payment.status)) return false;
+  if (booking.disputedAt) return false;
+  const bothParticipantsConfirmed = Boolean(booking.customerConfirmedAt && booking.consultantConfirmedAt);
+  const autoReleaseAt = booking.autoReleaseAt ?? new Date(parseDbDate(booking.startsAt).getTime() + (Number(booking.durationMinutes) + 1440) * 60_000).toISOString();
+  const safetyDeadlineReached = new Date(autoReleaseAt).getTime() <= Date.now();
+  if (!bothParticipantsConfirmed && !safetyDeadlineReached) return false;
   if (!professional?.stripeAccountId) throw new Error("Conta Stripe do consultor ausente.");
   const amount = Number(booking.totalCents) - Number(booking.feeCents);
   if (amount <= 0) throw new Error("Valor de repasse inválido.");
@@ -185,4 +192,23 @@ export async function cancelBookingAndRefund({ bookingId, consultantId, reason }
   const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa cancelada e reembolso iniciado", body: `O consultor cancelou a conversa. ${paid ? "O valor integral será devolvido pelo meio de pagamento usado." : "Como o pagamento ainda não havia sido confirmado, nenhuma cobrança foi concluída."}`, href: "/dashboard/agendamentos", createdAt: now });
   if (notificationError) throw new Error(notificationError.message);
   return { customerId: booking.customerId, refunded: paid };
+}
+
+export async function refundCustomerCancellation({ bookingId, customerId }: { bookingId: string; customerId: string }) {
+  const supabase = admin();
+  const { data: booking, error } = await supabase.from("Booking").select("startsAt, customerId, totalCents, payment:Payment(*)").eq("id", bookingId).eq("customerId", customerId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!booking) throw new Error("Conversa não encontrada.");
+  const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
+  const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));
+  if (!paid) return { refundCents: 0, feeCents: 0 };
+  const amountCents = Number(payment?.amountCents ?? booking.totalCents);
+  const late = parseDbDate(booking.startsAt).getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+  const feeCents = late ? Math.round(amountCents * 0.1) : 0;
+  const refundCents = amountCents - feeCents;
+  if (payment?.provider === "STRIPE" && !mockExternalIntegrationsEnabled()) {
+    if (!payment.stripePaymentIntentId) throw new Error("O pagamento não tem uma referência segura para reembolso.");
+    await getStripe().refunds.create({ payment_intent: payment.stripePaymentIntentId, amount: refundCents, reason: "requested_by_customer", metadata: { bookingId, cancellationFeeCents: String(feeCents) } }, { idempotencyKey: `insidely-customer-refund-${bookingId}` });
+  }
+  return { refundCents, feeCents };
 }

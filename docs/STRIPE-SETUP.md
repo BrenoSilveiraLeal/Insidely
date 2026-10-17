@@ -56,3 +56,9 @@ Registrar evidência (ID do evento, booking e resultado) para cada cenário:
 | Retry | primeira falha fica `TRANSFER_FAILED`; retry reutiliza a chave idempotente e conclui sem transferência duplicada |
 
 Antes do go-live, repetir essa matriz com a Stripe CLI ou Dashboard usando chaves `sk_test_`/`pk_test_`, e depois configurar o endpoint de produção com um novo segredo de assinatura. Nunca usar mocks E2E (`E2E_MOCK_EXTERNALS=true`) como evidência de aprovação Stripe.
+
+## Confirmação dupla e retenção do saldo
+
+A sessão Stripe cobra na plataforma, sem `transfer_data`; o valor permanece no saldo Stripe da Insidely. A aplicação só chama `transfers.create` depois que o cliente e o consultor confirmam que a conversa ocorreu. A action é idempotente e valida as duas confirmações no servidor; o primeiro clique sozinho não libera o valor.
+
+Se uma das pessoas esquecer de confirmar, o prazo de segurança é de 24 horas depois do fim previsto da conversa. O cron transfere o valor no próximo ciclo após esse prazo, desde que não exista uma contestação. O `vercel.json` agenda o cron diariamente às 04:00 UTC, então o repasse automático pode ocorrer no próximo ciclo diário. Uma contestação mantém o pagamento retido até ser resolvida. O modo atual do checkout continua sendo `SIMULATION` e não movimenta saldo real.

@@ -1,0 +1,8 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#f5f1ea"/>
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="#101a34"/>
+  <circle cx="256" cy="194" r="98" fill="#f15b45"/>
+  <path d="M216 182h80v142h-80z" rx="14" fill="#fffaf2"/>
+  <circle cx="256" cy="138" r="16" fill="#fffaf2"/>
+  <text x="256" y="402" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700" letter-spacing="1" fill="#fffaf2">Insidely</text>
+</svg>

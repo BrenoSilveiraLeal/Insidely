@@ -41,3 +41,7 @@ RESEND_FROM_EMAIL=Insidely <noreply@seu-dominio.com>
 O domínio do remetente precisa estar verificado no Resend; caso contrário, a API responde `403` e nada é enviado (os logs mostram `Resend failed: 403`). Sem SMTP, os e-mails de cadastro voltam a ser enviados pelo Supabase, que então precisa de um SMTP próprio em Authentication → SMTP Settings.
 
 O pagamento da versão acadêmica é simulado: nenhum e-mail contém código Pix ou dados de cobrança reais.
+
+## Endereço Insidely
+
+O remetente padrão dos e-mails transacionais é `Insidely <admin@insidely.vercel.app>`. Configure `SMTP_FROM` com esse valor (ou `RESEND_FROM_EMAIL` quando usar Resend) no ambiente de produção e faça novo deploy. O endereço precisa estar autorizado no provedor: no Gmail, adicione e confirme `admin@insidely.vercel.app` como endereço de envio; no Resend, verifique o domínio `insidely.vercel.app`. A caixa também precisa existir para receber respostas. Se a verificação do remetente falhar, o provedor pode rejeitar ou reescrever o remetente.

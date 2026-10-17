@@ -1,1 +1,1 @@
-export default function Loading(){return <main className="route-loading" aria-busy="true"><div className="loading-line loading-line-short"/><div className="loading-title"/><div className="loading-panel"/><div className="loading-panel loading-panel-small"/></main>}
+export default function Loading(){return <main className="route-loading" aria-busy="true" aria-live="polite"><div className="inside-loader"><div className="inside-loader-mark" aria-hidden="true">in<span>.</span></div><p>Preparando sua próxima conversa…</p><div className="inside-loader-track"/></div></main>}
