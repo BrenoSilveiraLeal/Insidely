@@ -11,37 +11,31 @@ A aplicação envia estes e-mails:
 | Lembrete da conversa | cerca de 1 hora antes (via `pg_cron`) | cliente e consultor |
 | Conversa cancelada | quando o consultor cancela | cliente |
 
-## Configuração recomendada: Gmail SMTP
+## Remetente de marca: Resend
 
-Funciona sem domínio próprio e entrega para qualquer endereço (limite do Gmail: cerca de 500 envios por dia).
-
-1. Na conta Google remetente, ative a verificação em duas etapas.
-2. Crie uma senha de app em https://myaccount.google.com/apppasswords (nome: Insidely).
-3. Na Vercel (Production), configure e faça um redeploy:
-
-```text
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_USER=seu-email@gmail.com
-SMTP_PASS=<senha de app de 16 letras>
-SMTP_FROM=Insidely <seu-email@gmail.com>
-```
-
-Com o SMTP configurado, os links de **cadastro** e de **redefinição de senha** também são gerados pela aplicação (Supabase Admin `generateLink`) e enviados por esse SMTP. O link aponta para `/auth/confirm?token_hash=...`, que valida o token, cria o perfil e leva ao onboarding (ou à troca de senha). Links usados ou vencidos mostram um aviso na tela de login. Assim o cadastro não depende do envio de e-mail do próprio Supabase, que só entrega para membros da equipe do projeto.
-
-## Alternativa: Resend
-
-Se `SMTP_*` não estiver configurado, a aplicação usa o Resend:
+A produção usa o Resend com o remetente verificado `Insidely <noreply@insidely.com>`. Quando `RESEND_API_KEY` e `RESEND_FROM_EMAIL` estão configurados, a aplicação usa esse remetente antes de qualquer SMTP. Isso impede que credenciais pessoais do Gmail sobrescrevam a identidade da Insidely.
 
 ```text
 RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=Insidely <noreply@seu-dominio.com>
+RESEND_FROM_EMAIL=Insidely <noreply@insidely.com>
 ```
 
-O domínio do remetente precisa estar verificado no Resend; caso contrário, a API responde `403` e nada é enviado (os logs mostram `Resend failed: 403`). Sem SMTP, os e-mails de cadastro voltam a ser enviados pelo Supabase, que então precisa de um SMTP próprio em Authentication → SMTP Settings.
+O domínio do remetente precisa estar verificado no Resend; caso contrário, a API responde `403` e nada é enviado (os logs mostram `Resend failed: 403`). O SMTP do Supabase também está configurado para usar o Resend e o remetente `noreply@insidely.com`, com nome de exibição `Insidely`.
+
+### SMTP de contingência
+
+O SMTP da aplicação só é usado localmente durante o desenvolvimento, se o Resend não estiver configurado. Na produção e nas prévias da Vercel, o código não recorre ao SMTP pessoal caso o Resend esteja indisponível. Não use uma conta Gmail pessoal como SMTP em produção: o Gmail pode reescrever o remetente com o endereço pessoal da conta. Se configurar outro SMTP local, use somente um endereço autorizado pelo provedor:
+
+```text
+SMTP_HOST=
+SMTP_PORT=465
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=Insidely <noreply@insidely.com>
+```
 
 O pagamento da versão acadêmica é simulado: nenhum e-mail contém código Pix ou dados de cobrança reais.
 
-## Endereço Insidely
+## Endereço de resposta
 
-O remetente padrão dos e-mails transacionais é `Insidely <admin@insidely.vercel.app>`. Configure `SMTP_FROM` com esse valor (ou `RESEND_FROM_EMAIL` quando usar Resend) no ambiente de produção e faça novo deploy. O endereço precisa estar autorizado no provedor: no Gmail, adicione e confirme `admin@insidely.vercel.app` como endereço de envio; no Resend, verifique o domínio `insidely.vercel.app`. A caixa também precisa existir para receber respostas. Se a verificação do remetente falhar, o provedor pode rejeitar ou reescrever o remetente.
+O remetente verificado que está funcionando na produção é `Insidely <noreply@insidely.com>`. `admin@insidely.vercel.app` não pode ser usado pelo provedor enquanto o domínio `vercel.app` não puder ser verificado por quem envia os e-mails; tentar usá-lo sem verificação pode fazer as mensagens serem rejeitadas. Para receber respostas, configure uma caixa ou alias em um domínio que a Insidely controle.

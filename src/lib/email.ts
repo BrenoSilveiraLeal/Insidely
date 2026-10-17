@@ -22,17 +22,23 @@ function smtpTransport() {
 
 export async function sendTransactionalEmail({ to, subject, html, ics }: { to: string; subject: string; html: string; ics?: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
-  if (smtpConfigured()) {
-    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || "Insidely <admin@insidely.vercel.app>", to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
-    return true;
-  }
+  // Prefer the verified brand sender when configured. In production this prevents
+  // a personal Gmail SMTP account from overriding the Insidely sender identity.
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) return false;
-  const attachments = ics ? [{ filename: "conversa-insidely.ics", content: Buffer.from(ics).toString("base64") }] : undefined;
-  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, html, attachments }), cache: "no-store" });
-  if (!response.ok) throw new Error(`Resend failed: ${response.status}`);
-  return true;
+  if (apiKey && from) {
+    const attachments = ics ? [{ filename: "conversa-insidely.ics", content: Buffer.from(ics).toString("base64") }] : undefined;
+    const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, html, attachments }), cache: "no-store" });
+    if (!response.ok) throw new Error(`Resend failed: ${response.status}`);
+    return true;
+  }
+  // SMTP is a local development fallback only. Production and preview use the
+  // configured Resend sender, and must never silently fall back to personal Gmail.
+  if (smtpConfigured() && process.env.NODE_ENV !== "production") {
+    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || "Insidely <noreply@insidely.com>", to, subject, html, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
+    return true;
+  }
+  return false;
 }
 
 // Confirmation (right after payment) and reminder (about an hour before) for both participants,
