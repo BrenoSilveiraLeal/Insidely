@@ -9,12 +9,12 @@ type NotificationItem = { id: string; title: string; body: string; href: string 
 
 export function NotificationPopover({ notifications }: { notifications: NotificationItem[] }) {
   const [open, setOpen] = useState(false);
-  const [visibleNotifications, setVisibleNotifications] = useState(notifications);
   const [clearFailed, setClearFailed] = useState(false);
+  const notificationIds = notifications.map((notification) => notification.id).join(",");
+  const [clearedNotificationIds, setClearedNotificationIds] = useState<string | null>(null);
+  const visibleNotifications = clearedNotificationIds === notificationIds ? [] : notifications;
   const ref = useRef<HTMLDivElement>(null);
   const unread = visibleNotifications.filter((notification) => !notification.readAt);
-
-  useEffect(() => setVisibleNotifications(notifications), [notifications]);
 
   useEffect(() => {
     if (!open) return;
@@ -30,7 +30,7 @@ export function NotificationPopover({ notifications }: { notifications: Notifica
       <Bell size={19} aria-hidden="true" />{unread.length > 0 && <span>{unread.length > 99 ? "99+" : unread.length}</span>}
     </button>
     {open && <div className="notification-popover" role="dialog" aria-label="Notificações">
-      <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{visibleNotifications.length > 0 && <ConfirmAction action={clearAllNotificationsAction} label={<><span className="sr-only">Limpar todas as notificações</span><Trash2 size={17} strokeWidth={2.2} aria-hidden="true"/></>} title="Limpar histórico de notificações?" description="Tem certeza de que deseja excluir todas as notificações? Essa ação não pode ser desfeita." confirmLabel="Excluir notificações" className="notification-clear-button" onOptimistic={() => { setClearFailed(false); setVisibleNotifications([]); }} onError={() => { setVisibleNotifications(notifications); setClearFailed(true); }}/>}</div></div>
+      <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{visibleNotifications.length > 0 && <ConfirmAction action={clearAllNotificationsAction} label={<><span className="sr-only">Limpar todas as notificações</span><Trash2 size={17} strokeWidth={2.2} aria-hidden="true"/></>} title="Limpar histórico de notificações?" description="Tem certeza de que deseja excluir todas as notificações? Essa ação não pode ser desfeita." confirmLabel="Excluir notificações" className="notification-clear-button" onOptimistic={() => { setClearFailed(false); setClearedNotificationIds(notificationIds); }} onError={() => { setClearedNotificationIds(null); setClearFailed(true); }}/>}</div></div>
       {clearFailed && <p className="form-error" role="alert">Não foi possível limpar as notificações agora.</p>}
       {visibleNotifications.length === 0 ? <p className="muted">Nenhuma notificação.</p> : <div className="notification-popover-list">{visibleNotifications.slice(0, 10).map((notification) => <div className={`notification-popover-item ${notification.readAt ? "" : "is-unread"}`} key={notification.id}>
         <strong>{notification.title}</strong><p>{notification.body}</p>

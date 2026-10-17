@@ -7,7 +7,7 @@ type BookingRecipient = { email: string; name: string };
 
 function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] ?? character); }
 
-// SMTP (e.g. Gmail with an app password) takes precedence; Resend needs a verified domain.
+// Resend's verified Insidely sender takes precedence; SMTP is only a local fallback.
 export const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 

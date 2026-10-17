@@ -236,6 +236,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .notification-popover-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .footer { padding: 70px 0 34px; background: var(--ink); color: var(--paper); }
+.footer .muted { color: #b9c2cf; }
 .footer-grid { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: 50px; }
 .footer .brand { font-size: 2.6rem; }
 .footer h4 { margin: 0 0 16px; font-size: .75rem; text-transform: uppercase; letter-spacing: .09em; color: var(--mineral); }

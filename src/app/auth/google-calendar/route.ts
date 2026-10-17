@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getAppUrl } from "@/lib/app-url";
 import { calendarReturnPath, googleCalendarCallbackUrl, GOOGLE_CALENDAR_SCOPE } from "@/lib/google-calendar";
 
 export async function GET(request: NextRequest) {
