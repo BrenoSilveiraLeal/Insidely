@@ -1498,6 +1498,7 @@ export type Database = {
       release_eligible_bookings_for_user: { Args: Record<PropertyKey, never>; Returns: number }
       release_eligible_bookings_system: { Args: Record<PropertyKey, never>; Returns: number }
       expire_past_unpaid_bookings: { Args: Record<PropertyKey, never>; Returns: number }
+      consume_auth_email_quota: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: boolean }
       remove_consultant_availability: {
         Args: { p_availability_id: string }
         Returns: string

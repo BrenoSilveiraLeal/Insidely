@@ -39,6 +39,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     await removePrefix("avatars", `avatars/${user.id}`);
+    await removePrefix("profile-covers", `covers/${user.id}`);
     await removePrefix("verification-documents", user.id);
   } catch { return json({ error: "storage_cleanup_failed" }, 500); }
 

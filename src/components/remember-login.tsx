@@ -1,56 +1,40 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CheckBox } from "@/components/check-box";
 
 const EMAIL_KEY = "insidely:login-email";
 
-/** Remembers only the email; passwords remain managed by the browser. */
+/** Remembers only the email; passwords remain managed by the browser. Render it inside the login form. */
 export function RememberLogin() {
+  const ref = useRef<HTMLInputElement>(null);
+  const [checked, setChecked] = useState(false);
+
   useEffect(() => {
-    const form = document.querySelector<HTMLFormElement>("form.auth-form");
+    const form = ref.current?.form;
     const email = form?.querySelector<HTMLInputElement>('input[name="email"]');
     if (!form || !email) return;
-
-    email.autocomplete = "username";
-    const password = form.querySelector<HTMLInputElement>('input[name="password"]');
-    if (password) password.autocomplete = "current-password";
-
-    let remembered = false;
     try {
       const savedEmail = window.localStorage.getItem(EMAIL_KEY);
       if (savedEmail) {
-        email.value = savedEmail;
-        email.dispatchEvent(new Event("input", { bubbles: true }));
-        remembered = true;
+        if (!email.value) email.value = savedEmail;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
+        setChecked(true);
       }
     } catch {
       // Private browsing and storage policies must not block login.
     }
-
-    const label = document.createElement("label");
-    label.className = "check-row";
-    label.innerHTML = '<input type="checkbox" name="remember" /><span>Lembrar de mim neste dispositivo</span>';
-    const checkbox = label.querySelector<HTMLInputElement>('input[name="remember"]');
-    if (!checkbox) return;
-    checkbox.checked = remembered;
-    const submit = form.querySelector("button[type=submit]");
-    if (submit) form.insertBefore(label, submit);
-    else form.append(label);
-
     const rememberEmail = () => {
       try {
-        if (checkbox.checked && email.value.trim()) window.localStorage.setItem(EMAIL_KEY, email.value.trim());
+        if (ref.current?.checked && email.value.trim()) window.localStorage.setItem(EMAIL_KEY, email.value.trim());
         else window.localStorage.removeItem(EMAIL_KEY);
       } catch {
         // Login must continue even when storage is unavailable.
       }
     };
     form.addEventListener("submit", rememberEmail);
-    return () => {
-      form.removeEventListener("submit", rememberEmail);
-      label.remove();
-    };
+    return () => form.removeEventListener("submit", rememberEmail);
   }, []);
 
-  return null;
+  return <CheckBox ref={ref} name="remember" checked={checked} onChange={(event) => setChecked(event.target.checked)}>Lembrar de mim neste dispositivo</CheckBox>;
 }
