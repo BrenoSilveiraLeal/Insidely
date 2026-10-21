@@ -1,1 +1,3 @@
-export { default } from "@/app/loading";
+import { DashboardSkeleton } from "@/components/route-skeletons";
+
+export default function Loading() { return <DashboardSkeleton mode="user" />; }

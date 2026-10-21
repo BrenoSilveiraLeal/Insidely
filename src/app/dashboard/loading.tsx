@@ -1,1 +1,3 @@
-export default function Loading(){return <main className="route-loading" aria-busy="true"><div className="loading-line loading-line-short"/><div className="loading-title"/><div className="loading-panel"/><div className="loading-panel loading-panel-small"/></main>}
+import { DashboardSkeleton } from "@/components/route-skeletons";
+
+export default function Loading() { return <DashboardSkeleton mode="user" />; }

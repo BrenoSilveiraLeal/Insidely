@@ -7,7 +7,8 @@ import { StoryMotion } from "@/components/story-motion";
 import { ScrollReveals } from "@/components/scroll-reveals";
 import { getHomeData } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+// Public data only: served static and refreshed every 5 minutes, so links open instantly.
+export const revalidate = 300;
 
 const hiddenQuestions = [["01", "Como é uma terça-feira comum, não o dia da entrevista?"], ["02", "A liderança dá contexto ou só cobra a entrega?"], ["03", "O crescimento acontece ou fica apenas no discurso?"], ["04", "O que você gostaria de saber antes de entrar?"]];
 
