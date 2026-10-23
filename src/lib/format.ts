@@ -32,6 +32,14 @@ export function initials(value: string) {
   return value.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
+// Fallback avatar color: stable per profile (seeded by its id), so it never changes when the name does.
+export function avatarColor(seed: string) {
+  const colors = ["var(--blue)", "var(--amber)", "var(--mineral)"];
+  let hash = 0;
+  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return colors[Math.abs(hash) % colors.length];
+}
+
 
 export function meetingRoomOpeningText(startsAt: Date | string) {
   const parts = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).formatToParts(new Date(parseDbDate(startsAt).getTime() - 10 * 60_000));
