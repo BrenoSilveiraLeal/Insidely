@@ -65,7 +65,9 @@ export async function sendTransactionalEmail({ to, subject, html: content, ics }
     console.error("resend_failed_using_smtp", resendError.message);
   }
   if (smtpConfigured()) {
-    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html, text, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
+    // Recipients see "Insidely" as the sender name, whatever account authenticates the SMTP connection.
+    const smtpFrom = (process.env.SMTP_FROM || process.env.SMTP_USER || "").match(/<([^>]+)>/)?.[1] || process.env.SMTP_FROM || process.env.SMTP_USER || "";
+    await smtpTransport().sendMail({ from: { name: "Insidely", address: smtpFrom.trim() }, to, subject, html, text, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
     return true;
   }
   return false;
