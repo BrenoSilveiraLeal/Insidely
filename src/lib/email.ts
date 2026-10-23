@@ -7,13 +7,13 @@ type BookingRecipient = { email: string; name: string };
 
 function escapeHtml(value: string) { return value.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[character] ?? character); }
 
-// Resend's verified Insidely sender takes precedence; SMTP is only a local fallback.
+// Resend's branded sender takes precedence; SMTP delivers when Resend is missing or rejects a message.
 export const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 const resendConfigured = () => Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 const emailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || smtpConfigured() || resendConfigured();
 // Whether sendTransactionalEmail can actually deliver: same precedence as its transports below.
 // Sign-up and recovery use this to send their own links instead of Supabase's built-in mailer.
-export const appEmailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || resendConfigured() || (smtpConfigured() && process.env.NODE_ENV !== "production");
+export const appEmailConfigured = () => process.env.E2E_MOCK_EXTERNALS === "true" || resendConfigured() || smtpConfigured();
 
 // Built once per server instance; each message still opens its own connection.
 let transport: ReturnType<typeof nodemailer.createTransport> | null = null;
@@ -51,21 +51,21 @@ export function emailText(content: string) {
 export async function sendTransactionalEmail({ to, subject, html: content, ics }: { to: string; subject: string; html: string; ics?: string }) {
   if (process.env.E2E_MOCK_EXTERNALS === "true") return true;
   const html = renderEmailLayout(content), text = emailText(content);
-  // Prefer the verified brand sender when configured. In production this prevents
-  // a personal Gmail SMTP account from overriding the Insidely sender identity.
+  // Prefer the branded Resend sender. If Resend rejects the message (e.g. its sender domain is not
+  // verified yet), fall back to SMTP so sign-up and booking e-mails still reach people.
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (apiKey && from) {
     const attachments = ics ? [{ filename: "conversa-insidely.ics", content: Buffer.from(ics).toString("base64") }] : undefined;
     const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, html, text, attachments }), cache: "no-store" });
+    if (response.ok) return true;
     // Resend explains rejections (e.g. unverified sender domain) in the body; keep it for the logs.
-    if (!response.ok) throw new Error(`Resend failed: ${response.status} ${(await response.text().catch(() => "")).slice(0, 300)}`);
-    return true;
+    const resendError = new Error(`Resend failed: ${response.status} ${(await response.text().catch(() => "")).slice(0, 300)}`);
+    if (!smtpConfigured()) throw resendError;
+    console.error("resend_failed_using_smtp", resendError.message);
   }
-  // SMTP is a local development fallback only. Production and preview use the
-  // configured Resend sender, and must never silently fall back to personal Gmail.
-  if (smtpConfigured() && process.env.NODE_ENV !== "production") {
-    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || "Insidely <noreply@insidely.com>", to, subject, html, text, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
+  if (smtpConfigured()) {
+    await smtpTransport().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html, text, ...(ics ? { icalEvent: { filename: "conversa-insidely.ics", method: "PUBLISH", content: ics } } : {}) });
     return true;
   }
   return false;
