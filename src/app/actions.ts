@@ -277,25 +277,28 @@ const IDENTITY_ERRORS: Record<string, string> = {
 
 // CPF and birth date of whoever books a conversation (see migration 20261029130000). Validated here
 // for a friendly message and again by save_customer_identity.
-async function saveCustomerIdentity(formData: FormData): Promise<string | null> {
+// Returns an error message, or whether the CPF brought back an account this person had deleted.
+async function saveCustomerIdentity(formData: FormData): Promise<{ error: string } | { reactivated: boolean }> {
   const cpf = cpfDigits(String(formData.get("cpf") || ""));
   const birthDate = String(formData.get("birthDate") || "");
-  if (!isValidCpf(cpf)) return IDENTITY_ERRORS.invalid_cpf;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !(ageOn(birthDate) >= 18) || ageOn(birthDate) > 120) return IDENTITY_ERRORS.underage_or_invalid_birth_date;
-  if (formData.get("identityConsent") !== "on") return "Confirme que os dados são seus e autorize o uso descrito.";
+  if (!isValidCpf(cpf)) return { error: IDENTITY_ERRORS.invalid_cpf };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !(ageOn(birthDate) >= 18) || ageOn(birthDate) > 120) return { error: IDENTITY_ERRORS.underage_or_invalid_birth_date };
+  if (formData.get("identityConsent") !== "on") return { error: "Confirme que os dados são seus e autorize o uso descrito." };
   // save_customer_identity is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (await createSupabaseServerClient() as any).rpc("save_customer_identity", { p_cpf: cpf, p_birth_date: birthDate });
-  if (!error) return null;
+  const { data, error } = await (await createSupabaseServerClient() as any).rpc("save_customer_identity", { p_cpf: cpf, p_birth_date: birthDate });
+  if (!error) return { reactivated: data === "reactivated" };
   const code = Object.keys(IDENTITY_ERRORS).find((key) => error.message.includes(key));
   if (!code) console.error("save_customer_identity_failed", { message: error.message });
-  return code ? IDENTITY_ERRORS[code] : "Não foi possível salvar seus dados agora. Tente novamente.";
+  return { error: code ? IDENTITY_ERRORS[code] : "Não foi possível salvar seus dados agora. Tente novamente." };
 }
 
 export async function saveCustomerIdentityAction(_: FormState, formData: FormData): Promise<FormState> {
   await requireUser(undefined, { allowIncomplete: true });
-  const error = await saveCustomerIdentity(formData);
-  if (error) return { status: "error", message: error };
+  const result = await saveCustomerIdentity(formData);
+  if ("error" in result) return { status: "error", message: result.error };
+  // The old account is now this login: start over from /continuar so role and pages match it.
+  if (result.reactivated) redirect("/continuar");
   revalidatePath("/dashboard/configuracoes");
   const next = String(formData.get("next") || "");
   if (next) redirect(safeInternalPath(next, "/dashboard"));
@@ -356,8 +359,10 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   const role = formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER;
   if (formData.get("terms") !== "on") return "Aceite os termos da plataforma.";
   // Every account, customer or consultant, registers its identity before using the platform.
-  const identityError = await saveCustomerIdentity(formData);
-  if (identityError && identityError !== IDENTITY_ERRORS.identity_already_registered) return identityError;
+  const identity = await saveCustomerIdentity(formData);
+  if ("error" in identity && identity.error !== IDENTITY_ERRORS.identity_already_registered) return identity.error;
+  // Same CPF as an account this person deleted: that account came back, so this sign-up ends here.
+  if ("reactivated" in identity && identity.reactivated) redirect("/continuar");
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
   const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
