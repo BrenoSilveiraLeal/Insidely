@@ -59,18 +59,19 @@ function collapseRepeats(value: string) {
 
 const collapsedOffensive = new Set(OFFENSIVE_WORDS.map(collapseRepeats));
 
-function hasContactDigits(text: string) {
+function hasContactDigits(text: string, countScattered: boolean) {
   // Years ("2015-2020") are dropped so a career timeline is not mistaken for a number. Spelled-out
   // numbers become digits ("nove nove oito..."), then digit runs are measured ignoring separators:
   // eight or more digits in a row is a phone, CPF or account number.
   const digitized = text.replace(/\b(?:19|20)\d{2}\b/g, " ").split(/(\s+)/).map((token) => NUMBER_WORDS[token.replace(/[^a-z]/g, "")] ?? token).join("");
   const runs = digitized.match(/\d(?:[\s.\-()/_*+,|\\]*\d)+/g) ?? [];
   if (runs.some((run) => run.replace(/\D/g, "").length >= 8)) return true;
-  // A number split across the message ("11 9... 8765 ... 4321") still adds up.
-  return (digitized.match(/\d/g) ?? []).length >= 11;
+  // A number split across the message ("11 9... 8765 ... 4321") still adds up. Off for long profile
+  // texts, where years of experience, team sizes and the like add up to many unrelated digits.
+  return countScattered && (digitized.match(/\d/g) ?? []).length >= 11;
 }
 
-export function moderateChatMessage(raw: string): ChatModerationResult {
+export function moderateChatMessage(raw: string, options: { countScatteredDigits?: boolean } = {}): ChatModerationResult {
   const text = stripAccents(raw.toLowerCase());
   const plain = decodeLeet(text).replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
   const compact = decodeLeet(text).replace(/[^a-z]/g, "");
@@ -81,7 +82,7 @@ export function moderateChatMessage(raw: string): ChatModerationResult {
   if (/https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(?:com|net|org|br|me|io|ly|gg|app|link|site|tv)\b/.test(text)) return blocked("contact");
   if (/\b(?:ponto|dot)\s+(?:com|net|org)(?:\s+(?:ponto|dot)\s+br\b|\s*$)|\b(?:ponto|dot)\s+br\b/.test(plain)) return blocked("contact");
   if (/[\w.+-]+\s*(?:@|\(at\)|\[at\])\s*[\w-]{2,}/.test(text) || /(?:^|\s)@[a-z0-9_.]{3,}/.test(text)) return blocked("contact");
-  if (hasContactDigits(text)) return blocked("contact");
+  if (hasContactDigits(text, options.countScatteredDigits ?? true)) return blocked("contact");
   if (COMPACT_CONTACT.some((word) => compact.includes(word))) return blocked("contact");
   if (CONTACT_PHRASES.some((pattern) => pattern.test(plain))) return blocked("contact");
   for (const match of plain.matchAll(/[a-z]+(?:-[a-z]+)?/g)) {
@@ -104,4 +105,20 @@ export function chatFeedbackText(code: string) {
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";
   if (code === "erro") return "Não foi possível enviar a mensagem agora. Tente novamente.";
   return "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links, redes sociais ou combinar pagamento por fora. A conversa e o pagamento acontecem pela Insidely, que protege os dois lados.";
+}
+
+// Public profile texts (headline, bio, experiences) follow the chat rules: no way to reach the
+// consultant outside the platform and no offensive language. Returns the label of the first bad field.
+export function findUnsafeProfileText(fields: [label: string, value: string][]) {
+  for (const [label, value] of fields) {
+    const result = value.trim() ? moderateChatMessage(value, { countScatteredDigits: false }) : { allowed: true as const };
+    if (!result.allowed) return { label, reason: result.reason };
+  }
+  return null;
+}
+
+export function unsafeProfileTextMessage(found: { label: string; reason: "contact" | "offensive" }) {
+  return found.reason === "offensive"
+    ? `O campo "${found.label}" tem palavrões ou ofensas. Revise o texto para salvar.`
+    : `O campo "${found.label}" parece ter telefone, e-mail, link ou rede social. Contatos não podem aparecer no perfil: a conversa e o pagamento acontecem pela Insidely.`;
 }

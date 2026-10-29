@@ -1,0 +1,104 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { liftSuspensionAction, revealIdentityAction, suspendUserAction } from "@/app/actions";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { Role } from "@/lib/domain";
+import { parseDbDate, shortDate } from "@/lib/format";
+import { ageOn, formatCpf, maskCpf } from "@/lib/identity";
+import { requireUser } from "@/lib/session";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+
+export const metadata = { title: "Usuário" };
+export const dynamic = "force-dynamic";
+
+const when = (value: string) => shortDate(parseDbDate(value));
+// A recorded CPF access stays valid for 10 minutes.
+const revealWindowStart = () => new Date(Date.now() - 10 * 60_000).toISOString();
+
+type Audit = { id: string; adminUserId: string; reason: string; createdAt: string };
+type ReportRow = { id: string; category: string; description: string; status: string; createdAt: string };
+type ModerationRow = { reason: string; excerpt: string; createdAt: string };
+type FeedbackRow = { rating: number; comment: string | null; createdAt: string };
+
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string; acesso?: string }> }) {
+  const admin = await requireUser([Role.ADMIN]);
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  // Trust and safety tables are added by migrations beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: user } = await supabase.from("User").select("id, name, email, role, createdAt, auth_user_id, suspendedAt, suspendedUntil, suspensionReason").eq("id", id).maybeSingle();
+  if (!user) notFound();
+  const [identity, audits, reactivations, moderation, reportsAgainst, feedback, bookings, reveal] = await Promise.all([
+    supabase.from("CustomerIdentity").select("cpf, birthDate, createdAt").eq("userId", id).maybeSingle(),
+    supabase.from("IdentityAccessAudit").select("id, adminUserId, reason, createdAt").eq("targetUserId", id).order("createdAt", { ascending: false }).limit(20),
+    supabase.from("AccountReactivationAudit").select("createdAt").eq("userId", id),
+    supabase.from("ChatModerationEvent").select("reason, excerpt, createdAt").eq("userId", id).order("createdAt", { ascending: false }).limit(10),
+    supabase.from("Report").select("id, category, description, status, createdAt").eq("targetUserId", id).order("createdAt", { ascending: false }).limit(10),
+    supabase.from("CustomerFeedback").select("rating, comment, createdAt").eq("customerId", id).order("createdAt", { ascending: false }),
+    supabase.from("Booking").select("id", { count: "exact", head: true }).eq("customerId", id),
+    // The full CPF shows only for the access this admin just recorded, for 10 minutes.
+    query.acesso
+      ? supabase.from("IdentityAccessAudit").select("id").eq("id", query.acesso).eq("adminUserId", admin.id).eq("targetUserId", id).gte("createdAt", revealWindowStart()).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const auditRows = (audits.data ?? []) as Audit[];
+  const adminIds = [...new Set(auditRows.map((item) => item.adminUserId))];
+  const { data: admins } = adminIds.length ? await supabase.from("User").select("id, name").in("id", adminIds) : { data: [] };
+  const adminName = (adminId: string) => ((admins ?? []) as { id: string; name: string }[]).find((item) => item.id === adminId)?.name ?? "Admin";
+  const suspended = Boolean(user.suspendedAt) && (!user.suspendedUntil || parseDbDate(user.suspendedUntil) > new Date());
+  const ratings = (feedback.data ?? []) as FeedbackRow[];
+  const average = ratings.length ? (ratings.reduce((sum, item) => sum + item.rating, 0) / ratings.length).toFixed(1) : null;
+  const moderationRows = (moderation.data ?? []) as ModerationRow[];
+  const reportRows = (reportsAgainst.data ?? []) as ReportRow[];
+  const reactivationCount = reactivations.data?.length ?? 0;
+
+  return <DashboardShell mode="admin" title={user.name}>
+    {query.ok && <p className="form-feedback" role="status">{query.ok === "suspensa" ? "Conta suspensa." : "Suspensão encerrada."}</p>}
+    {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
+    <div className="profile-management-stack">
+      <section className="panel">
+        <span className="eyebrow">{user.role} · desde {when(user.createdAt)}{!user.auth_user_id && " · conta excluída"}</span>
+        <h2>{user.name}</h2>
+        <p className="muted">{user.email}</p>
+        <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota interna ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
+        <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
+      </section>
+
+      <section className="panel form-stack">
+        <span className="eyebrow">Suspensão</span>
+        {suspended ? <>
+          <h2>Suspensa {user.suspendedUntil ? `até ${when(user.suspendedUntil)}` : "permanentemente"}</h2>
+          <p className="muted">Motivo: {user.suspensionReason}</p>
+          <form action={liftSuspensionAction.bind(null, user.id)}><button className="button button-dark button-sm" type="submit">Encerrar suspensão</button></form>
+        </> : user.role === Role.ADMIN ? <p className="muted">Contas de administrador não podem ser suspensas por aqui.</p> : <form action={suspendUserAction.bind(null, user.id)} className="form-stack">
+          <p className="muted">A conta fica sem acesso ao painel, não agenda, não recebe agendamentos e não envia mensagens. O perfil de consultor sai da busca. A suspensão continua valendo se a pessoa excluir a conta e voltar com o mesmo CPF.</p>
+          <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue="7"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="permanent">Permanente (banimento)</option></select></label>
+          <label className="field"><span>Motivo (aparece para a pessoa)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label>
+          <button className="button button-danger button-sm" type="submit">Suspender conta</button>
+        </form>}
+      </section>
+
+      <section className="panel form-stack">
+        <span className="eyebrow">Identificação · todo acesso é registrado</span>
+        {!identity.data ? <p className="muted">Esta conta ainda não registrou CPF.</p> : reveal.data ? <div className="customer-info"><dl>
+          <div><dt>CPF</dt><dd>{formatCpf(identity.data.cpf)}</dd></div>
+          <div><dt>Nascimento</dt><dd>{new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(`${identity.data.birthDate}T00:00:00Z`))} ({ageOn(identity.data.birthDate)} anos)</dd></div>
+          <div><dt>Registrado em</dt><dd>{when(identity.data.createdAt)}</dd></div>
+        </dl><p className="muted">Este acesso foi registrado em seu nome. Depois de 10 minutos, recarregar a página volta a esconder os dados.</p></div> : <>
+          <p>CPF {maskCpf(identity.data.cpf)}</p>
+          <form action={revealIdentityAction.bind(null, user.id)} className="form-stack">
+            <label className="field"><span>Motivo do acesso ao CPF completo</span><textarea className="textarea" name="reason" minLength={15} maxLength={500} required placeholder="Ex.: Ofício nº 123/2026 da Delegacia de Crimes Cibernéticos, recebido em 29/10/2026."/></label>
+            <button className="button button-dark button-sm" type="submit">Registrar motivo e ver CPF completo</button>
+          </form>
+        </>}
+        {auditRows.length > 0 && <><strong>Histórico de acessos</strong><div className="list">{auditRows.map((item) => <div className="list-row" key={item.id}><div><strong>{adminName(item.adminUserId)}</strong><p className="muted">{item.reason}</p></div><span className="muted">{when(item.createdAt)}</span></div>)}</div></>}
+      </section>
+
+      <section className="panel"><span className="eyebrow">Denúncias recebidas</span><div className="list">{reportRows.map((item) => <div className="list-row" key={item.id}><div><strong>{item.category}</strong><p className="muted">{item.description}</p></div><span className="status">{item.status} · {when(item.createdAt)}</span></div>)}{!reportRows.length && <p className="muted">Nenhuma denúncia.</p>}</div></section>
+
+      <section className="panel"><span className="eyebrow">Mensagens bloqueadas no chat</span><div className="list">{moderationRows.map((item, index) => <div className="list-row" key={index}><div><strong>{item.reason === "offensive" ? "Ofensiva" : "Contato / pagamento por fora"}</strong><p className="muted">“{item.excerpt}”</p></div><span className="muted">{when(item.createdAt)}</span></div>)}{!moderationRows.length && <p className="muted">Nenhuma.</p>}</div></section>
+
+      <section className="panel"><span className="eyebrow">Avaliação interna dada pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>
+    </div>
+  </DashboardShell>;
+}

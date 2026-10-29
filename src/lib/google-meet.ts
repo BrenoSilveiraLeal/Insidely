@@ -56,6 +56,27 @@ export async function createGoogleMeetSpace(): Promise<MeetSpace | null> {
   return { url, name: payload.name?.startsWith("spaces/") ? payload.name : null };
 }
 
+type MeetParticipant = { signedinUser?: { displayName?: string }; anonymousUser?: { displayName?: string }; phoneUser?: { displayName?: string }; earliestStartTime?: string; latestEndTime?: string };
+
+// Who Google Meet saw in the room (names as shown in Meet), kept with the booking as evidence.
+export async function listGoogleMeetParticipants(name: string) {
+  if (process.env.E2E_MOCK_EXTERNALS === "true") return [];
+  const accessToken = await getGoogleAccessToken();
+  if (!accessToken) return [];
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const records = await fetch(`https://meet.googleapis.com/v2/conferenceRecords?filter=${encodeURIComponent(`space.name="${name}"`)}`, { headers, cache: "no-store" });
+  if (!records.ok) throw new Error(`Google Meet conference lookup failed: ${records.status} ${await records.text()}`);
+  const { conferenceRecords = [] } = await records.json() as { conferenceRecords?: { name: string }[] };
+  const participants: { name: string; joinedAt: string | null; leftAt: string | null }[] = [];
+  for (const record of conferenceRecords) {
+    const response = await fetch(`https://meet.googleapis.com/v2/${record.name}/participants?pageSize=100`, { headers, cache: "no-store" });
+    if (!response.ok) throw new Error(`Google Meet participants lookup failed: ${response.status} ${await response.text()}`);
+    const payload = await response.json() as { participants?: MeetParticipant[] };
+    for (const item of payload.participants ?? []) participants.push({ name: item.signedinUser?.displayName ?? item.anonymousUser?.displayName ?? item.phoneUser?.displayName ?? "Participante", joinedAt: item.earliestStartTime ?? null, leftAt: item.latestEndTime ?? null });
+  }
+  return participants;
+}
+
 // After the conversation the space is locked and anyone still inside is removed. RESTRICTED means
 // only invitees join directly; nobody is invited, so a saved link can only "ask to join", and the
 // room owner (the project account) is never there to let anyone in.
@@ -115,8 +136,9 @@ export async function closeEndedMeetings(supabase: any, now = new Date()) {
   for (const booking of bookings ?? []) {
     if (meetingRoomState(parseDbDate(booking.startsAt), booking.durationMinutes, now) !== "ended") continue;
     try {
+      const participants = await listGoogleMeetParticipants(booking.meetingSpaceName).catch((listError) => { console.error("google_meet_participants_failed", { bookingId: booking.id, error: listError }); return null; });
       await closeGoogleMeetSpace(booking.meetingSpaceName);
-      await supabase.from("Booking").update({ meetingClosedAt: now.toISOString() }).eq("id", booking.id).is("meetingClosedAt", null);
+      await supabase.from("Booking").update({ meetingClosedAt: now.toISOString(), ...(participants ? { meetingParticipants: participants } : {}) }).eq("id", booking.id).is("meetingClosedAt", null);
       closed++;
     } catch (closeError) {
       console.error("google_meet_close_failed", { bookingId: booking.id, error: closeError });

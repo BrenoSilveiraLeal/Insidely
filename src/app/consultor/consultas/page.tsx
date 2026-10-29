@@ -1,3 +1,5 @@
+import { ConversationReportForm, CustomerFeedbackForm, customerFeedbackText, reportFeedbackText } from "@/components/conversation-safety";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, sendMessageAction, updateConsultantRecordingConsentAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -5,7 +7,7 @@ import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
 import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } from "@/lib/format";
-import { meetingRoomState, paymentDeadline } from "@/lib/booking-policy";
+import { canReviewBooking, meetingRoomState, paymentDeadline } from "@/lib/booking-policy";
 import { getConsultantBookings, getConsultantMessages } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { canSendBookingMessage } from "@/lib/booking-policy";
@@ -15,7 +17,7 @@ import { getCustomersForConsultant, type ConsultantCustomerInfo } from "@/lib/cu
 export const metadata = { title: "Consultas e mensagens" };
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string; denuncia?: string; avaliacao?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
@@ -25,9 +27,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   // The RPC returns newest first (for pagination); show each chat oldest to newest.
   for (const list of byConversation.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const roomStates = new Map(bookings.items.map((booking) => [booking.id, meetingRoomState(booking.startsAt, booking.durationMinutes)]));
+  // CustomerFeedback is added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: feedbackRows } = bookings.items.length ? await (createSupabaseServiceClient() as any).from("CustomerFeedback").select("bookingId").in("bookingId", bookings.items.map((booking) => booking.id)) : { data: [] };
+  const rated = new Set((feedbackRows ?? []).map((row: { bookingId: string }) => row.bookingId));
   const customers = await getCustomersForConsultant(user.id, bookings.items.filter((booking) => booking.status !== "EXPIRED").map((booking) => booking.id));
   return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="grid grid-2">
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
+    {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
+    {query.avaliacao && <p className={query.avaliacao === "ok" ? "form-feedback" : "form-error"} role={query.avaliacao === "ok" ? "status" : "alert"}>{customerFeedbackText(query.avaliacao)}</p>}
     {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres para abrir a contestação.</p>}{query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente novamente ou fale com o suporte.</p>}{query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação registrada. O suporte vai analisar o caso.</p>}
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
@@ -46,6 +54,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       {booking.status === "CONFIRMED" && roomStates.get(booking.id) === "upcoming" && <p className="muted">{meetingRoomOpeningText(booking.startsAt)}</p>}
       {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="consent-inline"><label><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o participante também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>}
       <MeetingRoomMessage booking={booking} calendarSide="consultant" />
+      {customers.get(booking.id) !== undefined && !rated.has(booking.id) && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <CustomerFeedbackForm bookingId={booking.id} customerName={booking.customer.name}/>}
+      {["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status) && customers.has(booking.id) && <ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/>}
       {booking.conversation && <><div className="message-thread">{(byConversation.get(booking.conversation.id) ?? []).map(message => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br/>{message.body}</div>)}</div>{canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input type="hidden" name="returnTo" value="/consultor/consultas"/><input className="input" name="body" aria-label={`Mensagem para ${booking.customer.name}`} placeholder="Responder"/><button className="button button-dark">Enviar</button></form> : <p className="muted">A conversa será liberada após a confirmação do pagamento.</p>}</>}
     </article>)}
   </div>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;

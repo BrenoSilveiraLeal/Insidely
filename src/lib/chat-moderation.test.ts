@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moderateChatMessage } from "./chat-moderation";
+import { findUnsafeProfileText, moderateChatMessage } from "./chat-moderation";
 
 const reason = (text: string) => { const result = moderateChatMessage(text); return result.allowed ? null : result.reason; };
 
@@ -22,4 +22,11 @@ describe("chat moderation", () => {
     "Vou instalar o app e entro no instante combinado.",
     "Meu salário era R$ 8.500,00 por mês.",
   ])("allows ordinary messages: %s", (text) => expect(reason(text)).toBeNull());
+});
+
+describe("profile text moderation", () => {
+  it("finds contacts and offenses in public profile fields", () => {
+    expect(findUnsafeProfileText([["Título", "Product Designer"], ["Apresentação", "Me chama no zap pra fechar direto"]])).toEqual({ label: "Apresentação", reason: "contact" });
+    expect(findUnsafeProfileText([["Apresentação", "Trabalhei 5 anos em 3 empresas, liderei 12 pessoas e entreguei 40 projetos entre 2015-2020."]])).toBeNull();
+  });
 });

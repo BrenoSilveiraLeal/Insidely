@@ -30,3 +30,21 @@ export async function allowAuthEmail(kind: Kind, email: string) {
     return true;
   }
 }
+
+// CPF registration: "this CPF is already in use" would otherwise let someone test many CPFs to learn
+// which are registered. A real person needs one or two tries. Uses the same quota table.
+export async function allowIdentityAttempt(userId: string) {
+  try {
+    const service = createSupabaseServiceClient();
+    const ip = await clientIp();
+    const checks = [service.rpc("consume_auth_email_quota", { p_key: hash(`identity:user:${userId}`), p_limit: 5, p_window_seconds: 60 * 60 })];
+    if (ip) checks.push(service.rpc("consume_auth_email_quota", { p_key: hash(`identity:ip:${ip}`), p_limit: 15, p_window_seconds: 60 * 60 }));
+    const results = await Promise.all(checks);
+    const failed = results.find((result) => result.error);
+    if (failed?.error) { console.error("identity_throttle_unavailable", failed.error.message); return true; }
+    return results.every((result) => result.data === true);
+  } catch (error) {
+    console.error("identity_throttle_unavailable", error);
+    return true;
+  }
+}

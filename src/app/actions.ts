@@ -11,13 +11,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
-import { moderateChatMessage } from "@/lib/chat-moderation";
+import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } from "@/lib/chat-moderation";
+import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
+import { canReviewBooking } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
 import { getAppUrl } from "@/lib/app-url";
 import { suggestEmail } from "@/lib/email-typo";
 import { createEmailChangeToken } from "@/lib/email-change-token";
-import { allowAuthEmail } from "@/lib/auth-email-throttle";
+import { allowAuthEmail, allowIdentityAttempt } from "@/lib/auth-email-throttle";
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
@@ -284,6 +286,8 @@ async function saveCustomerIdentity(formData: FormData): Promise<{ error: string
   if (!isValidCpf(cpf)) return { error: IDENTITY_ERRORS.invalid_cpf };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !(ageOn(birthDate) >= 18) || ageOn(birthDate) > 120) return { error: IDENTITY_ERRORS.underage_or_invalid_birth_date };
   if (formData.get("identityConsent") !== "on") return { error: "Confirme que os dados são seus e autorize o uso descrito." };
+  const { data: { user: authUser } } = await (await createSupabaseServerClient()).auth.getUser();
+  if (!authUser || !await allowIdentityAttempt(authUser.id)) return { error: "Muitas tentativas de registrar CPF. Aguarde uma hora e tente novamente, ou fale com o suporte." };
   // save_customer_identity is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (await createSupabaseServerClient() as any).rpc("save_customer_identity", { p_cpf: cpf, p_birth_date: birthDate });
@@ -304,6 +308,13 @@ export async function saveCustomerIdentityAction(_: FormState, formData: FormDat
   if (next) redirect(safeInternalPath(next, "/dashboard"));
   return { status: "success", message: "Dados de identificação registrados." };
 }
+
+// Checks the public texts of a consultant profile; returns the error message or null.
+function profileTextError(formData: FormData, fields: [label: string, name: string][]) {
+  const found = findUnsafeProfileText(fields.map(([label, name]) => [label, formData.getAll(name).map(String).join(" ")]));
+  return found ? unsafeProfileTextMessage(found) : null;
+}
+const ONBOARDING_PROFILE_TEXTS: [string, string][] = [["Título profissional", "headline"], ["Cargo", "title"], ["Localização", "location"], ["O que você pode contextualizar", "bio"], ["Empresa", "companyIdName"], ["Área ou profissão", "professionIdName"]];
 
 type CatalogPending = { title: string; company: string | null; profession: string | null };
 
@@ -364,6 +375,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   // Same CPF as an account this person deleted: that account came back, so this sign-up ends here.
   if ("reactivated" in identity && identity.reactivated) redirect("/continuar");
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
+  if (role === Role.CONSULTANT) { const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS); if (textError) return textError; }
   const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
   await recordCatalogRequests(user.id, [catalog]);
@@ -375,6 +387,8 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
 export async function becomeConsultantAction(_: string | undefined, formData: FormData) {
   const user = await requireUser([Role.USER]);
   if (formData.get("terms") !== "on") return "Aceite os termos para consultores.";
+  const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS);
+  if (textError) return textError;
   const catalog = applyUnlistedCatalog(formData, "companyId", "professionId", "title");
   // become_consultant is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -583,7 +597,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
 }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); await recordCatalogRequests(user.id, catalog); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); await recordCatalogRequests(user.id, catalog); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; await rpc("submit_verification", { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: String(formData.get("method") || "company_email") }); revalidatePath("/consultor/perfil"); return "Solicitação enviada com segurança."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateProfileImage(file); if (!moderation.allowed) return moderation.message; const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {
@@ -640,7 +654,7 @@ export async function removeProfileCoverAction() {
   revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); revalidatePath("/profissional/[id]", "page");
 }
 export async function deleteAccountAction(_: string | undefined, formData: FormData) { const user = await requireUser(); const confirmation = String(formData.get("confirmation") || "").trim().toLowerCase(); if (confirmation !== user.email.trim().toLowerCase()) return "Digite exatamente o e-mail da sua conta para confirmar a exclusão."; const supabase = await createSupabaseServerClient(); const { error } = await supabase.functions.invoke("delete-account", { body: { confirmation } }); if (error) { let code = ""; try { code = String((await (error as { context?: Response }).context?.json())?.error ?? ""); } catch { /* resposta sem corpo JSON */ } return code === "active_obligations" ? "Você tem conversas pendentes, agendadas ou em andamento. Conclua, cancele ou aguarde o fim delas antes de excluir a conta." : "Não foi possível excluir a conta agora. Tente novamente ou fale com o suporte."; } await supabase.auth.signOut(); redirect("/?conta=excluida"); }
-export async function submitSupportAction(formData: FormData) { await requireUser(); await rpc("create_support_report", { p_category: String(formData.get("category") || ""), p_description: String(formData.get("description") || "") }); redirect("/suporte?enviado=1"); }
+export async function submitSupportAction(formData: FormData) { await requireUser(undefined, { allowSuspended: true }); await rpc("create_support_report", { p_category: String(formData.get("category") || ""), p_description: String(formData.get("description") || "") }); redirect("/suporte?enviado=1"); }
 async function markNotificationRead(id: string, userId: string) {
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("Notification").update({ readAt: new Date().toISOString() }).eq("id", id).eq("userId", userId).is("readAt", null);
@@ -730,4 +744,94 @@ export async function resolveCatalogRequestAction(formData: FormData) {
   for (const path of ["/admin/catalogo", "/empresas", "/profissoes", "/buscar", "/consultor/perfil"]) revalidatePath(path);
   revalidatePath("/profissional/[id]", "page");
   redirect(`/admin/catalogo?ok=${targetId ? "aprovado" : "recusado"}`);
+}
+
+// Suspension, audited CPF access and the per-user admin view (/admin/usuarios/[id]).
+const SUSPENSION_DAYS: Record<string, number | null> = { "7": 7, "30": 30, "90": 90, permanent: null };
+
+export async function suspendUserAction(userId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const reason = String(formData.get("reason") || "").trim().slice(0, 500);
+  const duration = String(formData.get("duration") || "");
+  if (reason.length < 10 || !(duration in SUSPENSION_DAYS) || userId === admin.id) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Informe a duração e um motivo com pelo menos 10 caracteres.")}`);
+  const days = SUSPENSION_DAYS[duration];
+  const now = new Date();
+  // The suspension columns are added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { error } = await supabase.from("User").update({ suspendedAt: now.toISOString(), suspendedUntil: days ? new Date(now.getTime() + days * 86_400_000).toISOString() : null, suspensionReason: reason, updatedAt: now.toISOString() }).eq("id", userId).neq("role", "ADMIN");
+  if (error) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent(error.message)}`);
+  // Out of search and booking while suspended; free slots are kept for when it is lifted.
+  await supabase.from("ProfessionalProfile").update({ isActive: false, updatedAt: now.toISOString() }).eq("userId", userId);
+  revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
+  redirect(`/admin/usuarios/${userId}?ok=suspensa`);
+}
+
+export async function liftSuspensionAction(userId: string) {
+  await requireUser([Role.ADMIN]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const now = new Date().toISOString();
+  const { data: user } = await supabase.from("User").update({ suspendedAt: null, suspendedUntil: null, suspensionReason: null, updatedAt: now }).eq("id", userId).select("auth_user_id").maybeSingle();
+  // A deleted account keeps its profile off; it comes back only if the person reactivates the account.
+  if (user?.auth_user_id) await supabase.from("ProfessionalProfile").update({ isActive: true, updatedAt: now }).eq("userId", userId);
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Suspensão encerrada", body: "Sua conta voltou a funcionar normalmente.", href: "/continuar", createdAt: now });
+  revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
+  redirect(`/admin/usuarios/${userId}?ok=liberada`);
+}
+
+// The full CPF is only shown right after the admin records why (e.g. a court order number).
+export async function revealIdentityAction(userId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const reason = String(formData.get("reason") || "").trim().slice(0, 500);
+  if (reason.length < 15) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Descreva o motivo do acesso com pelo menos 15 caracteres (ex.: número do ofício ou do processo).")}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (createSupabaseServiceClient() as any).from("IdentityAccessAudit").insert({ adminUserId: admin.id, targetUserId: userId, reason }).select("id").single();
+  if (error) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Não foi possível registrar o acesso.")}`);
+  redirect(`/admin/usuarios/${userId}?acesso=${data.id}`);
+}
+
+// Booking participants: the customer and the consultant behind the profile (service role lookup).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function bookingParticipants(supabase: any, bookingId: string) {
+  const { data: booking } = await supabase.from("Booking").select("id, status, startsAt, durationMinutes, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  if (!booking) return null;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
+  return profile ? { booking, customerId: booking.customerId as string, consultantId: profile.userId as string } : null;
+}
+
+// Report the other side of a conversation, from the chat of either participant.
+export async function reportConversationAction(bookingId: string, formData: FormData) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens");
+  const category = String(formData.get("category") || "");
+  const description = String(formData.get("description") || "").trim().slice(0, 2000);
+  if (!CONVERSATION_REPORT_CATEGORIES.includes(category) || description.length < 20) redirect(`${returnTo}?denuncia=curta`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const parties = await bookingParticipants(supabase, bookingId);
+  if (!parties || ![parties.customerId, parties.consultantId].includes(user.id) || parties.customerId === parties.consultantId) redirect(`${returnTo}?denuncia=erro`);
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("Report").insert({ id: crypto.randomUUID(), reporterId: user.id, targetUserId: user.id === parties.customerId ? parties.consultantId : parties.customerId, bookingId, category, description, createdAt: now, updatedAt: now });
+  if (error) { console.error("conversation_report_failed", { bookingId, error }); redirect(`${returnTo}?denuncia=erro`); }
+  const { data: admins } = await supabase.from("User").select("id").eq("role", "ADMIN");
+  if (admins?.length) await supabase.from("Notification").insert(admins.map((admin: { id: string }) => ({ id: crypto.randomUUID(), userId: admin.id, title: "Nova denúncia em conversa", body: category, href: "/admin/denuncias", createdAt: now })));
+  revalidatePath("/admin/denuncias");
+  redirect(`${returnTo}?denuncia=ok`);
+}
+
+// Consultants rate the customer once the conversation's time is over. Only the team sees it.
+export async function rateCustomerAction(bookingId: string, formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const rating = Number(formData.get("rating"));
+  const comment = String(formData.get("comment") || "").trim().slice(0, 1000);
+  if (!Number.isInteger(rating) || rating < 0 || rating > 5) redirect("/consultor/consultas?avaliacao=erro");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const parties = await bookingParticipants(supabase, bookingId);
+  if (!parties || parties.consultantId !== user.id || parties.customerId === user.id || !canReviewBooking(parties.booking.status, parseDbDate(parties.booking.startsAt), parties.booking.durationMinutes)) redirect("/consultor/consultas?avaliacao=erro");
+  const { error } = await supabase.from("CustomerFeedback").insert({ bookingId, consultantUserId: user.id, customerId: parties.customerId, rating, comment: comment ? maskUnsafeGoal(comment) : null });
+  if (error) redirect(`/consultor/consultas?avaliacao=${error.code === "23505" ? "repetida" : "erro"}`);
+  revalidatePath("/consultor/consultas");
+  redirect("/consultor/consultas?avaliacao=ok");
 }
