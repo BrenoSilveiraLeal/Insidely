@@ -13,6 +13,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
 import { moderateChatMessage } from "@/lib/chat-moderation";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
+import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
 import { getAppUrl } from "@/lib/app-url";
 import { suggestEmail } from "@/lib/email-typo";
 import { createEmailChangeToken } from "@/lib/email-change-token";
@@ -301,23 +302,75 @@ export async function saveCustomerIdentityAction(_: FormState, formData: FormDat
   return { status: "success", message: "Dados de identificação registrados." };
 }
 
+type CatalogPending = { title: string; company: string | null; profession: string | null };
+
+// A company or area typed with "Outra" (see CatalogPicker) is saved against the placeholder entry so
+// the profile works right away; the typed name is queued afterwards by recordCatalogRequests.
+function applyUnlistedCatalog(formData: FormData, companyField: string, professionField: string, titleField: string): CatalogPending | null {
+  const pick = (field: string, placeholder: string) => {
+    const typed = cleanCatalogName(String(formData.get(`${field}Name`) || ""));
+    formData.delete(`${field}Name`);
+    if (formData.get(field) || typed.length < 2) return null;
+    formData.set(field, placeholder);
+    return typed;
+  };
+  const company = pick(companyField, UNLISTED_COMPANY_ID);
+  const profession = pick(professionField, UNLISTED_PROFESSION_ID);
+  return company || profession ? { title: String(formData.get(titleField) || "").trim().slice(0, 160), company, profession } : null;
+}
+
+async function recordCatalogRequests(userId: string, pending: (CatalogPending | null)[]) {
+  const items = pending.filter((item): item is CatalogPending => Boolean(item));
+  if (!items.length) return;
+  // CatalogRequest and the pending columns are added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", userId).maybeSingle();
+  if (!profile) return;
+  const created: { kind: string; name: string }[] = [];
+  for (const item of items) {
+    // Experiences are recreated on every profile save, so the typed names are written back each time.
+    let query = supabase.from("EmploymentExperience").update({ ...(item.company ? { pendingCompanyName: item.company } : {}), ...(item.profession ? { pendingProfessionName: item.profession } : {}) }).eq("professionalProfileId", profile.id).eq("title", item.title);
+    if (item.company) query = query.eq("companyId", UNLISTED_COMPANY_ID);
+    if (item.profession) query = query.eq("professionId", UNLISTED_PROFESSION_ID);
+    const { error: experienceError } = await query;
+    if (experienceError) console.error("catalog_pending_experience_failed", { error: experienceError });
+    for (const [kind, name] of [["COMPANY", item.company], ["PROFESSION", item.profession]] as const) {
+      if (!name) continue;
+      const { data: existing } = await supabase.from("CatalogRequest").select("id").eq("kind", kind).eq("normalizedName", catalogKey(name)).eq("userId", userId).eq("status", "PENDING").maybeSingle();
+      if (existing) continue;
+      const { error } = await supabase.from("CatalogRequest").insert({ kind, name, normalizedName: catalogKey(name), userId });
+      if (error) console.error("catalog_request_failed", { error });
+      else created.push({ kind, name });
+    }
+  }
+  if (!created.length) return;
+  const { data: admins } = await supabase.from("User").select("id").eq("role", "ADMIN");
+  const now = new Date().toISOString();
+  const rows = (admins ?? []).flatMap((admin: { id: string }) => created.map((item) => ({ id: crypto.randomUUID(), userId: admin.id, title: item.kind === "COMPANY" ? "Nova empresa para análise" : "Nova área de atuação para análise", body: `Um consultor pediu para adicionar “${item.name}”.`, href: "/admin/catalogo", createdAt: now })));
+  if (rows.length) await supabase.from("Notification").insert(rows);
+}
+
 export async function completeOnboardingAction(_: string | undefined, formData: FormData) {
-  await requireUser(undefined, { allowIncomplete: true });
+  const user = await requireUser(undefined, { allowIncomplete: true });
   const role = formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER;
   if (formData.get("terms") !== "on") return "Aceite os termos da plataforma.";
   // Every account, customer or consultant, registers its identity before using the platform.
   const identityError = await saveCustomerIdentity(formData);
   if (identityError && identityError !== IDENTITY_ERRORS.identity_already_registered) return identityError;
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
+  const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
+  await recordCatalogRequests(user.id, [catalog]);
   const next = String(formData.get("next") || "");
   redirect(next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard");
 }
 
 // A customer account adds a consultant profile and keeps everything it had as a customer.
 export async function becomeConsultantAction(_: string | undefined, formData: FormData) {
-  await requireUser([Role.USER]);
+  const user = await requireUser([Role.USER]);
   if (formData.get("terms") !== "on") return "Aceite os termos para consultores.";
+  const catalog = applyUnlistedCatalog(formData, "companyId", "professionId", "title");
   // become_consultant is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (await createSupabaseServerClient() as any).rpc("become_consultant", { p_payload: formText(formData) });
@@ -327,6 +380,7 @@ export async function becomeConsultantAction(_: string | undefined, formData: Fo
     console.error("become_consultant_failed", { message: error.message });
     return "Não foi possível criar seu perfil de consultor agora. Tente novamente.";
   }
+  await recordCatalogRequests(user.id, [catalog]);
   revalidatePath("/dashboard");
   revalidatePath("/consultor");
   redirect("/consultor/perfil?novo=1");
@@ -524,7 +578,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
 }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return "Perfil profissional atualizado."; }
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); await recordCatalogRequests(user.id, catalog); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; await rpc("submit_verification", { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: String(formData.get("method") || "company_email") }); revalidatePath("/consultor/perfil"); return "Solicitação enviada com segurança."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateProfileImage(file); if (!moderation.allowed) return moderation.message; const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {
@@ -608,4 +662,67 @@ export async function customerCancelBookingAction(id: string, formData: FormData
   if (ok) { try { await sendCustomerCancellationEmail(createSupabaseServiceClient(), id, reason); } catch (error) { console.error("customer_cancellation_email_failed", { bookingId: id, error }); } }
   revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
   redirect(`/dashboard/agendamentos?cancelamento=${ok ? "ok" : "erro"}`);
+}
+
+// Admin catalog queue: a typed company/area becomes a new entry (or is matched to an existing one),
+// and every experience waiting on that name moves from the placeholder to it.
+export async function resolveCatalogRequestAction(formData: FormData) {
+  await requireUser([Role.ADMIN]);
+  const kind = formData.get("kind") === "PROFESSION" ? "PROFESSION" : "COMPANY";
+  const key = String(formData.get("key") || "");
+  const decision = String(formData.get("decision") || "");
+  const table = kind === "COMPANY" ? "Company" : "Profession";
+  const idColumn = kind === "COMPANY" ? "companyId" : "professionId";
+  const pendingColumn = kind === "COMPANY" ? "pendingCompanyName" : "pendingProfessionName";
+  const placeholder = kind === "COMPANY" ? UNLISTED_COMPANY_ID : UNLISTED_PROFESSION_ID;
+  // CatalogRequest and the pending columns are added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: requests } = await supabase.from("CatalogRequest").select("id, userId, name").eq("kind", kind).eq("normalizedName", key).eq("status", "PENDING");
+  if (!requests?.length) redirect("/admin/catalogo");
+  const now = new Date().toISOString();
+
+  let targetId: string | null = null;
+  let targetName = "";
+  if (decision === "existing") {
+    targetId = String(formData.get("existingId") || "");
+    const { data: existing } = await supabase.from(table).select("id, name").eq("id", targetId).maybeSingle();
+    if (!existing || UNLISTED_IDS.has(existing.id)) redirect(`/admin/catalogo?erro=${encodeURIComponent("Escolha um item existente do catálogo.")}`);
+    targetName = existing.name;
+  } else if (decision === "new") {
+    targetName = cleanCatalogName(String(formData.get("name") || ""));
+    const group = cleanCatalogName(String(formData.get("group") || "")) || (kind === "COMPANY" ? "Não informado" : "Outras");
+    if (targetName.length < 2) redirect(`/admin/catalogo?erro=${encodeURIComponent("Informe o nome.")}`);
+    let slug = catalogSlug(targetName);
+    for (let attempt = 2; (await supabase.from(table).select("id").eq("slug", slug).maybeSingle()).data; attempt++) slug = `${catalogSlug(targetName)}-${attempt}`;
+    targetId = crypto.randomUUID();
+    const row = kind === "COMPANY"
+      ? { id: targetId, slug, name: targetName, sector: group, description: `Conheça a rotina de quem trabalha na ${targetName}.`, logoText: targetName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(), color: "#172033", location: "Brasil", createdAt: now, updatedAt: now }
+      : { id: targetId, slug, name: targetName, category: group, description: `Converse com quem atua em ${targetName}.`, accent: "#f2c45d", createdAt: now, updatedAt: now };
+    const { error } = await supabase.from(table).insert(row);
+    if (error) redirect(`/admin/catalogo?erro=${encodeURIComponent(`Não foi possível criar: ${error.message}`)}`);
+  } else if (decision !== "reject") {
+    redirect("/admin/catalogo");
+  }
+
+  const { data: experiences } = await supabase.from("EmploymentExperience").select(`id, ${pendingColumn}`).eq(idColumn, placeholder).not(pendingColumn, "is", null);
+  const waiting = (experiences ?? []).filter((item: Record<string, string>) => catalogKey(item[pendingColumn]) === key).map((item: { id: string }) => item.id);
+  if (waiting.length) {
+    const update = targetId ? { [idColumn]: targetId, [pendingColumn]: null } : { [pendingColumn]: null };
+    const { error } = await supabase.from("EmploymentExperience").update(update).in("id", waiting);
+    if (error) redirect(`/admin/catalogo?erro=${encodeURIComponent(`Não foi possível atualizar os perfis: ${error.message}`)}`);
+  }
+  await supabase.from("CatalogRequest").update({ status: targetId ? "APPROVED" : "REJECTED", resolvedId: targetId, reviewedAt: now }).in("id", requests.map((item: { id: string }) => item.id));
+
+  const noun = kind === "COMPANY" ? "A empresa" : "A área de atuação";
+  const placeholderName = kind === "COMPANY" ? "Empresa não cadastrada" : "Área não cadastrada";
+  const userIds = [...new Set(requests.map((item: { userId: string }) => item.userId))];
+  await supabase.from("Notification").insert(userIds.map((userId) => ({
+    id: crypto.randomUUID(), userId, createdAt: now, href: "/consultor/perfil",
+    title: targetId ? `${kind === "COMPANY" ? "Empresa" : "Área"} adicionada ao seu perfil` : `${kind === "COMPANY" ? "Empresa" : "Área"} não adicionada`,
+    body: targetId ? `${noun} “${targetName}” foi aprovada e já aparece no seu perfil.` : `${noun} “${requests[0].name}” não foi adicionada ao catálogo. Seu perfil continua como “${placeholderName}”; se foi um erro de digitação, corrija em Perfil.`,
+  })));
+  for (const path of ["/admin/catalogo", "/empresas", "/profissoes", "/buscar", "/consultor/perfil"]) revalidatePath(path);
+  revalidatePath("/profissional/[id]", "page");
+  redirect(`/admin/catalogo?ok=${targetId ? "aprovado" : "recusado"}`);
 }

@@ -74,6 +74,7 @@ Regras do ciclo da conversa:
 - A sala do Google Meet só é criada no horário de início e é trancada após o fim (veja [`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)); a avaliação abre para o cliente assim que o horário da conversa termina.
 - Toda conta (cliente ou consultor) registra CPF (validado e único por conta) e data de nascimento (18+) no cadastro; contas antigas passam por `/identificacao` no próximo acesso, e o banco recusa perfis de consultor e agendamentos sem identificação. O consultor vê o CPF mascarado e a idade de quem agenda. A tabela `CustomerIdentity` não é exposta à Data API.
 - O chat não aceita telefone (inclusive por extenso), e-mail, links, redes sociais, pagamento por fora, palavrões ou ofensas (`src/lib/chat-moderation.ts`, repetido em `send_message`); as tentativas ficam em `ChatModerationEvent` e aparecem em `/admin/denuncias`.
+- Empresa e área de atuação são escolhidas por busca com sugestões; o que não estiver no catálogo é digitado como "Outra", o perfil fica com "Empresa não cadastrada"/"Área não cadastrada" e o pedido vai para `/admin/catalogo`, onde o admin adiciona, vincula a um item existente ou recusa (os perfis são atualizados na aprovação).
 - Uma conta de cliente vira consultor em `/dashboard/virar-consultor` (RPC `become_consultant`), mantendo o histórico de cliente.
 - O consultor pode agendar no próprio perfil para testes (a confirmação vale pelos dois lados), mas não pode avaliar a si mesmo.
 

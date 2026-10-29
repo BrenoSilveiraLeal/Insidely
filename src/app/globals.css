@@ -829,3 +829,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .customer-info dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
 .customer-info dt { font-size: .75rem; color: var(--muted, #5b6170); }
 .customer-info dd { margin: 2px 0 0; font-weight: 700; }
+
+/* Type-ahead for companies and areas, with the "not listed yet" note */
+.catalog-picker-note { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(242, 196, 93, .18); color: var(--ink); }
+.catalog-request form { margin-top: 12px; align-items: end; }
