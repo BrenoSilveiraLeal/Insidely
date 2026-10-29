@@ -193,8 +193,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .side-nav-secondary { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
 .side-nav-footer { display: grid; gap: 6px; margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
 .side-nav-profile { color: var(--paper) !important; border: 1px solid rgba(255,255,255,.22); }
-.side-nav-cta { color: var(--ink, #111) !important; background: var(--amber); }
-.side-nav-cta:hover { background: var(--amber) !important; filter: brightness(1.05); }
 .side-nav-footer form { margin-top: 6px; }
 .dash-main { min-width: 0; padding: 38px clamp(24px, 5vw, 70px) 80px; }
 .dash-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 48px; }
