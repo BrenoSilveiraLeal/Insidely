@@ -34,7 +34,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
           <strong>Sala protegida pela Insidely</strong>
           <p>{roomState === "upcoming" ? meetingRoomOpeningText(booking.startsAt) : roomState === "ended" ? "O horário de entrada da sala já terminou." : "A sala fica disponível até o fim da conversa."}</p>
         </div>
-        {roomState === "open" && booking.meetingUrl ? <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na videochamada</a> : !booking.meetingUrl ? <p className="muted">A sala da conversa está sendo preparada.</p> : null}
+        {roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na videochamada</a>}
         {user.role !== Role.CONSULTANT && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <div className="meeting-policy"><strong>Como foi a conversa?</strong><p>Dê uma nota de 0 a 5 e, se quiser, deixe um comentário para {otherPerson}.</p><Link className="button button-accent" href="/dashboard/avaliacoes">Avaliar conversa</Link></div>}
         <Link className="button button-ghost" href={user.role === Role.CONSULTANT ? "/consultor/consultas" : "/dashboard/agendamentos"}>Voltar para consultas</Link>
       </section>

@@ -14,19 +14,17 @@ export function paymentDeadline(createdAt: Date, startsAt: Date, durationMinutes
   return new Date(Math.min(createdAt.getTime() + 30 * 60_000, startsAt.getTime() + durationMinutes * 60_000));
 }
 
-export function isMeetingRoomOpen(startsAt: Date, durationMinutes: number, now = new Date()) {
-  const opensAt = startsAt.getTime() - 10 * 60_000;
-  const closesAt = startsAt.getTime() + durationMinutes * 60_000;
-  return Number.isFinite(opensAt) && durationMinutes > 0 && now.getTime() >= opensAt && now.getTime() <= closesAt;
-}
-
+// The room opens exactly at the scheduled start (no early entry) and closes at the scheduled end.
 export function meetingRoomState(startsAt: Date, durationMinutes: number, now = new Date()) {
-  const openTime = startsAt.getTime() - 10 * 60_000;
-  const closeTime = startsAt.getTime() + durationMinutes * 60_000;
-  if (!Number.isFinite(openTime) || durationMinutes <= 0) return "upcoming" as const;
-  if (now.getTime() < openTime) return "upcoming" as const;
+  const openTime = startsAt.getTime();
+  const closeTime = openTime + durationMinutes * 60_000;
+  if (!Number.isFinite(openTime) || durationMinutes <= 0 || now.getTime() < openTime) return "upcoming" as const;
   if (now.getTime() <= closeTime) return "open" as const;
   return "ended" as const;
+}
+
+export function isMeetingRoomOpen(startsAt: Date, durationMinutes: number, now = new Date()) {
+  return meetingRoomState(startsAt, durationMinutes, now) === "open";
 }
 
 // Mirrors create_review: the customer may rate the conversation once its scheduled end has passed.

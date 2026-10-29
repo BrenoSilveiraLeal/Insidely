@@ -1,14 +1,14 @@
 # Google Meet
 
-Quando o pagamento (simulado) de uma conversa é confirmado, a aplicação cria uma sala no Google Meet com a conta Google do projeto e salva o link em `Booking.meetingUrl`. O link chega aos dois participantes por três caminhos:
+A sala do Google Meet de uma conversa **só é criada quando a conversa começa**: na primeira visita a `/sala/<id>` a partir do horário marcado, a aplicação cria o espaço com a conta Google do projeto e salva o link em `Booking.meetingUrl` (e o nome do espaço em `Booking.meetingSpaceName`). Antes do horário o link do Meet simplesmente não existe, então ninguém entra antes. O link da Insidely chega aos dois participantes logo após o pagamento, por três caminhos:
 
 - uma **mensagem automática da Insidely fixada no chat** da conversa (cliente em `/dashboard/mensagens`, consultor em `/consultor/consultas`);
 - o **e-mail de confirmação** enviado ao cliente e ao consultor;
 - o arquivo de calendário (`.ics`) do botão "Adicionar ao calendário".
 
-Como uma sala do Google Meet nunca expira, o link do Meet **não é compartilhado**. Todos esses lugares mostram o link da Insidely `/sala/<id>`, que confere login, participação e horário: de 10 minutos antes até o fim da conversa, redireciona para o Meet; fora disso, mostra quando a sala abre. A tela logo após o pagamento já exibe dia, horário, link e o botão para o chat.
+O link do Meet **não é compartilhado**. Todos esses lugares mostram o link da Insidely `/sala/<id>`, que confere login, participação e horário: do início ao fim da conversa, redireciona para o Meet; fora disso, mostra quando a sala abre. Depois do fim, o cron de 5 minutos (`/api/cron/reminders`) tranca o espaço (`accessType: RESTRICTED`, então um link salvo só consegue "pedir para participar" e ninguém aprova) e encerra a chamada ativa (`spaces.endActiveConference`). As duas operações usam o mesmo escopo `meetings.space.created`. A tela logo após o pagamento já exibe dia, horário, link e o botão para o chat.
 
-Cerca de 1 hora antes, os dois participantes recebem um lembrete por e-mail e no app (sininho). O `pg_cron` do Supabase chama `/api/cron/reminders` a cada 5 minutos (migration `20261016000300`); cada conversa é lembrada uma vez só, e quem pagou dentro dessa janela não recebe lembrete duplicado. O convite `.ics` do e-mail de confirmação também tem alarme 30 minutos antes. Se o Google estiver indisponível, o pagamento continua confirmado e a sala usa o link reserva `https://meet.jit.si/Insidely-<id>` (o Jitsi exige que alguém entre com login para abrir a sala).
+Cerca de 1 hora antes, os dois participantes recebem um lembrete por e-mail e no app (sininho). O `pg_cron` do Supabase chama `/api/cron/reminders` a cada 5 minutos (migration `20261016000300`); cada conversa é lembrada uma vez só, e quem pagou dentro dessa janela não recebe lembrete duplicado. O convite `.ics` do e-mail de confirmação também tem alarme 30 minutos antes. Se o Google estiver indisponível, a sala usa o link reserva `https://meet.jit.si/Insidely-<id>-<aleatório>` (o Jitsi exige que alguém entre com login para abrir a sala e não pode ser trancado depois).
 
 ## Google Cloud
 
@@ -39,4 +39,4 @@ Nunca use o prefixo `NEXT_PUBLIC_` nessas variáveis nem as coloque no Git. Espa
 ## Diagnóstico
 
 - Os logs da Vercel mostram `google_meet_creation_failed` com o motivo (por exemplo `Google OAuth failed: 400` para token vencido).
-- `/api/cron/create-meetings` é um endpoint protegido por `CRON_SECRET` que tenta criar salas para conversas confirmadas sem link.
+- `/api/cron/create-meetings` é um endpoint protegido por `CRON_SECRET` que cria salas para conversas já iniciadas sem link e tranca as salas de conversas encerradas.

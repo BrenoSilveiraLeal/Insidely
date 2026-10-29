@@ -21,6 +21,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     : (await getViewerDashboard(user.id))?.customerBookings.find((item) => item.id === id);
   if (!booking) return new Response("Not found", { status: 404 });
 
-  const body = buildConversationIcs({ ...booking, roomUrl: booking.meetingUrl ? `${getAppUrl()}/sala/${booking.id}` : null });
+  const body = buildConversationIcs({ ...booking, roomUrl: `${getAppUrl()}/sala/${booking.id}` });
   return new Response(body, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="insidely-${booking.id}.ics"`, "Cache-Control": "private, no-store" } });
 }

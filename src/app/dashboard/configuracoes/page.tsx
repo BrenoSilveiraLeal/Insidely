@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { parseDbDate } from "@/lib/format";
 import { getUserById } from "@/lib/queries";
 import { Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -8,6 +10,8 @@ import { AccountNameForm } from "@/components/account-name-form";
 import { MfaSettings } from "@/components/mfa-settings";
 import { EmailChangeForm } from "@/components/email-change-form";
 import { requireUser } from "@/lib/session";
+import { getCustomerIdentity } from "@/lib/customer-identity";
+import { CustomerIdentityForm } from "@/components/customer-identity-form";
 import { accountHasPassword } from "@/lib/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -29,5 +33,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
     erro: { ok: false, text: "Não foi possível trocar o e-mail agora. Tente novamente." },
   };
   const emailNotice = params.email ? emailNotices[params.email] : undefined;
-  return <DashboardShell mode={consultantContext ? "consultant" : "user"} title={consultantContext ? "Conta e segurança" : "Minha conta"} canConsultant={user.role === Role.CONSULTANT}><div className="profile-management-stack"><ProfileImageForm image={stored.image} name={stored.name} seed={stored.id}/><div className="panel form-stack"><span className="eyebrow">Conta e segurança</span><h2>Gerencie seus dados de acesso e as informações da sua conta.</h2><AccountNameForm name={stored.name}/>{emailNotice && <p className={emailNotice.ok ? "form-feedback" : "form-error"} role={emailNotice.ok ? "status" : "alert"}>{emailNotice.text}</p>}<EmailChangeForm email={stored.email} hasPassword={hasPassword}/><p className="muted">Esta conta pode atuar como cliente e, quando habilitada, também como consultor.</p></div><ChangePasswordForm hasPassword={hasPassword}/><MfaSettings/><AccountDangerZone email={stored.email}/></div></DashboardShell>;
+  const identity = await getCustomerIdentity(user.id);
+  return <DashboardShell mode={consultantContext ? "consultant" : "user"} title={consultantContext ? "Conta e segurança" : "Minha conta"} canConsultant={user.role === Role.CONSULTANT}><div className="profile-management-stack"><ProfileImageForm image={stored.image} name={stored.name} seed={stored.id}/><div className="panel form-stack"><span className="eyebrow">Conta e segurança</span><h2>Gerencie seus dados de acesso e as informações da sua conta.</h2><AccountNameForm name={stored.name}/>{emailNotice && <p className={emailNotice.ok ? "form-feedback" : "form-error"} role={emailNotice.ok ? "status" : "alert"}>{emailNotice.text}</p>}<EmailChangeForm email={stored.email} hasPassword={hasPassword}/><p className="muted">Esta conta pode atuar como cliente e, quando habilitada, também como consultor.{user.role === Role.USER && <> <Link className="text-link" href="/dashboard/virar-consultor">Virar consultor</Link></>}</p></div><section className="panel form-stack"><span className="eyebrow">Identificação</span><h2>Dados para agendar conversas.</h2>{identity ? <><p>CPF <strong>{identity.maskedCpf}</strong> · {identity.age} anos</p><p className="muted">Registrado em {new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }).format(parseDbDate(identity.registeredAt))}. Para corrigir esses dados, fale com o suporte.</p></> : <><p className="muted">Quem agenda conversas se identifica com CPF e data de nascimento. O consultor vê só o CPF mascarado e a idade.</p><CustomerIdentityForm/></>}</section><ChangePasswordForm hasPassword={hasPassword}/><MfaSettings/><AccountDangerZone email={stored.email}/></div></DashboardShell>;
 }

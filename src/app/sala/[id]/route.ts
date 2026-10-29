@@ -7,8 +7,9 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
-// Gatekeeper for the video room. Google Meet links never expire, so the raw link is not shared:
-// only participants are sent to it, and only from 10 minutes before the start until the end.
+// Gatekeeper for the video room. The raw Meet link is never shared: only participants are sent to
+// it, and only between the scheduled start and end. The Google space itself is created on the first
+// visit after the start and locked after the end (see google-meet.ts).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getAuthenticatedUser();

@@ -5,16 +5,22 @@ import { PublicShell } from "@/components/public-shell";
 import { money, publicName, shortDate } from "@/lib/format";
 import { getProfessional } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
+import { getCustomerIdentity } from "@/lib/customer-identity";
+import { CustomerIdentityForm } from "@/components/customer-identity-form";
 
 export const metadata = { title: "Agendar conversa" };
 export const dynamic = "force-dynamic";
 
 export default async function BookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string; slot?: string }> }) {
   const { id } = await params;
-  await requireUser(undefined, { nextPath: "/agendar/" + id });
+  const user = await requireUser(undefined, { nextPath: "/agendar/" + id });
   const { slot: requestedSlot } = await searchParams;
-  const profile = await getProfessional(id);
+  const [profile, identity] = await Promise.all([getProfessional(id), getCustomerIdentity(user.id)]);
   if (!profile) notFound();
+  if (!identity) return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Antes do primeiro agendamento</span><h1>Identifique-se para agendar.</h1><p>Com {publicName(profile)} · leva menos de um minuto e só é pedido uma vez.</p></div></section><section className="section"><div className="container profile-layout">
+    <section className="panel"><CustomerIdentityForm next={`/agendar/${profile.id}${requestedSlot ? `?slot=${encodeURIComponent(requestedSlot)}` : ""}`}/></section>
+    <aside className="booking-box"><span className="eyebrow">Por que pedimos o CPF</span><h2>Segurança para os dois lados.</h2><p>As conversas acontecem por vídeo entre pessoas que não se conhecem. Com a identificação, a Insidely consegue responder a denúncias e a autoridades se algo grave acontecer.</p><p className="muted">O consultor vê apenas o CPF parcialmente mascarado e a sua idade. O CPF não pode ser usado em outra conta.</p></aside>
+  </div></section></PublicShell>;
   const slots = profile.availability.map(slot => ({ id: slot.id, label: slot.startsAt <= new Date() ? "Agora (conversa imediata)" : shortDate(slot.startsAt), minutes: Math.round((slot.endsAt.getTime() - slot.startsAt.getTime()) / 60_000) }));
   const selectedSlot = slots.some(slot => slot.id === requestedSlot) ? requestedSlot : slots[0]?.id;
   return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Agendamento · horários de Brasília</span><h1>Prepare uma conversa útil.</h1><p>Com {publicName(profile)} · escolha um horário ainda disponível.</p></div></section><section className="section"><div className="container profile-layout">

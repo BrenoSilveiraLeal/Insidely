@@ -111,15 +111,17 @@ test.describe("fluxo autenticado cliente + consultor", () => {
         await expect(customer.getByText("Pagamento confirmado")).toBeVisible();
         await consultant.goto("/consultor");
         await expect(consultant.getByText("Pagamento confirmado")).toBeVisible();
-        const confirmed = await readBooking();
-        expect(confirmed.meetingUrl).toBe("https://meet.google.com/e2e-insidely-room");
+        // The room only exists once the conversation starts, so nobody can enter early.
+        expect((await readBooking()).meetingUrl).toBeNull();
 
         const client = serviceClient();
-        await client.from("Booking").update({ meetingUrl: null }).eq("id", state.bookingId!);
+        const { data: original } = await client.from("Booking").select("startsAt").eq("id", state.bookingId!).single();
+        await client.from("Booking").update({ startsAt: new Date(Date.now() - 60_000).toISOString() }).eq("id", state.bookingId!);
         const cron = await request.get("/api/cron/create-meetings", { headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? "e2e-cron-secret"}` } });
         expect(cron.ok()).toBeTruthy();
         expect((await cron.json()).created).toBe(1);
         expect((await readBooking()).meetingUrl).toBe("https://meet.google.com/e2e-insidely-room");
+        await client.from("Booking").update({ startsAt: original!.startsAt }).eq("id", state.bookingId!);
       });
 
       await test.step("mensagens são liberadas após pagamento", async () => {

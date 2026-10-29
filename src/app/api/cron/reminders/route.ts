@@ -1,5 +1,6 @@
 import { canReviewBooking } from "@/lib/booking-policy";
 import { sendBookingReminderEmails } from "@/lib/email";
+import { closeEndedMeetings } from "@/lib/google-meet";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -10,7 +11,8 @@ const WINDOW_MS = 65 * 60_000;
 // Called every 5 minutes by pg_cron (see migration 20261016000300). Sends one reminder per confirmed
 // conversation about an hour before it starts. Safe to call by anyone: each booking is claimed
 // atomically through "reminderSentAt", so repeated calls never send duplicates. Also invites the
-// customer to rate each conversation once it ends (claimed through "reviewPromptSentAt").
+// customer to rate each conversation once it ends (claimed through "reviewPromptSentAt") and locks
+// the Google Meet room of every conversation whose time is over.
 export async function GET() {
   // reminderSentAt is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +35,7 @@ export async function GET() {
     const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
     const when = shortDate(startsAt);
     const rows = [
-      { id: crypto.randomUUID(), userId: booking.customerId, title: "Sua conversa começa em breve", body: `Começa em ${when}. O link da sala está no chat da conversa.`, href: "/dashboard/mensagens", createdAt: now.toISOString() },
+      { id: crypto.randomUUID(), userId: booking.customerId, title: "Sua conversa começa em breve", body: `Começa em ${when}. O link da sala está no chat da conversa e abre no horário marcado.`, href: "/dashboard/mensagens", createdAt: now.toISOString() },
       ...(profile?.userId && profile.userId !== booking.customerId ? [{ id: crypto.randomUUID(), userId: profile.userId, title: "Sua conversa começa em breve", body: `Começa em ${when}. O link da sala está no chat da consulta.`, href: "/consultor/consultas", createdAt: now.toISOString() }] : []),
     ];
     const { error: notificationError } = await supabase.from("Notification").insert(rows);
@@ -43,7 +45,8 @@ export async function GET() {
     reminded++;
   }
   const reviewPrompts = await sendReviewPrompts(supabase, now);
-  return Response.json({ ok: true, reminded, skipped, reviewPrompts });
+  const closedRooms = await closeEndedMeetings(supabase, now);
+  return Response.json({ ok: true, reminded, skipped, reviewPrompts, closedRooms });
 }
 
 // Once a paid conversation's scheduled end passes, invite the customer to rate it. Only bookings

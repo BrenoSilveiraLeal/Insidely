@@ -1,3 +1,4 @@
+import { chatFeedbackText } from "@/lib/chat-moderation";
 import Link from "next/link";
 import { Role } from "@/lib/domain";
 import { sendMessageAction } from "@/app/actions";
@@ -25,7 +26,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
 
   return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}><GoogleCalendarFeedback code={query.calendar}/>
     <div className="section-head"><div><span className="eyebrow">Acompanhe seus pedidos</span><h2>Agendamentos e conversas</h2><p className="muted">Todo pedido de agendamento aparece aqui. A conversa é liberada depois que o pagamento for confirmado.</p></div><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
-    {query.mensagem && <p className="form-error" role="alert">{query.mensagem === "longa" ? "A mensagem passou de 2.000 caracteres." : "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links ou redes sociais. A conversa acontece pela sala da Insidely."}</p>}
+    {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     <div className="grid grid-2">{requests.map((booking) => <article className="panel message-request-card" key={booking.id}>
       <div className="message-request-heading"><div><span className="eyebrow">{requestStatus(booking.status)}</span><h2>{booking.professional.user.name}</h2></div><span className="status">{shortDate(booking.startsAt)}</span></div>
       <p className="muted">{booking.durationMinutes} min · {money(booking.totalCents)} · pedido de agendamento</p>

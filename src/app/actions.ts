@@ -10,7 +10,9 @@ import { requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
-import { blockedContactPattern, maskUnsafeGoal, safeInternalPath } from "@/lib/security"
+import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
+import { moderateChatMessage } from "@/lib/chat-moderation";
+import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { getAppUrl } from "@/lib/app-url";
 import { suggestEmail } from "@/lib/email-typo";
 import { createEmailChangeToken } from "@/lib/email-change-token";
@@ -265,13 +267,71 @@ export async function requestEmailChangeAction(_: FormState, formData: FormData)
 
 export async function logoutAction() { const supabase = await createSupabaseServerClient(); await supabase.auth.signOut(); redirect("/"); }
 
+const IDENTITY_ERRORS: Record<string, string> = {
+  invalid_cpf: "Digite um CPF válido.",
+  underage_or_invalid_birth_date: "É preciso ter 18 anos ou mais para agendar conversas na Insidely.",
+  cpf_in_use: "Este CPF já está vinculado a outra conta. Se for seu, fale com o suporte.",
+  identity_already_registered: "Seus dados de identificação já estão registrados.",
+};
+
+// CPF and birth date of whoever books a conversation (see migration 20261029130000). Validated here
+// for a friendly message and again by save_customer_identity.
+async function saveCustomerIdentity(formData: FormData): Promise<string | null> {
+  const cpf = cpfDigits(String(formData.get("cpf") || ""));
+  const birthDate = String(formData.get("birthDate") || "");
+  if (!isValidCpf(cpf)) return IDENTITY_ERRORS.invalid_cpf;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !(ageOn(birthDate) >= 18) || ageOn(birthDate) > 120) return IDENTITY_ERRORS.underage_or_invalid_birth_date;
+  if (formData.get("identityConsent") !== "on") return "Confirme que os dados são seus e autorize o uso descrito.";
+  // save_customer_identity is added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (await createSupabaseServerClient() as any).rpc("save_customer_identity", { p_cpf: cpf, p_birth_date: birthDate });
+  if (!error) return null;
+  const code = Object.keys(IDENTITY_ERRORS).find((key) => error.message.includes(key));
+  if (!code) console.error("save_customer_identity_failed", { message: error.message });
+  return code ? IDENTITY_ERRORS[code] : "Não foi possível salvar seus dados agora. Tente novamente.";
+}
+
+export async function saveCustomerIdentityAction(_: FormState, formData: FormData): Promise<FormState> {
+  await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const error = await saveCustomerIdentity(formData);
+  if (error) return { status: "error", message: error };
+  revalidatePath("/dashboard/configuracoes");
+  const next = String(formData.get("next") || "");
+  if (next) redirect(safeInternalPath(next, "/dashboard"));
+  return { status: "success", message: "Dados de identificação registrados." };
+}
+
 export async function completeOnboardingAction(_: string | undefined, formData: FormData) {
   await requireUser(undefined, { allowIncomplete: true });
   const role = formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER;
   if (formData.get("terms") !== "on") return "Aceite os termos da plataforma.";
+  // Customer accounts register their identity up front; consultants do it on their first booking.
+  if (role === Role.USER) {
+    const identityError = await saveCustomerIdentity(formData);
+    if (identityError && identityError !== IDENTITY_ERRORS.identity_already_registered) return identityError;
+  }
+  for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
   const next = String(formData.get("next") || "");
   redirect(next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard");
+}
+
+// A customer account adds a consultant profile and keeps everything it had as a customer.
+export async function becomeConsultantAction(_: string | undefined, formData: FormData) {
+  await requireUser([Role.USER]);
+  if (formData.get("terms") !== "on") return "Aceite os termos para consultores.";
+  // become_consultant is added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (await createSupabaseServerClient() as any).rpc("become_consultant", { p_payload: formText(formData) });
+  if (error) {
+    if (error.message.includes("already_consultant")) redirect("/consultor");
+    if (error.message.includes("invalid_onboarding_data")) return "Revise os campos: título, cargo, empresa, área, localização e uma descrição com pelo menos 30 caracteres.";
+    console.error("become_consultant_failed", { message: error.message });
+    return "Não foi possível criar seu perfil de consultor agora. Tente novamente.";
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/consultor");
+  redirect("/consultor/perfil?novo=1");
 }
 
 export async function toggleFavoriteAction(profileId: string) { await requireUser(); await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath("/dashboard"); revalidatePath(`/profissional/${profileId}`); }
@@ -293,6 +353,7 @@ export async function createBookingAction(profileId: string, _previousState: For
     if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
     if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
     if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
+    if (message.includes("identity_required")) return { status: "error", message: "Antes de agendar, registre seu CPF e sua data de nascimento. Recarregue a página para ver o formulário." };
     return { status: "error", message: "Não foi possível criar a solicitação agora. Seus dados continuam no formulário; tente novamente." };
   }
   // Sent after the response so the checkout opens without waiting on the mail server.
@@ -349,15 +410,17 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
       status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
     }).eq("id", id).eq("status", "PENDING_PAYMENT");
     if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
+    // The Meet room is only created once the conversation starts (/sala creates it on the first
+    // visit); this only does anything for an immediate conversation that is already under way.
     try { await ensureGoogleMeetForBooking(supabase, id); }
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
-    // Notifications and e-mails run after the response: the payment is already confirmed and the
-    // room link saved, so the customer sees the confirmation without waiting on them.
+    // Notifications and e-mails run after the response: the payment is already confirmed, so the
+    // customer sees the confirmation without waiting on them.
     after(async () => {
       const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
       const notificationRows = [
-        { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da conversa e no seu e-mail.`, href: "/dashboard/mensagens", createdAt: now },
-        ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala já está no chat da consulta e no seu e-mail.`, href: "/consultor/consultas", createdAt: now }] : []),
+        { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala está no chat da conversa e no seu e-mail; ele abre no horário marcado.`, href: "/dashboard/mensagens", createdAt: now },
+        ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala está no chat da consulta e no seu e-mail; ele abre no horário marcado.`, href: "/consultor/consultas", createdAt: now }] : []),
       ];
       const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
       if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
@@ -421,7 +484,7 @@ export async function completeBookingAction(id: string) { await requireUser([Rol
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
-export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment.trim().slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
+export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: maskUnsafeGoal(comment.trim()).slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);
@@ -439,7 +502,27 @@ export async function cancelBookingAction(id: string, formData: FormData) {
     redirect("/consultor/consultas?cancelamento=erro");
   }
 }
-export async function sendMessageAction(id: string, formData: FormData) { await requireUser(); const body = String(formData.get("body") || "").trim(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens"); if (!body) return; if (body.length > 2000 || blockedContactPattern.test(body)) redirect(`${returnTo}?mensagem=${body.length > 2000 ? "longa" : "bloqueada"}`); await rpc("send_message", { p_conversation_id: id, p_body: body }); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); }
+export async function sendMessageAction(id: string, formData: FormData) {
+  const user = await requireUser();
+  const body = String(formData.get("body") || "").trim();
+  const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens");
+  if (!body) return;
+  if (body.length > 2000) redirect(`${returnTo}?mensagem=longa`);
+  const moderation = moderateChatMessage(body);
+  if (!moderation.allowed) {
+    // Kept for the admin moderation queue; repeated attempts are a reason to review the account.
+    const { error } = await createSupabaseServiceClient().from("ChatModerationEvent" as never).insert({ userId: user.id, conversationId: id, reason: moderation.reason, excerpt: body.slice(0, 500) } as never);
+    if (error) console.error("chat_moderation_log_failed", { error });
+    redirect(`${returnTo}?mensagem=${moderation.reason === "offensive" ? "ofensiva" : "bloqueada"}`);
+  }
+  try { await rpc("send_message", { p_conversation_id: id, p_body: body }); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    redirect(`${returnTo}?mensagem=${message.includes("offensive_language") ? "ofensiva" : message.includes("contact_sharing") ? "bloqueada" : message.includes("rate_limited") ? "limite" : "erro"}`);
+  }
+  revalidatePath("/dashboard/mensagens");
+  revalidatePath("/consultor/consultas");
+}
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
 export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return "Perfil profissional atualizado."; }

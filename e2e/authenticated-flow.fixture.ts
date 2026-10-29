@@ -28,6 +28,16 @@ function adminClient() {
 
 function id() { return crypto.randomUUID(); }
 
+// A random CPF with valid check digits, so fixtures never collide on the unique constraint.
+function randomCpf() {
+  const digits = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  for (const length of [9, 10]) {
+    const rest = (digits.reduce((sum, digit, index) => sum + digit * (length + 1 - index), 0) * 10) % 11;
+    digits.push(rest === 10 ? 0 : rest);
+  }
+  return digits.join("");
+}
+
 async function createAuthAccount(client: AnyClient, name: string, role: "USER" | "CONSULTANT") {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const configuredEmail = role === "USER" ? cleanEnv(process.env.E2E_USER_EMAIL) : cleanEnv(process.env.E2E_CONSULTANT_EMAIL);
@@ -41,6 +51,9 @@ async function createAuthAccount(client: AnyClient, name: string, role: "USER" |
   const now = new Date().toISOString();
   const { error: insertError } = await client.from("User").insert({ id: userId, auth_user_id: data.user.id, name, email, role, onboardingCompleted: true, createdAt: now, updatedAt: now });
   if (insertError) throw new Error(`Could not seed E2E application user: ${insertError.message}`);
+  // Booking requires a registered customer identity (migration 20261029130000).
+  const { error: identityError } = await client.from("CustomerIdentity").insert({ userId, cpf: randomCpf(), birthDate: "1990-01-01" });
+  if (identityError) throw new Error(`Could not seed E2E customer identity: ${identityError.message}`);
   return { authId: data.user.id, userId, email, password, name } satisfies E2EAccount;
 }
 

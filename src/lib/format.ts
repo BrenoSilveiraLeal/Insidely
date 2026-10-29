@@ -42,9 +42,9 @@ export function avatarColor(seed: string) {
 
 
 export function meetingRoomOpeningText(startsAt: Date | string) {
-  const parts = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).formatToParts(new Date(parseDbDate(startsAt).getTime() - 10 * 60_000));
+  const parts = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).formatToParts(parseDbDate(startsAt));
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "--";
-  return `A sala abre às ${part("hour")}:${part("minute")} de ${part("day")}/${part("month")}, 10 minutos antes da conversa.`;
+  return `A sala abre às ${part("hour")}:${part("minute")} de ${part("day")}/${part("month")}, no horário marcado da conversa.`;
 }
 
 export function bookingStatusLabel(status: string) {

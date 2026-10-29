@@ -3,8 +3,6 @@ export function safeInternalPath(raw: string | null, fallback = "/continuar") {
   return raw;
 }
 
-export const blockedContactPattern = /(?:https?:\/\/|www\.|\b(?:whats?app|instagram|telegram|pix)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9?\d{4}[-\s]?\d{4})/i;
-
 const profanityPattern = /\b(?:porra|caralho|c[a\u00e3]ralho|foda(?:-se)?|fodendo|merda|bosta|puta|puto|buceta|cu|viado|arrombado|desgra[c\u00e7]a|cacete|pqp|vsf)\b/giu;
 const contactPatterns = [
   /[\w.+-]+@[\w.-]+\.[a-z]{2,}/giu,

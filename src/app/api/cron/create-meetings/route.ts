@@ -1,4 +1,4 @@
-import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
+import { closeEndedMeetings, ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,9 @@ export async function GET(request: Request) {
   // The service role is required because this is a protected scheduled job.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: bookings, error } = await supabase.from("Booking").select("id").eq("status", "CONFIRMED").is("meetingUrl", null).gt("startsAt", new Date().toISOString()).limit(25);
+  // Rooms are created when a conversation starts; this only prepares rooms for conversations already
+  // under way that nobody has opened yet, and locks the rooms of conversations that ended.
+  const { data: bookings, error } = await supabase.from("Booking").select("id").eq("status", "CONFIRMED").is("meetingUrl", null).lte("startsAt", new Date().toISOString()).gt("startsAt", new Date(Date.now() - 2 * 60 * 60_000).toISOString()).limit(25);
   if (error) return Response.json({ error: "meeting_lookup_failed", detail: error.message }, { status: 500 });
   let created = 0;
   for (const booking of bookings ?? []) {
@@ -21,5 +23,6 @@ export async function GET(request: Request) {
       console.error("google_meet_creation_failed", booking.id, meetingError);
     }
   }
-  return Response.json({ ok: true, created });
+  const closed = await closeEndedMeetings(supabase);
+  return Response.json({ ok: true, created, closed });
 }

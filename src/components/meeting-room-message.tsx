@@ -13,10 +13,8 @@ export function MeetingRoomMessage({ booking, calendarSide = "customer" }: { boo
   return <div className="message message-system" role="note">
     <small>Insidely · mensagem automática</small>
     <p><strong>Sala da conversa: {shortDate(booking.startsAt)} ({booking.durationMinutes} min)</strong></p>
-    {booking.meetingUrl ? <>
-      <p>{open ? "A sala está aberta. Entre pelo link abaixo." : "Use este link no horário marcado. Ele só abre a sala do Google Meet a partir de 10 minutos antes."}</p>
-      <a className="message-system-link" href={roomUrl} target="_blank" rel="noreferrer">{roomUrl.replace(/^https?:\/\//, "")}</a>
-      <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<GoogleCalendarAddLink bookingId={booking.id} returnTo={calendarSide === "consultant" ? "/consultor/consultas" : "/dashboard/mensagens"}/></div>
-    </> : <p>O link da sala está sendo gerado e aparecerá aqui em instantes.</p>}
+    <p>{open ? "A sala está aberta. Entre pelo link abaixo." : "Use este link no horário marcado. A sala do Google Meet só é criada e liberada no início da conversa e é encerrada ao fim do horário."}</p>
+    <a className="message-system-link" href={roomUrl} target="_blank" rel="noreferrer">{roomUrl.replace(/^https?:\/\//, "")}</a>
+    <div className="message-system-actions">{open && <a className="button button-accent button-sm" href={roomUrl} target="_blank" rel="noreferrer">Entrar na videochamada</a>}<GoogleCalendarAddLink bookingId={booking.id} returnTo={calendarSide === "consultant" ? "/consultor/consultas" : "/dashboard/mensagens"}/></div>
   </div>;
 }

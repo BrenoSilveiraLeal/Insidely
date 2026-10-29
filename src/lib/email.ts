@@ -78,7 +78,7 @@ export async function sendTransactionalEmail({ to, subject, html: content, ics }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "confirmation" | "reminder") {
   if (!emailConfigured()) return;
-  const { data: booking, error } = await supabase.from("Booking").select("id, startsAt, durationMinutes, goals, meetingUrl, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, startsAt, durationMinutes, goals, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
@@ -91,10 +91,8 @@ async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "co
   const appUrl = getAppUrl();
   // Share the schedule-checked Insidely room link; the raw Meet link would work at any time.
   const roomUrl = `${appUrl}/sala/${booking.id}`;
-  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, roomUrl: booking.meetingUrl ? roomUrl : null });
-  const room = booking.meetingUrl
-    ? `<p><strong>Link da sala:</strong> <a href="${escapeHtml(roomUrl)}">${escapeHtml(roomUrl)}</a></p><p>O link abre a sala do Google Meet a partir de 10 minutos antes do horário (é preciso estar logado na Insidely).</p>`
-    : "<p>O link da sala aparece no chat da conversa assim que estiver pronto.</p>";
+  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, roomUrl });
+  const room = `<p><strong>Link da sala:</strong> <a href="${escapeHtml(roomUrl)}">${escapeHtml(roomUrl)}</a></p><p>A sala do Google Meet só é liberada no horário marcado e é encerrada ao fim da conversa (é preciso estar logado na Insidely).</p>`;
   const recipients = [
     customer?.email ? { email: customer.email, name: customer.name, with: consultantPublicName, chat: "/dashboard/mensagens" } : null,
     consultant?.email ? { email: consultant.email, name: consultant.name, with: customer?.name || "seu cliente", chat: "/consultor/consultas" } : null,

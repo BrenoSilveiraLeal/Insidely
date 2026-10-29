@@ -1,6 +1,9 @@
+import { isMeetingRoomOpen, meetingRoomState } from "./booking-policy";
+import { parseDbDate } from "./format";
+
 const MEET_SCOPE = "https://www.googleapis.com/auth/meetings.space.created";
 
-type MeetSpaceResponse = { meetingUri?: string; meetingSpace?: { meetingUri?: string } };
+type MeetSpaceResponse = { name?: string; meetingUri?: string; meetingSpace?: { meetingUri?: string } };
 
 // Access tokens last about an hour; reusing one saves an OAuth round trip on every payment.
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -26,13 +29,17 @@ async function getGoogleAccessToken() {
   return payload.access_token;
 }
 
+// The fallback name carries a random part: a predictable "Insidely-<booking id>" room could be
+// opened by anyone who knows the id, before the conversation starts.
 export function getFallbackMeetingUrl(bookingId: string) {
-  return "https://meet.jit.si/Insidely-" + bookingId;
+  return `https://meet.jit.si/Insidely-${bookingId}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-export async function createGoogleMeetSpace() {
+export type MeetSpace = { url: string; name: string | null };
+
+export async function createGoogleMeetSpace(): Promise<MeetSpace | null> {
   if (process.env.GOOGLE_MEET_ENABLED?.trim() !== "true") return null;
-  if (process.env.E2E_MOCK_EXTERNALS === "true") return "https://meet.google.com/e2e-insidely-room";
+  if (process.env.E2E_MOCK_EXTERNALS === "true") return { url: "https://meet.google.com/e2e-insidely-room", name: null };
   const accessToken = await getGoogleAccessToken();
   if (!accessToken) return null;
 
@@ -46,32 +53,74 @@ export async function createGoogleMeetSpace() {
   const payload = await response.json() as MeetSpaceResponse;
   const url = payload.meetingUri ?? payload.meetingSpace?.meetingUri;
   if (!url || !url.startsWith("https://meet.google.com/")) throw new Error("Google Meet did not return a valid meeting URL.");
-  return url;
+  return { url, name: payload.name?.startsWith("spaces/") ? payload.name : null };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function ensureGoogleMeetForBooking(supabase: any, bookingId: string) {
-  const { data: booking, error } = await supabase.from("Booking").select("id, status, meetingUrl").eq("id", bookingId).maybeSingle();
-  if (error) throw new Error("meet_booking_lookup: " + error.message);
-  if (!booking) return null;
-  if (booking.meetingUrl) return booking.meetingUrl;
-  if (!["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(booking.status)) return null;
+// After the conversation the space is locked and anyone still inside is removed. RESTRICTED means
+// only invitees join directly; nobody is invited, so a saved link can only "ask to join", and the
+// room owner (the project account) is never there to let anyone in.
+export async function closeGoogleMeetSpace(name: string) {
+  if (process.env.E2E_MOCK_EXTERNALS === "true") return;
+  const accessToken = await getGoogleAccessToken();
+  if (!accessToken) throw new Error("Google credentials are not configured.");
+  const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+  const patch = await fetch(`https://meet.googleapis.com/v2/${name}?updateMask=config.accessType`, { method: "PATCH", headers, body: JSON.stringify({ config: { accessType: "RESTRICTED" } }), cache: "no-store" });
+  if (!patch.ok) throw new Error(`Google Meet space lock failed: ${patch.status} ${await patch.text()}`);
+  // Fails with 400/404 when nobody is in the room, which is the usual case.
+  const end = await fetch(`https://meet.googleapis.com/v2/${name}:endActiveConference`, { method: "POST", headers, body: "{}", cache: "no-store" });
+  if (!end.ok && ![400, 404].includes(end.status)) throw new Error(`Google Meet conference end failed: ${end.status} ${await end.text()}`);
+}
 
-  let meetingUrl: string | null = null;
+// The room is only created once the conversation has started (see isMeetingRoomOpen), so no link
+// exists before the scheduled time and nobody can enter early.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ensureGoogleMeetForBooking(supabase: any, bookingId: string, now = new Date()) {
+  const { data: booking, error } = await supabase.from("Booking").select("id, status, startsAt, durationMinutes, meetingUrl, meetingClosedAt").eq("id", bookingId).maybeSingle();
+  if (error) throw new Error("meet_booking_lookup: " + error.message);
+  if (!booking || booking.meetingClosedAt) return null;
+  if (!isMeetingRoomOpen(parseDbDate(booking.startsAt), booking.durationMinutes, now)) return null;
+  if (booking.meetingUrl) return booking.meetingUrl;
+  if (!["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) return null;
+
+  let space: MeetSpace | null = null;
   if (process.env.GOOGLE_MEET_ENABLED?.trim() === "true") {
-    try { meetingUrl = await createGoogleMeetSpace(); }
+    try { space = await createGoogleMeetSpace(); }
     catch (error) { console.error("google_meet_creation_failed", { bookingId, error }); }
   }
-  meetingUrl ??= getFallbackMeetingUrl(bookingId);
+  space ??= { url: getFallbackMeetingUrl(bookingId), name: null };
 
   const { data: updated, error: updateError } = await supabase.from("Booking")
-    .update({ meetingUrl, updatedAt: new Date().toISOString() })
+    .update({ meetingUrl: space.url, meetingSpaceName: space.name, updatedAt: new Date().toISOString() })
     .eq("id", bookingId).is("meetingUrl", null).select("meetingUrl").maybeSingle();
   if (updateError) throw new Error("meet_booking_update: " + updateError.message);
   if (updated?.meetingUrl) return updated.meetingUrl;
 
+  // Another request created the room first; this space is never shared, so close it right away.
+  if (space.name) await closeGoogleMeetSpace(space.name).catch((closeError) => console.error("google_meet_duplicate_close_failed", { bookingId, error: closeError }));
   const { data: latest, error: latestError } = await supabase.from("Booking")
     .select("meetingUrl").eq("id", bookingId).maybeSingle();
   if (latestError) throw new Error("meet_booking_refresh: " + latestError.message);
-  return latest?.meetingUrl ?? meetingUrl;
+  return latest?.meetingUrl ?? null;
+}
+
+// Called by the 5-minute cron: locks the Google space of every conversation whose time is over.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function closeEndedMeetings(supabase: any, now = new Date()) {
+  const { data: bookings, error } = await supabase.from("Booking")
+    .select("id, startsAt, durationMinutes, meetingSpaceName")
+    .not("meetingSpaceName", "is", null).is("meetingClosedAt", null).lte("startsAt", now.toISOString())
+    .order("startsAt", { ascending: true }).limit(50);
+  if (error) { console.error("meeting_close_lookup_failed", { error }); return 0; }
+  let closed = 0;
+  for (const booking of bookings ?? []) {
+    if (meetingRoomState(parseDbDate(booking.startsAt), booking.durationMinutes, now) !== "ended") continue;
+    try {
+      await closeGoogleMeetSpace(booking.meetingSpaceName);
+      await supabase.from("Booking").update({ meetingClosedAt: now.toISOString() }).eq("id", booking.id).is("meetingClosedAt", null);
+      closed++;
+    } catch (closeError) {
+      console.error("google_meet_close_failed", { bookingId: booking.id, error: closeError });
+    }
+  }
+  return closed;
 }
