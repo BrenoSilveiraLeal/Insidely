@@ -292,7 +292,7 @@ async function saveCustomerIdentity(formData: FormData): Promise<string | null> 
 }
 
 export async function saveCustomerIdentityAction(_: FormState, formData: FormData): Promise<FormState> {
-  await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  await requireUser(undefined, { allowIncomplete: true });
   const error = await saveCustomerIdentity(formData);
   if (error) return { status: "error", message: error };
   revalidatePath("/dashboard/configuracoes");
@@ -305,11 +305,9 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   await requireUser(undefined, { allowIncomplete: true });
   const role = formData.get("role") === "CONSULTANT" ? Role.CONSULTANT : Role.USER;
   if (formData.get("terms") !== "on") return "Aceite os termos da plataforma.";
-  // Customer accounts register their identity up front; consultants do it on their first booking.
-  if (role === Role.USER) {
-    const identityError = await saveCustomerIdentity(formData);
-    if (identityError && identityError !== IDENTITY_ERRORS.identity_already_registered) return identityError;
-  }
+  // Every account, customer or consultant, registers its identity before using the platform.
+  const identityError = await saveCustomerIdentity(formData);
+  if (identityError && identityError !== IDENTITY_ERRORS.identity_already_registered) return identityError;
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
   const next = String(formData.get("next") || "");
@@ -353,6 +351,7 @@ export async function createBookingAction(profileId: string, _previousState: For
     if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
     if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
     if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
+    if (message.includes("consultant_identity_required")) return { status: "error", message: "Este consultor ainda não concluiu o cadastro e não pode receber agendamentos no momento." };
     if (message.includes("identity_required")) return { status: "error", message: "Antes de agendar, registre seu CPF e sua data de nascimento. Recarregue a página para ver o formulário." };
     return { status: "error", message: "Não foi possível criar a solicitação agora. Seus dados continuam no formulário; tente novamente." };
   }

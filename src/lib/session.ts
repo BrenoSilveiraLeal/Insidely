@@ -41,9 +41,17 @@ export const getAuthenticatedUser = cache(async () => {
   return null;
 });
 
+export const hasCustomerIdentity = cache(async () => {
+  // has_customer_identity is added by a migration beyond the generated legacy types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await ((await getRequestSupabase()) as any).rpc("has_customer_identity");
+  if (error) throw new Error(`Supabase identity lookup failed: ${error.message}`);
+  return data === true;
+});
+
 async function currentPath() {
   const path = (await headers()).get("x-pathname");
-  return path && path.startsWith("/") && !path.startsWith("//") && !/^\/(entrar|onboarding|continuar|auth)/.test(path) ? path : undefined;
+  return path && path.startsWith("/") && !path.startsWith("//") && !/^\/(entrar|onboarding|continuar|identificacao|auth)/.test(path) ? path : undefined;
 }
 
 export async function requireUser(roles?: Role[], options?: { allowIncomplete?: boolean; nextPath?: string }) {
@@ -56,5 +64,7 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   if (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2") redirect(nextPath ? "/mfa?next=" + encodeURIComponent(nextPath) : "/mfa");
   if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
   if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(nextPath ? "/onboarding?next=" + encodeURIComponent(nextPath) : "/onboarding");
+  // Every customer and consultant account registers a CPF; older accounts do it on the next visit.
+  if (!options?.allowIncomplete && stored.role !== Role.ADMIN && !await hasCustomerIdentity()) redirect(nextPath ? "/identificacao?next=" + encodeURIComponent(nextPath) : "/identificacao");
   return stored;
 }
