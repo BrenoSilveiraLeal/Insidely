@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRetryTransfer, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
+import { canRetryTransfer, canReviewBooking, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
 
 describe("booking policy", () => {
   it("does not allow messages before payment confirmation", () => {
@@ -34,5 +34,20 @@ describe("payment deadline", () => {
 
   it("keeps instant bookings payable until the conversation ends", () => {
     expect(paymentDeadline(new Date("2026-10-20T15:20:00.000Z"), new Date("2026-10-20T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T15:30:00.000Z"));
+  });
+});
+
+describe("review eligibility", () => {
+  const startsAt = new Date("2026-10-20T15:00:00.000Z");
+
+  it("opens the review once the scheduled conversation ends", () => {
+    expect(canReviewBooking("CONFIRMED", startsAt, 30, new Date("2026-10-20T15:29:59.999Z"))).toBe(false);
+    expect(canReviewBooking("CONFIRMED", startsAt, 30, new Date("2026-10-20T15:30:00.000Z"))).toBe(true);
+    expect(canReviewBooking("COMPLETED", startsAt, 30, new Date("2026-10-21T15:00:00.000Z"))).toBe(true);
+  });
+
+  it("never opens the review for unpaid, cancelled or disputed bookings", () => {
+    const later = new Date("2026-10-21T15:00:00.000Z");
+    for (const status of ["PENDING_PAYMENT", "CANCELLED", "EXPIRED", "DISPUTED"]) expect(canReviewBooking(status, startsAt, 30, later)).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { canReviewBooking } from "@/lib/booking-policy";
 import { sendBookingReminderEmails } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -8,7 +9,8 @@ const WINDOW_MS = 65 * 60_000;
 
 // Called every 5 minutes by pg_cron (see migration 20261016000300). Sends one reminder per confirmed
 // conversation about an hour before it starts. Safe to call by anyone: each booking is claimed
-// atomically through "reminderSentAt", so repeated calls never send duplicates.
+// atomically through "reminderSentAt", so repeated calls never send duplicates. Also invites the
+// customer to rate each conversation once it ends (claimed through "reviewPromptSentAt").
 export async function GET() {
   // reminderSentAt is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,5 +42,30 @@ export async function GET() {
     catch (mailError) { console.error("reminder_email_failed", { bookingId: booking.id, error: mailError }); }
     reminded++;
   }
-  return Response.json({ ok: true, reminded, skipped });
+  const reviewPrompts = await sendReviewPrompts(supabase, now);
+  return Response.json({ ok: true, reminded, skipped, reviewPrompts });
+}
+
+// Once a paid conversation's scheduled end passes, invite the customer to rate it. Only bookings
+// that ended in the last 3 days are considered, so older history is never notified retroactively.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function sendReviewPrompts(supabase: any, now: Date) {
+  const { data: bookings, error } = await supabase.from("Booking")
+    .select("id, startsAt, durationMinutes, customerId, professionalProfileId")
+    .in("status", ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"]).is("reviewPromptSentAt", null).is("disputedAt", null)
+    .gt("startsAt", new Date(now.getTime() - 3 * 24 * 60 * 60_000).toISOString()).lte("startsAt", now.toISOString())
+    .limit(50);
+  if (error) { console.error("review_prompt_lookup_failed", { error }); return 0; }
+  let prompted = 0;
+  for (const booking of bookings ?? []) {
+    if (!canReviewBooking("CONFIRMED", parseDbDate(booking.startsAt), booking.durationMinutes, now)) continue;
+    const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
+    if (!profile || profile.userId === booking.customerId) continue;
+    const { data: claimed } = await supabase.from("Booking").update({ reviewPromptSentAt: now.toISOString() }).eq("id", booking.id).is("reviewPromptSentAt", null).select("id").maybeSingle();
+    if (!claimed) continue;
+    const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Avalie sua conversa", body: "O horário da conversa terminou. Dê uma nota de 0 a 5 e deixe um comentário, se quiser.", href: "/dashboard/avaliacoes", createdAt: now.toISOString() });
+    if (notificationError) console.error("review_prompt_notification_failed", { bookingId: booking.id, error: notificationError });
+    else prompted++;
+  }
+  return prompted;
 }

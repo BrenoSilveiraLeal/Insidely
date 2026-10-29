@@ -28,3 +28,10 @@ export function meetingRoomState(startsAt: Date, durationMinutes: number, now = 
   if (now.getTime() <= closeTime) return "open" as const;
   return "ended" as const;
 }
+
+// Mirrors create_review: the customer may rate the conversation once its scheduled end has passed.
+const REVIEWABLE_BOOKING_STATUSES = new Set(["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"]);
+
+export function canReviewBooking(status: string, startsAt: Date, durationMinutes: number, now = new Date()) {
+  return REVIEWABLE_BOOKING_STATUSES.has(status) && startsAt.getTime() + durationMinutes * 60_000 <= now.getTime();
+}
