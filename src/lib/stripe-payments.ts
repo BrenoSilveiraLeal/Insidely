@@ -163,7 +163,8 @@ export async function releaseBookingTransfer(bookingId: string) {
   }
 }
 
-export async function cancelBookingAndRefund({ bookingId, consultantId, reason }: { bookingId: string; consultantId: string; reason: string }) {
+// `customerNotice` replaces the "the consultant cancelled" text, e.g. when the account was suspended.
+export async function cancelBookingAndRefund({ bookingId, consultantId, reason, customerNotice }: { bookingId: string; consultantId: string; reason: string; customerNotice?: string }) {
   const supabase = admin();
   const { data: profile, error: profileError } = await supabase.from("ProfessionalProfile").select("id").eq("userId", consultantId).maybeSingle();
   if (profileError) throw new Error(profileError.message);
@@ -189,7 +190,7 @@ export async function cancelBookingAndRefund({ bookingId, consultantId, reason }
     const { error: availabilityError } = await supabase.from("Availability").update({ isBooked: false }).eq("id", booking.availabilityId);
     if (availabilityError) throw new Error(availabilityError.message);
   }
-  const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa cancelada e reembolso iniciado", body: `O consultor cancelou a conversa. ${paid ? "O valor integral será devolvido pelo meio de pagamento usado." : "Como o pagamento ainda não havia sido confirmado, nenhuma cobrança foi concluída."}`, href: "/dashboard/agendamentos", createdAt: now });
+  const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa cancelada e reembolso iniciado", body: `${customerNotice ?? "O consultor cancelou a conversa."} ${paid ? "O valor integral será devolvido pelo meio de pagamento usado." : "Como o pagamento ainda não havia sido confirmado, nenhuma cobrança foi concluída."}`, href: "/dashboard/agendamentos", createdAt: now });
   if (notificationError) throw new Error(notificationError.message);
   return { customerId: booking.customerId, refunded: paid };
 }

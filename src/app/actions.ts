@@ -762,9 +762,23 @@ export async function suspendUserAction(userId: string, formData: FormData) {
   const { error } = await supabase.from("User").update({ suspendedAt: now.toISOString(), suspendedUntil: days ? new Date(now.getTime() + days * 86_400_000).toISOString() : null, suspensionReason: reason, updatedAt: now.toISOString() }).eq("id", userId).neq("role", "ADMIN");
   if (error) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent(error.message)}`);
   // Out of search and booking while suspended; free slots are kept for when it is lifted.
-  await supabase.from("ProfessionalProfile").update({ isActive: false, updatedAt: now.toISOString() }).eq("userId", userId);
-  revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
-  redirect(`/admin/usuarios/${userId}?ok=suspensa`);
+  const { data: profile } = await supabase.from("ProfessionalProfile").update({ isActive: false, updatedAt: now.toISOString() }).eq("userId", userId).select("id").maybeSingle();
+  // Conversations already booked with a suspended consultant will not happen: cancel them with a full
+  // refund (the customer did nothing wrong; the platform absorbs the card processing fee).
+  let cancelled = 0, failed = 0;
+  if (profile) {
+    const { data: upcoming } = await supabase.from("Booking").select("id").eq("professionalProfileId", profile.id).in("status", ["PENDING_PAYMENT", "CONFIRMED"]).gt("startsAt", now.toISOString()).neq("customerId", userId);
+    const notice = "O consultor não está mais disponível na plataforma, por isso a Insidely cancelou a conversa.";
+    for (const booking of upcoming ?? []) {
+      try {
+        const result = await cancelBookingAndRefund({ bookingId: booking.id, consultantId: userId, reason: "Consultor suspenso pela equipe da Insidely.", customerNotice: notice });
+        try { await sendBookingCancellationEmail(supabase, booking.id, notice, result.refunded); } catch (error) { console.error("suspension_cancellation_email_failed", { bookingId: booking.id, error }); }
+        cancelled++;
+      } catch (error) { failed++; console.error("suspension_cancellation_failed", { bookingId: booking.id, error }); }
+    }
+  }
+  revalidatePath("/admin/usuarios"); revalidatePath("/buscar"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
+  redirect(`/admin/usuarios/${userId}?ok=suspensa&canceladas=${cancelled}&falhas=${failed}`);
 }
 
 export async function liftSuspensionAction(userId: string) {

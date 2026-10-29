@@ -20,7 +20,7 @@ type ReportRow = { id: string; category: string; description: string; status: st
 type ModerationRow = { reason: string; excerpt: string; createdAt: string };
 type FeedbackRow = { rating: number; comment: string | null; createdAt: string };
 
-export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string; acesso?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string; acesso?: string; canceladas?: string; falhas?: string }> }) {
   const admin = await requireUser([Role.ADMIN]);
   const [{ id }, query] = await Promise.all([params, searchParams]);
   // Trust and safety tables are added by migrations beyond the generated legacy types.
@@ -53,8 +53,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const reactivationCount = reactivations.data?.length ?? 0;
 
   return <DashboardShell mode="admin" title={user.name}>
-    {query.ok && <p className="form-feedback" role="status">{query.ok === "suspensa" ? "Conta suspensa." : "Suspensão encerrada."}</p>}
+    {query.ok && <p className="form-feedback" role="status">{query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
+    {Number(query.falhas) > 0 && <p className="form-error" role="alert">{query.falhas} conversa(s) não puderam ser canceladas automaticamente. Cancele pela lista de consultas do consultor ou contate o suporte de pagamentos.</p>}
     <div className="profile-management-stack">
       <section className="panel">
         <span className="eyebrow">{user.role} · desde {when(user.createdAt)}{!user.auth_user_id && " · conta excluída"}</span>
@@ -71,7 +72,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <p className="muted">Motivo: {user.suspensionReason}</p>
           <form action={liftSuspensionAction.bind(null, user.id)}><button className="button button-dark button-sm" type="submit">Encerrar suspensão</button></form>
         </> : user.role === Role.ADMIN ? <p className="muted">Contas de administrador não podem ser suspensas por aqui.</p> : <form action={suspendUserAction.bind(null, user.id)} className="form-stack">
-          <p className="muted">A conta fica sem acesso ao painel, não agenda, não recebe agendamentos e não envia mensagens. O perfil de consultor sai da busca. A suspensão continua valendo se a pessoa excluir a conta e voltar com o mesmo CPF.</p>
+          <p className="muted">A conta fica sem acesso ao painel, não agenda, não recebe agendamentos e não envia mensagens. O perfil de consultor sai da busca e as conversas futuras já agendadas com ele são canceladas, com reembolso integral aos clientes. A suspensão continua valendo se a pessoa excluir a conta e voltar com o mesmo CPF.</p>
           <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue="7"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="permanent">Permanente (banimento)</option></select></label>
           <label className="field"><span>Motivo (aparece para a pessoa)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label>
           <button className="button button-danger button-sm" type="submit">Suspender conta</button>
