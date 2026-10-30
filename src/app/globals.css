@@ -1182,3 +1182,9 @@ html { scroll-padding-top: 120px; }
 .otp-box:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(255,118,87,.35); }
 .otp-input .otp-box:nth-child(3) { margin-right: 12px; }
 @media (max-width: 420px) { .otp-input { gap: 6px; } .otp-box { width: 42px; height: 52px; font-size: 1.35rem; } .otp-input .otp-box:nth-child(3) { margin-right: 6px; } }
+
+/* Admin totals: three counts on top, the two money figures below, wider */
+.admin-totals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+.admin-totals > .metric { grid-column: span 2; }
+.admin-totals > .metric:nth-child(n + 4) { grid-column: span 3; }
+@media (max-width: 760px) { .admin-totals { grid-template-columns: 1fr 1fr; } .admin-totals > .metric, .admin-totals > .metric:nth-child(n + 4) { grid-column: span 1; } .admin-totals > .metric:last-child { grid-column: span 2; } }
