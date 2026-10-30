@@ -106,7 +106,10 @@ export async function ensureGoogleMeetForBooking(supabase: any, bookingId: strin
   let space: MeetSpace | null = null;
   if (process.env.GOOGLE_MEET_ENABLED?.trim() === "true") {
     try { space = await createGoogleMeetSpace(); }
-    catch (error) { console.error("google_meet_creation_failed", { bookingId, error }); }
+    catch (error) {
+      console.error("google_meet_creation_failed", { bookingId, error });
+      await import("./ops-alerts").then(({ alertAdmins }) => alertAdmins("meet", "O Google Meet parou de criar salas", `As salas estão usando o Jitsi como reserva. Motivo: ${error instanceof Error ? error.message : "desconhecido"}. Veja docs/GOOGLE-MEET-SETUP.md (token vencido é a causa mais comum).`)).catch(() => undefined);
+    }
   }
   space ??= { url: getFallbackMeetingUrl(bookingId), name: null };
 
@@ -145,4 +148,15 @@ export async function closeEndedMeetings(supabase: any, now = new Date()) {
     }
   }
   return closed;
+}
+
+// For the admin status page: is the Google integration able to get an access token right now?
+export async function checkGoogleMeet() {
+  if (process.env.GOOGLE_MEET_ENABLED?.trim() !== "true") return { ok: false, message: "Desativado (GOOGLE_MEET_ENABLED não está como true). As salas usam o Jitsi." };
+  try {
+    const token = await getGoogleAccessToken();
+    return token ? { ok: true, message: "Conectado à conta Google do projeto." } : { ok: false, message: "Credenciais do Google ausentes." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Falha ao obter o token do Google." };
+  }
 }

@@ -5,6 +5,8 @@ import { applyRetention } from "@/lib/retention";
 import { flagSuspiciousAccounts } from "@/lib/suspicious";
 import { promptDecisionStories } from "@/lib/decision-stories";
 import { remindEmptyAgendas } from "@/lib/empty-agenda";
+import { recordCronRun } from "@/lib/admin-log";
+import { alertAdmins } from "@/lib/ops-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +40,12 @@ export async function GET(request: Request) {
     const decisionPrompts = await promptDecisionStories(supabase).catch((promptError) => { console.error("decision_prompt_failed", { error: promptError }); return null; });
     const emptyAgendas = await remindEmptyAgendas(supabase).catch((agendaError) => { console.error("empty_agenda_failed", { error: agendaError }); return null; });
     const retention = await applyRetention(supabase).catch((retentionError) => { console.error("retention_failed", { error: retentionError }); return null; });
-    return Response.json({ ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas });
+    const result = { ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas };
+    await recordCronRun(supabase, "daily", true, result);
+    return Response.json(result);
   } catch (error) {
+    await recordCronRun(createSupabaseServiceClient(), "daily", false, error instanceof Error ? error.message : "release_failed");
+    await alertAdmins("cron:daily", "A tarefa diária falhou", `A tarefa diária (expiração de pedidos, repasses, retenção de dados e avisos) falhou: ${error instanceof Error ? error.message : "erro desconhecido"}.`);
     return Response.json({ error: error instanceof Error ? error.message : "release_failed" }, { status: 500 });
   }
 }

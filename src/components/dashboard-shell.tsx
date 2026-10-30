@@ -7,7 +7,7 @@ import { AdminNotifications } from "@/components/admin-notifications";
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
   consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Perfil e verificação"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
-  admin: [["/admin", "Visão geral"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/historias", "Histórias"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"]],
+  admin: [["/admin", "Visão geral"], ["/admin/casos", "Casos"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/historias", "Histórias"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"], ["/admin/registro", "Registro de ações"], ["/admin/status", "Status do sistema"]],
 } as const;
 
 type Notification = { id: string; title: string; body: string; href: string | null; readAt: string | null };

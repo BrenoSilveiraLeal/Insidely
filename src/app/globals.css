@@ -1076,3 +1076,20 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .tour-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--paper-2); }
 .tour-dots span.active { background: var(--mineral); }
 .tour-actions { display: flex; justify-content: space-between; gap: 10px; }
+.admin-search { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.admin-search .input { flex: 1 1 280px; }
+
+/* Admin indicators: single-series column charts */
+.admin-indicators { display: grid; gap: 16px; margin-bottom: 28px; }
+.admin-indicators .metric small { display: block; margin-top: 4px; }
+.admin-charts { gap: 16px; }
+.bar-chart { margin: 0; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.bar-chart figcaption { font-weight: 800; margin-bottom: 12px; }
+.bar-chart-plot { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: 180px; margin-bottom: 26px; border-bottom: 1px solid var(--line); }
+.bar-chart-col { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.bar-chart-value { margin-bottom: 4px; font-size: .76rem; font-weight: 800; color: var(--ink); }
+.bar-chart-bar { width: min(28px, 70%); border-radius: 4px 4px 0 0; background: var(--mineral); }
+.bar-chart-col:hover .bar-chart-bar { filter: brightness(.9); }
+.bar-chart-label { position: absolute; top: 100%; padding-top: 6px; font-size: .74rem; color: var(--muted); text-transform: capitalize; }
+.bar-chart-table { font-size: .82rem; }
+.bar-chart-table summary { cursor: pointer; color: var(--muted); }

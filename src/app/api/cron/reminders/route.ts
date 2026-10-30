@@ -4,6 +4,8 @@ import { closeEndedMeetings } from "@/lib/google-meet";
 import { checkNoShows } from "@/lib/attendance";
 import { reactivateExpiredPauses } from "@/lib/pause";
 import { emailUnreadMessages } from "@/lib/conversation-extras";
+import { recordCronRun } from "@/lib/admin-log";
+import { alertAdmins } from "@/lib/ops-alerts";
 import { consumeQuota } from "@/lib/auth-email-throttle";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -30,7 +32,7 @@ export async function GET() {
     .eq("status", "CONFIRMED").is("reminderSentAt", null)
     .gt("startsAt", now.toISOString()).lte("startsAt", new Date(now.getTime() + WINDOW_MS).toISOString())
     .limit(50);
-  if (error) return Response.json({ error: "reminder_lookup_failed" }, { status: 500 });
+  if (error) { await recordCronRun(supabase, "reminders", false, error.message); await alertAdmins("cron:reminders", "A tarefa de lembretes falhou", "A tarefa que roda a cada 5 minutos (lembretes, salas e avisos) não conseguiu consultar o banco."); return Response.json({ error: "reminder_lookup_failed" }, { status: 500 }); }
 
   let reminded = 0, skipped = 0;
   for (const booking of bookings ?? []) {
@@ -56,7 +58,9 @@ export async function GET() {
   const noShows = await checkNoShows(supabase, now);
   const resumedPauses = await reactivateExpiredPauses(supabase, now).catch(() => 0);
   const unreadEmails = await emailUnreadMessages(supabase, now).catch((error) => { console.error("unread_scan_failed", { error }); return 0; });
-  return Response.json({ ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails });
+  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails };
+  await recordCronRun(supabase, "reminders", true, result);
+  return Response.json(result);
 }
 
 // Once a paid conversation's scheduled end passes, invite the customer to rate it. Only bookings

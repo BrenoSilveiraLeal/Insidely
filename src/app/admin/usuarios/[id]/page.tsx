@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
+import { addAdminNoteAction, liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -28,7 +28,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const supabase = createSupabaseServiceClient() as any;
   const { data: user } = await supabase.from("User").select("id, name, email, role, createdAt, auth_user_id, suspendedAt, suspendedUntil, suspensionReason").eq("id", id).maybeSingle();
   if (!user) notFound();
-  const [identity, audits, reactivations, moderation, reportsAgainst, feedback, bookings, warnings, reveal] = await Promise.all([
+  const [identity, audits, reactivations, moderation, reportsAgainst, feedback, bookings, warnings, notes, reveal] = await Promise.all([
     supabase.from("CustomerIdentity").select("cpf, birthDate, createdAt").eq("userId", id).maybeSingle(),
     supabase.from("IdentityAccessAudit").select("id, adminUserId, reason, createdAt").eq("targetUserId", id).order("createdAt", { ascending: false }).limit(20),
     supabase.from("AccountReactivationAudit").select("createdAt").eq("userId", id),
@@ -37,6 +37,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     supabase.from("CustomerFeedback").select("rating, comment, createdAt").eq("customerId", id).order("createdAt", { ascending: false }),
     supabase.from("Booking").select("id", { count: "exact", head: true }).eq("customerId", id),
     supabase.from("AccountWarning").select("id, reason, createdAt").eq("userId", id).order("createdAt", { ascending: false }),
+    supabase.from("AdminNote").select("id, body, createdAt, adminUserId").eq("userId", id).order("createdAt", { ascending: false }),
     // The full CPF shows only for the access this admin just recorded, for 10 minutes.
     query.acesso
       ? supabase.from("IdentityAccessAudit").select("id").eq("id", query.acesso).eq("adminUserId", admin.id).eq("targetUserId", id).gte("createdAt", revealWindowStart()).maybeSingle()
@@ -65,6 +66,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <p className="muted">{user.email}</p>
         <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
         <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
+      </section>
+
+      <section className="panel form-stack" id="notas">
+        <span className="eyebrow">Notas internas · só a equipe vê</span>
+        {((notes.data ?? []) as { id: string; body: string; createdAt: string }[]).map((note) => <div className="list-row" key={note.id}><p>{note.body}</p><span className="muted">{when(note.createdAt)}</span></div>)}
+        <form action={addAdminNoteAction.bind(null, user.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={2000} required placeholder="Ex.: Ligou para o suporte em 30/10 contestando a denúncia; pediu revisão."/><button className="button button-ghost button-sm">Adicionar nota</button></form>
       </section>
 
       <section className="panel form-stack">

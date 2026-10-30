@@ -15,6 +15,7 @@ import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } 
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 import { VERIFICATION_METHODS } from "@/lib/verification";
 import { recordAccess } from "@/lib/access-log";
+import { logAdminAction } from "@/lib/admin-log";
 import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
@@ -715,7 +716,7 @@ export async function archiveCustomerBookingAction(id: string) { await requireUs
 export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(safeInternalPath(href)); }
 export async function reportProfileAction(profileId: string, formData: FormData) { await requireUser(); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED", formData?: FormData) {
-  await requireUser([Role.ADMIN]);
+  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "review_verification", null, `${decision} ${id}`));
   await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id);
   // admin_review_verification already notified the consultant; a rejection reason is added to it.
   const reason = String(formData?.get("reason") || "").trim().slice(0, 400);
@@ -729,7 +730,7 @@ export async function reviewVerificationAction(id: string, decision: "VERIFIED" 
   revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); revalidatePath("/buscar"); revalidatePath("/profissional/[id]", "page");
   redirect(`/admin/verificacoes?ok=${decision === "VERIFIED" ? "aprovado" : "recusado"}`);
 }
-export async function resolveReportAction(id: string) { await requireUser([Role.ADMIN]); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
+export async function resolveReportAction(id: string) { const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_report", null, id)); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
 export async function customerCancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser();
   let ok = true;
@@ -748,7 +749,7 @@ export async function customerCancelBookingAction(id: string, formData: FormData
 // Admin catalog queue: a typed company/area becomes a new entry (or is matched to an existing one),
 // and every experience waiting on that name moves from the placeholder to it.
 export async function resolveCatalogRequestAction(formData: FormData) {
-  await requireUser([Role.ADMIN]);
+  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_catalog", null, `${String(formData.get("decision"))} ${String(formData.get("kind"))}: ${String(formData.get("key"))}`));
   const kind = formData.get("kind") === "PROFESSION" ? "PROFESSION" : "COMPANY";
   const key = String(formData.get("key") || "");
   const decision = String(formData.get("decision") || "");
@@ -812,7 +813,7 @@ export async function resolveCatalogRequestAction(formData: FormData) {
 const SUSPENSION_DAYS: Record<string, number | null> = { "7": 7, "30": 30, "90": 90, permanent: null };
 
 export async function suspendUserAction(userId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN]); after(() => logAdminAction(admin.id, "suspend", userId, String(formData.get("duration") || "") + ": " + String(formData.get("reason") || "")));
   const reason = String(formData.get("reason") || "").trim().slice(0, 500);
   const duration = String(formData.get("duration") || "");
   if (reason.length < 10 || !(duration in SUSPENSION_DAYS) || userId === admin.id) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Informe a duração e um motivo com pelo menos 10 caracteres.")}`);
@@ -846,7 +847,7 @@ export async function suspendUserAction(userId: string, formData: FormData) {
 }
 
 export async function liftSuspensionAction(userId: string) {
-  await requireUser([Role.ADMIN]);
+  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "lift_suspension", userId, null));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const now = new Date().toISOString();
@@ -860,7 +861,7 @@ export async function liftSuspensionAction(userId: string) {
 
 // The full CPF is only shown right after the admin records why (e.g. a court order number).
 export async function revealIdentityAction(userId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN]); after(() => logAdminAction(admin.id, "reveal_identity", userId, String(formData.get("reason") || "")));
   const reason = String(formData.get("reason") || "").trim().slice(0, 500);
   if (reason.length < 15) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Descreva o motivo do acesso com pelo menos 15 caracteres (ex.: número do ofício ou do processo).")}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -942,7 +943,7 @@ export async function reportReviewAction(reviewId: string, profileId: string, fo
 }
 
 export async function resolveReviewReportAction(reportId: string, decision: "REMOVED" | "KEPT") {
-  await requireUser([Role.ADMIN]);
+  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_review_report", null, `${decision} ${reportId}`));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: report } = await supabase.from("ReviewReport").select("reviewId, professionalProfileId").eq("id", reportId).maybeSingle();
@@ -982,7 +983,7 @@ export async function acceptTermsAction(formData: FormData) {
 
 // Graduated enforcement: warnings are recorded first; the admin page suggests suspension next.
 export async function warnUserAction(userId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN]); after(() => logAdminAction(admin.id, "warn", userId, String(formData.get("reason") || "")));
   const reason = String(formData.get("reason") || "").trim().slice(0, 500);
   if (reason.length < 10) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Descreva o motivo da advertência com pelo menos 10 caracteres.")}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1192,7 +1193,7 @@ export async function saveDecisionStoryAction(bookingId: string, _: FormState, f
 }
 
 export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED") {
-  await requireUser([Role.ADMIN]);
+  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "review_story", null, `${decision} ${bookingId}`));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
   revalidatePath("/admin/historias"); revalidatePath("/");
@@ -1214,4 +1215,26 @@ export async function saveAreaInsightsAction(_: FormState, formData: FormData): 
   if (error) return { status: "error", message: "Não foi possível salvar agora." };
   revalidatePath("/consultor/perfil"); revalidatePath("/profissao/[slug]", "page");
   return { status: "success", message: "Obrigado! Suas respostas aparecem de forma anônima na página da sua área." };
+}
+
+// Internal notes on an account, visible only to admins.
+export async function addAdminNoteAction(userId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const body = String(formData.get("body") || "").trim().slice(0, 2000);
+  if (body.length >= 2) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (createSupabaseServiceClient() as any).from("AdminNote").insert({ userId, adminUserId: admin.id, body });
+    after(() => logAdminAction(admin.id, "note", userId, body.slice(0, 120)));
+  }
+  revalidatePath(`/admin/usuarios/${userId}`);
+  redirect(`/admin/usuarios/${userId}#notas`);
+}
+
+// Case queue: an admin takes ownership of a report, a reported review or a dispute.
+export async function assignCaseAction(caseKey: string) {
+  const admin = await requireUser([Role.ADMIN]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("CaseAssignment").upsert({ caseKey, adminUserId: admin.id, assignedAt: new Date().toISOString() }, { onConflict: "caseKey" });
+  after(() => logAdminAction(admin.id, "take_case", null, caseKey));
+  revalidatePath("/admin/casos");
 }
