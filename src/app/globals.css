@@ -1027,7 +1027,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .agenda-sync > div { display: grid; gap: 4px; flex: 1 1 360px; }
 .agenda-sync p { margin: 0; }
 .search-more { grid-column: 1 / -1; }
-.search-more > summary { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); cursor: pointer; list-style: none; font-weight: 800; font-size: .86rem; transition: border-color .15s, background .15s; }
+.search-more > summary { display: flex; width: fit-content; margin-left: auto; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); cursor: pointer; list-style: none; font-weight: 800; font-size: .86rem; transition: border-color .15s, background .15s; }
 .search-more > summary::-webkit-details-marker { display: none; }
 .search-more > summary:hover, .search-more[open] > summary { border-color: var(--ink); }
 .search-more[open] > summary { background: var(--ink); color: var(--paper); }
