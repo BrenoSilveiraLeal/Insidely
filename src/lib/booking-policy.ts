@@ -1,10 +1,16 @@
 
 const RETRYABLE_PAYMENT_STATUSES = new Set(["HELD", "PAID_HELD", "TRANSFER_FAILED"]);
 
-// The chat is for arranging the conversation: open from payment until the booked time ends.
-// Afterwards (done, cancelled, expired or simply past) it is read-only for both people.
+// The chat is only for the conversation itself: it opens 24 hours before the booked time (so the
+// two people cannot keep talking off-schedule for days) and closes when the booked time ends.
+export const CHAT_OPENS_BEFORE_MS = 24 * 60 * 60_000;
+
+export function chatOpensAt(startsAt: Date) {
+  return new Date(startsAt.getTime() - CHAT_OPENS_BEFORE_MS);
+}
+
 export function canSendBookingMessage(status: string, startsAt: Date, durationMinutes: number, now = new Date()) {
-  return status === "CONFIRMED" && now.getTime() <= startsAt.getTime() + durationMinutes * 60_000;
+  return status === "CONFIRMED" && now >= chatOpensAt(startsAt) && now.getTime() <= startsAt.getTime() + durationMinutes * 60_000;
 }
 
 export function chatClosedReason(status: string) {

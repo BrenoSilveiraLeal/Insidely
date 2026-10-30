@@ -19,7 +19,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
-import { canReviewBooking } from "@/lib/booking-policy";
+import { canReviewBooking, canSendBookingMessage } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
 import { getAppUrl } from "@/lib/app-url";
@@ -618,6 +618,11 @@ export async function sendMessageAction(id: string, formData: FormData) {
   const body = String(formData.get("body") || "").trim();
   const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens");
   if (!body) return;
+  // The chat only opens 24 h before the conversation and closes when it ends (booking-policy.ts).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chatBooking } = await (createSupabaseServiceClient() as any).from("Conversation").select("booking:Booking(status, startsAt, durationMinutes)").eq("id", id).maybeSingle();
+  const chat = Array.isArray(chatBooking?.booking) ? chatBooking.booking[0] : chatBooking?.booking;
+  if (!chat || !canSendBookingMessage(chat.status, parseDbDate(chat.startsAt), chat.durationMinutes)) redirect(`${returnTo}?mensagem=fechado`);
   if (body.length > 2000) redirect(`${returnTo}?mensagem=longa`);
   const moderation = moderateChatMessage(body);
   if (!moderation.allowed) {

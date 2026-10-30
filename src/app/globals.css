@@ -1320,3 +1320,11 @@ html { scroll-padding-top: 120px; }
 .support-case-row { color: inherit; text-decoration: none; transition: border-color .2s; }
 .support-case-row:hover { border-color: var(--mineral); }
 @media (max-width: 900px) { .case-layout { grid-template-columns: 1fr; } .case-aside { position: static; } .support-msg { max-width: 92%; } }
+
+/* Booking chat like a messaging app: fixed-height box, messages anchored at the bottom. */
+.conversation-thread { display: flex; flex-direction: column; gap: 10px; height: min(58vh, 560px); max-height: none; overflow-y: auto; overscroll-behavior: contain; }
+.conversation-thread > :first-child { margin-top: auto; }
+.conversation-thread > .message { max-width: 78%; }
+.message-blocked { border: 1px solid rgba(179,64,58,.45) !important; background: rgba(179,64,58,.1) !important; color: #8a2c1d !important; font-style: italic; }
+.message-blocked small, .message-blocked .message-meta { color: #8a2c1d !important; }
+.chat-feedback { margin: 0; }

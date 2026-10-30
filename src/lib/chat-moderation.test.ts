@@ -29,4 +29,12 @@ describe("profile text moderation", () => {
     expect(findUnsafeProfileText([["Título", "Product Designer"], ["Apresentação", "Me chama no zap pra fechar direto"]])).toEqual({ label: "Apresentação", reason: "contact" });
     expect(findUnsafeProfileText([["Apresentação", "Trabalhei 5 anos em 3 empresas, liderei 12 pessoas e entreguei 40 projetos entre 2015-2020."]])).toBeNull();
   });
+  it("blocks diminutives, spaced letters and slurs aimed at someone, but not identity words", () => {
+    for (const text of ["seu cuzinho", "bichinha", "viadão", "putona", "v i a d o", "b1ch1nha", "seu gay", "sua lésbica", "gayzinho", "boiola", "toma no cu", "sua macaca", "seu gordo"]) {
+      expect(moderateChatMessage(text)).toEqual({ allowed: false, reason: "offensive" });
+    }
+    for (const text of ["sou gay e queria saber sobre inclusão no time", "a empresa tem grupo de pessoas trans?", "meu bichinho de estimação", "tem anta no zoológico", "o lixo eletrônico da empresa", "rola uma vaga?", "preto e branco", "quero ser analista de dados"]) {
+      expect(moderateChatMessage(text)).toEqual({ allowed: true });
+    }
+  });
 });

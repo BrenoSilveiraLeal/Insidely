@@ -5,6 +5,8 @@ import { markConversationReadAction } from "@/app/actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Message = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null };
+// A message the moderation refused: shown only to its sender, as a red "bloqueada" bubble without the text.
+type BlockedNotice = { id: string; createdAt: string; reason: string };
 
 // Database timestamps come without a time zone and are UTC.
 function toDate(value: string) {
@@ -32,11 +34,11 @@ function readLabel(readAt: string, now: number) {
 // for both participants. Under the last own message: "Enviado", then "Lido agora / há X min / às HH:MM",
 // updated live: the other
 // side's page marks messages read (markConversationReadAction) and realtime delivers the UPDATE.
-export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; initialMessages: Message[] }) {
+export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages, blocked = [] }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; blocked?: BlockedNotice[]; initialMessages: Message[] }) {
   const [messages, setMessages] = useState(initialMessages);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
-  const end = useRef<HTMLDivElement>(null);
+  const thread = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -63,14 +65,26 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
     document.addEventListener("visibilitychange", markRead);
     return () => { cancelled = true; document.removeEventListener("visibilitychange", markRead); if (channel) void supabase.removeChannel(channel); };
   }, [bookingId, conversationId, currentUserId]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [messages.length]);
+  // Like a messaging app: the newest message sits at the bottom and older ones move up.
+  useEffect(() => { const box = thread.current; if (box) box.scrollTop = box.scrollHeight; }, [messages.length, blocked.length]);
   const lastOwnIndex = messages.findLastIndex((item) => item.senderId === currentUserId);
-  return <div className="message-thread conversation-thread" aria-live="polite">
+  const ownSide = currentUserId === consultantId ? "message-consultant" : "message-customer";
+  const notices = blocked.map((notice) => ({ ...notice, at: toDate(notice.createdAt).getTime() }));
+  const noticesBefore = (createdAt: string | null) => notices.filter((notice) => createdAt === null || notice.at <= toDate(createdAt).getTime());
+  const shown = new Set<string>();
+  const renderNotices = (createdAt: string | null) => noticesBefore(createdAt).filter((notice) => !shown.has(notice.id) && shown.add(notice.id)).map((notice) =>
+    <div className={`message ${ownSide} message-blocked`} key={notice.id} title="Só você vê este aviso">
+      <small>Você</small>
+      <span>Mensagem bloqueada: {notice.reason === "offensive" ? "ofensa ou palavrão" : "contato ou pagamento por fora"}</span>
+      <span className="message-meta">{messageTime(notice.createdAt)} · só você vê</span>
+    </div>);
+  return <div className="message-thread conversation-thread" aria-live="polite" ref={thread}>
     {messages.map((message, index) => {
       const own = message.senderId === currentUserId;
       const side = message.senderId === consultantId ? "message-consultant" : "message-customer";
       const lastOwn = index === lastOwnIndex;
       return <Fragment key={message.id}>
+        {renderNotices(message.createdAt)}
         <div className={`message ${side}`}>
           <small>{own ? "Você" : otherName}</small>
           <span>{message.body}</span>
@@ -79,7 +93,7 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
         {lastOwn && <span className={`message-seen ${side}-seen`} title={message.readAt ? `Lida às ${messageTime(message.readAt)}` : undefined}>{message.readAt ? readLabel(message.readAt, now) : "Enviado"}</span>}
       </Fragment>;
     })}
-    {!messages.length && <p className="muted conversation-empty">Nenhuma mensagem ainda. Use este espaço para alinhar os detalhes da conversa.</p>}
-    <div ref={end}/>
+    {renderNotices(null)}
+    {!messages.length && !blocked.length && <p className="muted conversation-empty">Nenhuma mensagem ainda. Use este espaço para alinhar os detalhes da conversa.</p>}
   </div>;
 }

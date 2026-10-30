@@ -38,12 +38,23 @@ const OFFENSIVE_WORDS = [
   "desgraca", "desgracado", "desgracada", "cacete", "pqp", "vsf", "vtnc", "tnc", "fdp", "otario", "otaria", "idiota", "imbecil", "babaca", "retardado", "retardada",
   "mongol", "cretino", "cretina", "escroto", "escrota", "vagabundo", "vagabunda", "piranha", "vadia", "corno", "corna", "safado", "safada",
   "crioulo", "neguinho", "favelado", "baitola", "punheta", "punheteiro",
+  "cuzudo", "boiola", "bichona", "sapata", "travecao", "paneleiro", "xereca", "siririca", "tiziu", "biscate", "rapariga", "quenga", "acefalo",
 ];
+// Words that are fine on their own (an identity, an animal, a body part in context) but insults
+// when aimed at the other person: "seu gay", "sua lésbica", "gayzinho".
+const IDENTITY_WORDS = "gay|lesbica|trans|travesti|bi|homossexual|negro|negra|preto|preta|gordo|gorda|aleijado|aleijada|velho|velha|nordestino|nordestina|baiano|baiana|paraiba";
 const OFFENSIVE_PHRASES = [
   /\bfilh[oa] d[ae] puta\b/, /\bvai (?:se )?(?:fuder|foder|tomar)\b/, /\bvai a merda\b/, /\bte (?:mato|matar|pego la fora|quebro)\b/, /\bvou te (?:matar|pegar|bater|achar)\b/,
-  /\bse mata\b/, /\b(?:seu|sua) (?:lixo|verme|macac[oa]|nojent[oa]|burr[oa])\b/,
+  /\bse mata\b/,
+  // Ordinary words (animals, "lixo", body parts) only count when aimed at the other person.
+  /\b(?:seu|sua|teu|tua|vc e|voce e|vc eh|voce eh) (?:lixo|verme|macac[oa]|nojent[oa]|burr[oa]|anta|jumento|toupeira|inutil|escoria|debil|chupador[a]?|prostitut[oa]|piranha)\b/,
+  /\b(?:chupa|chupar|mama|mamar) (?:aqui|meu|minha|o meu|minha rola|meu pau|minha pica)\b/, /\b(?:meu|minha) (?:pau|rola|pica|pinto)\b/,
+  /\b(?:toma|tomar|enfia|enfiar|vai tomar) (?:no )?cu\b/,
+  // Identity words are fine ("sou gay", "pessoas trans"); aimed at someone or as a diminutive they are slurs.
+  new RegExp(String.raw`\b(?:seu|sua|teu|tua|esse|essa|que|coisa de|bando de|cara de|vc e|voce e) (?:${IDENTITY_WORDS})(?:zinh[oa]|inh[oa]|ao|ona)?\b`),
+  new RegExp(String.raw`\b(?:${IDENTITY_WORDS})(?:zinh[oa]|zao|zona)\b`),
 ];
-const COMPACT_OFFENSIVE = ["fodase", "filhodaputa", "vaisefuder", "vaisefoder", "vaitomarnocu", "caralho", "arombado"];
+const COMPACT_OFFENSIVE = ["fodase", "filhodaputa", "vaisefuder", "vaisefoder", "vaitomarnocu", "tomanocu", "caralho", "arombado", "cuzinho", "viadinho", "bichinha", "boiola"];
 
 function stripAccents(value: string) {
   return value.normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -58,6 +69,25 @@ function collapseRepeats(value: string) {
 }
 
 const collapsedOffensive = new Set(OFFENSIVE_WORDS.map(collapseRepeats));
+
+// Diminutives and augmentatives of a listed word ("cuzinho", "bichinha", "putona", "viadao") are
+// reduced to the base word before the lookup: -zinho/-zao drop the suffix, -inho/-ao keep the
+// gender vowel ("bichinha" -> "bicha"). Only compared against the offensive list.
+function offensiveBases(word: string) {
+  const bases = [word];
+  const z = word.match(/^(.{2,}?)(?:zinh[oa]s?|zit[oa]s?|zao|zona|zoes)$/);
+  if (z) bases.push(z[1]);
+  // The ending keeps the gender: "bichinha" -> "bicha", but "bichinho" -> "bicho" (an animal).
+  const masculine = word.match(/^(.{2,}?)(?:inhos?|itos?|ao|oes|aco)$/), feminine = word.match(/^(.{2,}?)(?:inhas?|itas?|ona|aca)$/);
+  if (masculine) bases.push(`${masculine[1]}o`);
+  if (feminine) bases.push(`${feminine[1]}a`);
+  return bases;
+}
+
+function isOffensiveWord(word: string) {
+  const collapsed = collapseRepeats(word);
+  return offensiveBases(collapsed).some((base) => collapsedOffensive.has(base));
+}
 
 function hasContactDigits(text: string, countScattered: boolean) {
   // Years ("2015-2020") are dropped so a career timeline is not mistaken for a number. Spelled-out
@@ -91,7 +121,10 @@ export function moderateChatMessage(raw: string, options: { countScatteredDigits
   }
 
   if (OFFENSIVE_PHRASES.some((pattern) => pattern.test(plain))) return blocked("offensive");
-  if (plain.split(" ").some((word) => collapsedOffensive.has(collapseRepeats(word)))) return blocked("offensive");
+  const words = plain.split(" ");
+  // Letters typed apart ("v i a d o") are joined back into one word.
+  const spelled = [...plain.matchAll(/(?:^|\s)((?:[a-z]\s){2,}[a-z])(?=\s|$)/g)].map((match) => match[1].replace(/\s/g, ""));
+  if ([...words, ...spelled].some(isOffensiveWord)) return blocked("offensive");
   const collapsedCompact = collapseRepeats(compact);
   if (COMPACT_OFFENSIVE.some((word) => collapsedCompact.includes(collapseRepeats(word)))) return blocked("offensive");
 
@@ -101,8 +134,9 @@ export function moderateChatMessage(raw: string, options: { countScatteredDigits
 // Feedback shown above the chat after a message was refused (the ?mensagem= code of sendMessageAction).
 export function chatFeedbackText(code: string) {
   if (code === "longa") return "A mensagem passou de 2.000 caracteres.";
-  if (code === "ofensiva") return "Mensagem não enviada: palavrões, ofensas e ameaças não são permitidos. Tentativas repetidas são analisadas pela equipe da Insidely e podem levar ao bloqueio da conta.";
+  if (code === "ofensiva") return "Mensagem bloqueada: palavrões, ofensas e ameaças não são permitidos. Tentativas repetidas são analisadas pela equipe e podem levar ao bloqueio da conta.";
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";
+  if (code === "fechado") return "O chat desta conversa não está aberto agora.";
   if (code === "erro") return "Não foi possível enviar a mensagem agora. Tente novamente.";
   return "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links, redes sociais ou combinar pagamento por fora. A conversa e o pagamento acontecem pela Insidely, que protege os dois lados.";
 }
