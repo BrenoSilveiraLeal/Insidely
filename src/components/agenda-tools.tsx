@@ -38,11 +38,15 @@ export function RecurringAvailability() {
   </section>;
 }
 
-// Pause or vacation: a button, then a confirmation with the return date. Conversations booked ahead
-// are listed first, because the pause is refused until each one happens or is cancelled.
-export function PauseProfile({ pausedUntilLabel, paused, upcoming }: { paused: boolean; pausedUntilLabel: string | null; upcoming: { id: string; label: string; customer: string }[] }) {
+// Pause or vacation: a button, then the return date. Conversations booked inside the pause are
+// checked as the date changes, so the consultant sees why it can't be paused before submitting.
+type Upcoming = { id: string; label: string; startsAt: string; customer: string };
+
+export function PauseProfile({ pausedUntilLabel, paused, upcoming }: { paused: boolean; pausedUntilLabel: string | null; upcoming: Upcoming[] }) {
   const [state, action, pending] = useActionState(pauseProfileAction, undefined);
   const [confirming, setConfirming] = useState(false);
+  const [until, setUntil] = useState("");
+  const [today] = useState(() => Date.now());
   const router = useRouter();
   useEffect(() => { if (state?.status === "success") router.refresh(); }, [router, state]);
   if (paused) return <section className="panel form-stack agenda-paused">
@@ -51,24 +55,30 @@ export function PauseProfile({ pausedUntilLabel, paused, upcoming }: { paused: b
     <p className="muted">Enquanto isso, seu perfil não aparece na busca e ninguém consegue agendar. Suas conversas antigas e mensagens continuam disponíveis.</p>
     <form action={resumeProfileAction}><button className="button button-accent">Reativar agora</button></form>
   </section>;
+  // Return day ends at 23:59 in Brasília; with no date the pause covers every booked conversation.
+  const untilTime = until ? new Date(`${until}T23:59:59-03:00`).getTime() : Infinity;
+  const blocking = upcoming.filter((item) => new Date(item.startsAt).getTime() <= untilTime);
+  const after = upcoming.filter((item) => new Date(item.startsAt).getTime() > untilTime);
+  const returnLabel = until ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", timeZone: "UTC" }).format(new Date(`${until}T12:00:00Z`)) : null;
+  const latestReturn = blocking.length ? new Date(new Date(blocking[0].startsAt).getTime() - 86_400_000) : null;
   return <section className="panel agenda-pause">
     <div className="agenda-pause-head">
       <div><span className="eyebrow">Pausa ou férias</span><strong>Precisa de um tempo? Pause sua agenda.</strong><p className="muted">Seu perfil sai da busca e ninguém consegue agendar até a data de volta.</p></div>
       {!confirming && <button className="button button-dark" type="button" onClick={() => setConfirming(true)}>Ativar pausa ou férias</button>}
     </div>
-    {confirming && <div className="agenda-pause-confirm">
-      {upcoming.length > 0 && <div className="agenda-pause-warning" role="alert">
-        <strong>Antes, resolva suas conversas marcadas.</strong>
-        <p>Você tem {upcoming.length === 1 ? "uma conversa marcada" : `${upcoming.length} conversas marcadas`}. Faça a conversa ou cancele (no cancelamento, o cliente recebe 100% de volta). Se a data de volta for antes delas, elas continuam valendo.</p>
-        <ul>{upcoming.map((item) => <li key={item.id}>{item.label} · {item.customer}</li>)}</ul>
-        <a className="text-link" href="/consultor/consultas">Ir para Consultas</a>
-      </div>}
-      <form action={action} className="form-stack">
-        <h3>Tem certeza de que quer ativar a pausa?</h3>
-        <label className="field"><span>Volto em (deixe vazio para pausar até reativar)</span><input className="input" type="date" name="until"/></label>
-        <Feedback state={state}/>
-        <div className="agenda-pause-actions"><button className="button button-ghost" type="button" onClick={() => setConfirming(false)}>Cancelar</button><button className="button button-accent" disabled={pending}>{pending ? "Pausando…" : "Sim, pausar meu perfil"}</button></div>
-      </form>
-    </div>}
+    {confirming && <form action={action} className="agenda-pause-confirm">
+      <label className="field agenda-pause-date"><span>Quando você volta?</span><input className="input" type="date" name="until" value={until} min={new Date(today).toISOString().slice(0, 10)} onChange={(event) => setUntil(event.target.value)}/><small className="muted">{returnLabel ? `O perfil volta sozinho no dia ${returnLabel}.` : "Sem data, o perfil fica pausado até você reativar."}</small></label>
+      {blocking.length > 0 ? <div className="agenda-pause-note is-blocked" role="alert">
+        <strong>{returnLabel ? `Não dá para pausar até ${returnLabel}` : "Não dá para pausar sem data de volta"}</strong>
+        <p>{blocking.length === 1 ? "Você tem uma conversa marcada" : `Você tem ${blocking.length} conversas marcadas`} nesse período. Escolha {latestReturn && latestReturn.getTime() > today ? `uma volta até ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" }).format(latestReturn)}` : "outra data"} ou faça ou cancele {blocking.length === 1 ? "a conversa" : "as conversas"} antes. No cancelamento, o cliente recebe 100% de volta.</p>
+        <ul className="agenda-pause-list">{blocking.map((item) => <li key={item.id}><span>{item.label}</span><span className="muted">{item.customer}</span></li>)}</ul>
+        <a className="text-link" href="/consultor/consultas">Abrir Consultas</a>
+      </div> : after.length > 0 ? <div className="agenda-pause-note">
+        <strong>{after.length === 1 ? "Sua conversa depois da volta continua valendo." : `Suas ${after.length} conversas depois da volta continuam valendo.`}</strong>
+        <p className="muted">Se você não aparecer em uma conversa marcada, o cliente é avisado e recebe o reembolso.</p>
+      </div> : null}
+      <Feedback state={state}/>
+      <div className="agenda-pause-actions"><button className="button button-ghost" type="button" onClick={() => { setConfirming(false); setUntil(""); }}>Cancelar</button><button className="button button-accent" disabled={pending || blocking.length > 0}>{pending ? "Pausando…" : "Pausar meu perfil"}</button></div>
+    </form>}
   </section>;
 }

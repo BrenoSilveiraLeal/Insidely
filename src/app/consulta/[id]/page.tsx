@@ -26,7 +26,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
   const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
   return <DashboardShell mode={user.role === Role.CONSULTANT ? "consultant" : "user"} title="Sua consulta">
     <div className="profile-layout">
-      <section className="panel">
+      <section className="panel consulta-card">
         <span className="eyebrow">Consulta confirmada</span>
         <h2>Você está prestes a conversar com {otherPerson}.</h2>
         <p className="muted">{shortDate(booking.startsAt)} · {booking.durationMinutes} minutos</p>

@@ -1152,7 +1152,12 @@ html { scroll-padding-top: 120px; }
 .agenda-pause-head p { margin: 0; }
 .agenda-pause-confirm { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
 .agenda-pause-confirm h3 { margin: 0; }
-.agenda-pause-warning { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid rgba(179,64,58,.35); border-radius: 14px; background: rgba(179,64,58,.06); }
+.agenda-pause-date { max-width: 320px; }
+.agenda-pause-note { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.agenda-pause-note p { margin: 0; }
+.agenda-pause-note.is-blocked { border-color: rgba(179,64,58,.35); background: rgba(179,64,58,.06); }
+.agenda-pause-list { display: grid; gap: 6px; margin: 2px 0; padding: 0; list-style: none; }
+.agenda-pause-list li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.6); font-weight: 700; font-size: .9rem; }
 .agenda-pause-warning p, .agenda-pause-warning ul { margin: 0; }
 .agenda-pause-warning ul { padding-left: 18px; }
 .agenda-pause-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
@@ -1234,3 +1239,14 @@ html { scroll-padding-top: 120px; }
 .dash-main > .form-feedback, .dash-main > .success-box, .dash-main > .form-success, .dash-main > .form-error { margin: 0 0 22px; animation: flash-in .3s ease both; }
 .dash-main > .consultas-feedback { margin-bottom: 22px; }
 .notice-leaving { opacity: 0 !important; transform: translateY(-6px); transition: opacity .4s, transform .4s; }
+/* Booking page: room info, actions and review stacked with room between them. */
+.consulta-card { display: grid; gap: 18px; align-content: start; }
+.consulta-card > * { margin: 0; }
+.consulta-card > .eyebrow + h2 { margin-top: -8px; }
+.consulta-card > .button { justify-self: start; }
+.consulta-card .meeting-policy { flex-direction: column; gap: 4px; margin-top: 4px; }
+.consulta-card .meeting-policy p { margin: 0; font-size: .9rem; }
+.consulta-card > h2 + .muted { margin-top: -12px; }
+.become-consultant { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; justify-content: space-between; }
+.become-consultant > div { flex: 1 1 360px; }
+.become-consultant p { margin-bottom: 0; }
