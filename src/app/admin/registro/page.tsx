@@ -8,7 +8,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 export const metadata = { title: "Registro de ações" };
 export const dynamic = "force-dynamic";
 
-const ACTIONS: Record<string, string> = { suspend: "Suspendeu conta", lift_suspension: "Encerrou suspensão", warn: "Registrou advertência", reveal_identity: "Consultou CPF completo", resolve_report: "Resolveu denúncia", review_verification: "Analisou comprovante", resolve_catalog: "Decidiu empresa/área", resolve_review_report: "Decidiu avaliação denunciada", review_story: "Decidiu história", note: "Adicionou nota interna", take_case: "Assumiu caso", delete_account: "Excluiu conta" };
+const ACTIONS: Record<string, string> = { suspend: "Suspendeu conta", lift_suspension: "Encerrou suspensão", warn: "Registrou advertência", reveal_identity: "Consultou CPF completo", resolve_report: "Resolveu denúncia", review_verification: "Analisou comprovante", resolve_catalog: "Decidiu empresa/área", resolve_review_report: "Decidiu avaliação denunciada", review_story: "Decidiu história", note: "Adicionou nota interna", take_case: "Assumiu caso", delete_account: "Excluiu conta", report_in_review: "Pôs chamado em análise" };
 
 // Who did what in the admin panel, most recent first.
 export default async function Page() {

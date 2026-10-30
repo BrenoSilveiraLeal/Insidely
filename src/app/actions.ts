@@ -1284,3 +1284,26 @@ export async function adminDeleteAccountAction(userId: string, formData: FormDat
   revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
   redirect("/admin/usuarios?ok=excluida");
 }
+
+// Admin answers a support request or report: the reply goes to the requester as a notification
+// and stays on the case as its resolution. "IN_REVIEW" only moves the case along, without a reply.
+export async function answerReportAction(reportId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const decision = String(formData.get("decision") || "");
+  const reply = String(formData.get("reply") || "").trim();
+  if (!["RESOLVED", "DISMISSED", "IN_REVIEW"].includes(decision)) redirect(`/admin/casos/relato/${reportId}?erro=1`);
+  if (decision !== "IN_REVIEW" && (reply.length < 10 || reply.length > 2000)) redirect(`/admin/casos/relato/${reportId}?erro=resposta`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const now = new Date().toISOString();
+  const { data: report } = await supabase.from("Report").update({ status: decision, ...(decision === "IN_REVIEW" ? {} : { resolution: reply }), updatedAt: now }).eq("id", reportId).in("status", ["OPEN", "IN_REVIEW"]).select("reporterId, category").maybeSingle();
+  if (!report) redirect(`/admin/casos/relato/${reportId}?erro=fechado`);
+  if (decision === "IN_REVIEW") {
+    await supabase.from("CaseAssignment").upsert({ caseKey: `report:${reportId}`, adminUserId: admin.id, assignedAt: now }, { onConflict: "caseKey" });
+  } else if (report.reporterId) {
+    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: report.reporterId, title: `Resposta do suporte: ${report.category}`, body: reply.slice(0, 600), href: "/suporte", createdAt: now });
+  }
+  after(() => logAdminAction(admin.id, decision === "IN_REVIEW" ? "report_in_review" : "resolve_report", null, reportId));
+  revalidatePath("/admin/casos"); revalidatePath("/admin/suporte"); revalidatePath("/admin/denuncias"); revalidatePath("/admin");
+  redirect(decision === "IN_REVIEW" ? `/admin/casos/relato/${reportId}?ok=analise` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
+}

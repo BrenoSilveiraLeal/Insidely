@@ -1,3 +1,3 @@
-import { DashboardSkeleton } from "@/components/route-skeletons";
+import { SharedDashboardSkeleton } from "@/components/route-skeletons";
 
-export default function Loading() { return <DashboardSkeleton mode="user" />; }
+export default function Loading() { return <SharedDashboardSkeleton />; }

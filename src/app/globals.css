@@ -192,7 +192,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .side-nav-label { padding: 10px 14px 2px; color: #7f887f; font: 700 .66rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
 .side-nav-secondary { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
 .side-nav-footer { display: grid; gap: 6px; margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
-.side-nav-profile { color: var(--paper) !important; border: 1px solid rgba(255,255,255,.22); }
+
 .side-nav-footer form { margin-top: 6px; }
 .dash-main { min-width: 0; padding: 38px clamp(24px, 5vw, 70px) 80px; }
 .dash-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 48px; }
@@ -907,7 +907,9 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .message-system .message-system-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 
 /* Consultant booking card: who and when, what the customer wants, main actions, the rest folded. */
-.booking-card { display: grid; gap: 16px; align-content: start; align-self: start; }
+.booking-card { display: flex; flex-direction: column; gap: 16px; }
+.booking-card > * { margin-top: 0; margin-bottom: 0; }
+.booking-card > .button, .booking-card > a, .booking-card > form { align-self: flex-start; }
 .booking-card-more[open] { animation: booking-more-in .18s ease-out; }
 @keyframes booking-more-in { from { opacity: .4; } to { opacity: 1; } }
 .booking-card-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
@@ -932,7 +934,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .booking-card-actions:empty { display: none; }
 .booking-card-actions .conversation-link { margin-top: 0; }
 .booking-card-actions form { margin: 0; }
-.booking-card-more { border-top: 1px solid var(--line); padding-top: 12px; }
+.booking-card-more { margin-top: auto !important; border-top: 1px solid var(--line); padding-top: 12px; }
 .booking-card-more > summary { cursor: pointer; font-weight: 800; font-size: .9rem; color: var(--muted); list-style: none; }
 .booking-card-more > summary::-webkit-details-marker { display: none; }
 .booking-card-more > summary::after { content: " ▾"; }
@@ -1213,3 +1215,22 @@ html { scroll-padding-top: 120px; }
 .flash-message { margin: 0 0 18px; transition: opacity .4s, transform .4s; animation: flash-in .3s ease both; }
 .flash-message.is-leaving { opacity: 0; transform: translateY(-6px); }
 @keyframes flash-in { from { opacity: 0; transform: translateY(-6px); } }
+.case-detail, .case-answer { display: grid; gap: 16px; margin-bottom: 20px; }
+.case-detail-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
+.case-detail-head h2 { margin: 10px 0 0; }
+.case-detail-head small { text-align: right; line-height: 1.5; }
+.case-quote { margin: 0; padding: 16px 18px; border-left: 3px solid var(--mineral); border-radius: 0 14px 14px 0; background: var(--paper-2); font-size: 1.02rem; line-height: 1.6; }
+.case-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.case-fact { display: grid; gap: 3px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; }
+.case-fact > span { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.case-resolution { padding: 14px 16px; border-radius: 14px; background: rgba(126,207,196,.22); }
+.case-resolution p { margin: 6px 0; }
+/* Cards in a row share one height; the price/rating footer sits at the bottom of each. */
+.favorite-profile-item { display: flex; flex-direction: column; }
+.favorite-profile-item > .card { flex: 1; }
+.grid > .card, .favorite-profile-item > .card { display: flex; flex-direction: column; }
+.grid > .card > .card-body, .favorite-profile-item > .card > .card-body { flex: 1; display: flex; flex-direction: column; }
+/* Notices a page shows above its content: room below them, and they fade out (see AutoDismissNotices). */
+.dash-main > .form-feedback, .dash-main > .success-box, .dash-main > .form-success, .dash-main > .form-error { margin: 0 0 22px; animation: flash-in .3s ease both; }
+.dash-main > .consultas-feedback { margin-bottom: 22px; }
+.notice-leaving { opacity: 0 !important; transform: translateY(-6px); transition: opacity .4s, transform .4s; }

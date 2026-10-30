@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
         const removed = await removeSlotsBusyInGoogle(existingUser.id, exchange.session.provider_token);
         return NextResponse.redirect(new URL(`/consultor/agenda?sync=ok&removidos=${removed}`, request.url));
       } catch (syncError) {
-        return NextResponse.redirect(new URL(`/consultor/agenda?sync=${syncError instanceof Error && syncError.message === "calendar_permission_missing" ? "permission-error" : "error"}`, request.url));
+        const reason = syncError instanceof Error ? syncError.message : "";
+        return NextResponse.redirect(new URL(`/consultor/agenda?sync=${reason === "calendar_permission_missing" ? "permission-error" : reason === "calendar_api_disabled" ? "api-disabled" : "error"}`, request.url));
       }
     }
     if (calendarFlow) {

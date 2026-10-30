@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions";
 import { DashboardNavToggle } from "@/components/dashboard-nav-toggle";
+import { RememberDashboardMode } from "@/components/dashboard-mode";
+import { AutoDismissNotices } from "@/components/auto-dismiss-notices";
+import { Suspense } from "react";
 import { NotificationPopover } from "@/components/notification-popover";
 import { AdminNotifications } from "@/components/admin-notifications";
 
@@ -14,7 +17,7 @@ type Notification = { id: string; title: string; body: string; href: string | nu
 
 export function DashboardShell({ mode, title, children, profileId, notifications = [], canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notifications?: Notification[]; canClient?: boolean; canConsultant?: boolean }) {
   const profileHref = profileId ? `/profissional/${profileId}` : "/profissional/me";
-  return <main className="dash"><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle><nav className={`side-nav side-nav-${mode}`}>
+  return <main className="dash"><RememberDashboardMode mode={mode}/><Suspense fallback={null}><AutoDismissNotices/></Suspense><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
       <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
       <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span>{menus.consultant.slice(4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>

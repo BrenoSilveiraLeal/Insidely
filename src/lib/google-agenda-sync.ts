@@ -22,8 +22,16 @@ export async function removeSlotsBusyInGoogle(userId: string, accessToken: strin
     body: JSON.stringify({ timeMin: now.toISOString(), timeMax: until.toISOString(), items: [{ id: "primary" }] }),
     cache: "no-store",
   });
-  if (response.status === 401 || response.status === 403) throw new Error("calendar_permission_missing");
-  if (!response.ok) throw new Error(`Google freeBusy failed: ${response.status}`);
+  if (!response.ok) {
+    // Keep Google's own reason (shown on /admin/status): "API not enabled" needs a fix in Google
+    // Cloud, a missing scope only needs the consultant to tick the permission box.
+    const body = (await response.text().catch(() => "")).slice(0, 400);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (createSupabaseServiceClient() as any).from("ErrorEvent").insert({ path: "/auth/google-agenda", routeType: "google-freebusy", message: `freeBusy ${response.status}: ${body}` });
+    if (/accessNotConfigured|SERVICE_DISABLED|has not been used|is disabled/i.test(body)) throw new Error("calendar_api_disabled");
+    if (response.status === 401 || response.status === 403) throw new Error("calendar_permission_missing");
+    throw new Error(`Google freeBusy failed: ${response.status}`);
+  }
   const payload = await response.json() as { calendars?: { primary?: { busy?: { start: string; end: string }[] } } };
   const busy = (payload.calendars?.primary?.busy ?? []).map((range) => ({ start: new Date(range.start).getTime(), end: new Date(range.end).getTime() }));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

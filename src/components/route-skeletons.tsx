@@ -1,5 +1,7 @@
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PublicShell } from "@/components/public-shell";
+import { Suspense } from "react";
+import { SkeletonForMode } from "@/components/dashboard-mode";
 
 function Block({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
@@ -14,6 +16,12 @@ export function DashboardSkeleton({ mode }: { mode: "user" | "consultant" | "adm
       <Block className="skeleton-row" /><Block className="skeleton-row" /><Block className="skeleton-row" />
     </div>
   </DashboardShell>;
+}
+
+/** Loading for pages a consultant also opens: keeps whichever menu (client or consultant) is in use. */
+export function SharedDashboardSkeleton({ useContext = false }: { useContext?: boolean }) {
+  const user = <DashboardSkeleton mode="user" />;
+  return <Suspense fallback={user}><SkeletonForMode useContext={useContext} user={user} consultant={<DashboardSkeleton mode="consultant" />} /></Suspense>;
 }
 
 /** Public page loading: same header and dark hero as the pages, with placeholders where content lands. */
