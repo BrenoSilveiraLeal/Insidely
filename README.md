@@ -136,3 +136,11 @@ Aplique as novas migrations em ordem antes de usar o painel. Não use uma conta 
 O projeto continha duas migrations locais com a versão 20260826070000. A lista remota consultada não contém essa versão; por isso, a migration de fixture E2E foi renumerada para 20260826070001.
 
 O histórico remoto não registra várias migrations antigas aplicadas por outros meios, então `supabase db push` tentaria reaplicá-las. Para aplicar uma migration nova isoladamente: `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql` seguido de `npx supabase migration repair --status applied <versão> --linked`.
+
+## Operação e monitoramento
+
+- **Status:** `/admin/status` mostra banco, Google Meet, e-mail, tarefas automáticas e os erros do servidor dos últimos 7 dias (capturados por `src/instrumentation.ts`). Falha de tarefa ou do Meet gera aviso no sino e por e-mail aos admins (no máximo 1 a cada 6 horas por problema).
+- **Dependências:** o Dependabot abre pull requests semanais com atualizações.
+- **Site fora do ar (UptimeRobot, gratuito):** crie um monitor HTTP(s) para `https://insidely.vercel.app/api/health` a cada 5 minutos com alerta por e-mail.
+- **Notificações no celular (web push):** gere as chaves com `npx web-push generate-vapid-keys` e cadastre na Vercel `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` (Production), depois faça redeploy. Sem elas, a opção não aparece em Minha conta.
+- **Testes:** `npm test` (unitários, inclui o contraste das cores do site) e `npx playwright test e2e/public-pages.spec.ts` (páginas públicas com verificação de acessibilidade axe).
