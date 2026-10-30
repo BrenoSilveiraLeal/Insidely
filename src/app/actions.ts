@@ -463,6 +463,8 @@ export async function createBookingAction(profileId: string, _previousState: For
     if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
     if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
     if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
+    if (message.includes("blocked")) return { status: "error", message: "Não é possível agendar com este consultor." };
+    if (message.includes("account_suspended")) return { status: "error", message: "Este agendamento não está disponível no momento." };
     if (message.includes("consultant_identity_required")) return { status: "error", message: "Este consultor ainda não concluiu o cadastro e não pode receber agendamentos no momento." };
     if (message.includes("identity_required")) return { status: "error", message: "Antes de agendar, registre seu CPF e sua data de nascimento. Recarregue a página para ver o formulário." };
     return { status: "error", message: "Não foi possível criar a solicitação agora. Seus dados continuam no formulário; tente novamente." };
@@ -971,4 +973,42 @@ export async function acceptTermsAction(formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
   redirect(safeInternalPath(String(formData.get("next") || ""), "/continuar"));
+}
+
+// Graduated enforcement: warnings are recorded first; the admin page suggests suspension next.
+export async function warnUserAction(userId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const reason = String(formData.get("reason") || "").trim().slice(0, 500);
+  if (reason.length < 10) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Descreva o motivo da advertência com pelo menos 10 caracteres.")}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  await supabase.from("AccountWarning").insert({ userId, adminUserId: admin.id, reason });
+  const now = new Date().toISOString();
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Advertência na sua conta", body: `${reason} Novas ocorrências podem levar à suspensão da conta.`, href: "/termos", createdAt: now });
+  const { data: warned } = await supabase.from("User").select("email, name").eq("id", userId).maybeSingle();
+  if (warned?.email) await sendSecurityEmail(warned.email, warned.name, "warning", { reason }).catch((error) => console.error("warning_email_failed", { error }));
+  revalidatePath(`/admin/usuarios/${userId}`);
+  redirect(`/admin/usuarios/${userId}?ok=advertida`);
+}
+
+// Either participant of a conversation can block the other: no new bookings between them.
+export async function blockUserAction(bookingId: string, formData: FormData) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const parties = await bookingParticipants(supabase, bookingId);
+  if (!parties || ![parties.customerId, parties.consultantId].includes(user.id) || parties.customerId === parties.consultantId) redirect(returnTo);
+  const blockedId = user.id === parties.customerId ? parties.consultantId : parties.customerId;
+  await supabase.from("UserBlock").upsert({ blockerId: user.id, blockedId }, { onConflict: "blockerId,blockedId", ignoreDuplicates: true });
+  revalidatePath("/dashboard/configuracoes");
+  redirect(`${returnTo}?bloqueio=ok`);
+}
+
+export async function unblockUserAction(blockedId: string) {
+  const user = await requireUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("UserBlock").delete().eq("blockerId", user.id).eq("blockedId", blockedId);
+  revalidatePath("/dashboard/configuracoes");
+  redirect("/dashboard/configuracoes?bloqueio=removido");
 }

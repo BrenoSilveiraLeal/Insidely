@@ -2,6 +2,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { releaseBookingTransfer } from "@/lib/stripe-payments";
 import { parseDbDate } from "@/lib/format";
 import { applyRetention } from "@/lib/retention";
+import { flagSuspiciousAccounts } from "@/lib/suspicious";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,9 @@ export async function GET(request: Request) {
       }
       } catch (bookingError) { console.error("booking_release_failed", { bookingId: booking.id, error: bookingError }); }
     }
+    const suspicious = await flagSuspiciousAccounts(supabase).catch((flagError) => { console.error("suspicious_scan_failed", { error: flagError }); return null; });
     const retention = await applyRetention(supabase).catch((retentionError) => { console.error("retention_failed", { error: retentionError }); return null; });
-    return Response.json({ ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention });
+    return Response.json({ ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "release_failed" }, { status: 500 });
   }

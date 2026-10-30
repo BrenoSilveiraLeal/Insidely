@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { rateCustomerAction, reportConversationAction } from "@/app/actions";
+import { blockUserAction, rateCustomerAction, reportConversationAction } from "@/app/actions";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 
 // "Denunciar" inside a conversation, for either participant. Goes to the admin reports queue with
@@ -41,4 +41,16 @@ export function CustomerFeedbackForm({ bookingId, customerName }: { bookingId: s
 
 export function customerFeedbackText(code: string) {
   return code === "ok" ? "Avaliação do cliente registrada." : code === "ofensiva" ? "O comentário tem palavrões, abreviações ofensivas ou ofensas. Reescreva para enviar." : code === "contato" ? "O comentário parece ter telefone, e-mail, link ou rede social. Reescreva sem dados de contato." : code === "repetida" ? "Você já avaliou este cliente nesta conversa." : "Não foi possível registrar a avaliação.";
+}
+
+// Blocking: neither person can book a conversation with the other afterwards (undo in Minha conta).
+export function BlockUserForm({ bookingId, otherName, returnTo }: { bookingId: string; otherName: string; returnTo: string }) {
+  return <details className="cancel-booking-details conversation-report">
+    <summary><span>Bloquear {otherName}</span></summary>
+    <form action={blockUserAction.bind(null, bookingId)} className="form-stack">
+      <input type="hidden" name="returnTo" value={returnTo}/>
+      <p className="muted">Depois de bloquear, vocês não conseguem mais agendar conversas um com o outro. As conversas já marcadas continuam valendo; para cancelar, use o cartão da conversa. Você pode desbloquear em Minha conta.</p>
+      <button className="button button-danger button-sm" type="submit">Confirmar bloqueio</button>
+    </form>
+  </details>;
 }

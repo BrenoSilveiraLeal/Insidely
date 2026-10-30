@@ -5,6 +5,7 @@ import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, Shie
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
+import { getIdentityVerifiedProfileIds, getProfileSignals } from "@/lib/profile-signals";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
 import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
@@ -47,12 +48,14 @@ export default async function ProfessionalPage({ params, searchParams }: { param
       ? { label: "Verificação em análise", detail: "Esta pessoa enviou um comprovante, que ainda está em análise. Até a conclusão, a Insidely não confirma que ela trabalha ou trabalhou na empresa indicada." }
       : { label: "Perfil não verificado", detail: "Esta pessoa não comprovou à Insidely que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de agendar." };
   const isNew = await isNewProfile(profile.id);
+  const [verifiedIdentities, signals] = await Promise.all([getIdentityVerifiedProfileIds(), getProfileSignals(profile.id)]);
+  const identityVerified = verifiedIdentities.has(profile.id);
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
       <div className="container">
         <div className={`avatar${photo ? " avatar-photo" : ""}`} style={{ width: 120, fontSize: "2.4rem", ...(photo ? { backgroundImage: `url(${photo})` } : {}) }}>{photo ? null : initials(name)}</div>
-        <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" && <ShieldCheck size={13}/>} {verification.label}</span>{isNew && <span className="badge badge-new">Novo na Insidely</span>}<span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
+        <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" && <ShieldCheck size={13}/>} {verification.label}</span>{isNew && <span className="badge badge-new">Novo na Insidely</span>}{identityVerified && <span className="badge"><ShieldCheck size={13}/> Identidade verificada</span>}{signals.fastResponder && <span className="badge">Responde rápido</span>}<span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
         <p className="verification-disclosure" role="note">{verification.detail}</p>
         <h1 className="profile-title">{name}</h1>
         <p className="section-copy">{profile.headline}</p>
@@ -79,7 +82,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         <aside className="booking-box">
           <span className="eyebrow">Conversa individual</span>
           <h2>{money(profile.price30Cents)} <small>/ 30 min</small></h2>
-          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Sem avaliações"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>em até {profile.responseHours}h</strong></li><li><span><CalendarDays size={15}/> Próximo horário</span><strong>{availability[0] ? shortDate(availability[0].startsAt) : "A definir"}</strong></li></ul>
+          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Sem avaliações"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>{signals.medianResponseHours !== null ? `costuma responder em ${signals.medianResponseHours < 1 ? "menos de 1h" : `${Math.round(signals.medianResponseHours)}h`}` : `em até ${profile.responseHours}h`}</strong></li>{signals.attendanceRate !== null && <li><span><CalendarDays size={15}/> Comparecimento</span><strong>{signals.attendanceRate}% das conversas</strong></li>}<li><span><CalendarDays size={15}/> Próximo horário</span><strong>{availability[0] ? shortDate(availability[0].startsAt) : "A definir"}</strong></li></ul>
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>

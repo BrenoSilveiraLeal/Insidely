@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { liftSuspensionAction, revealIdentityAction, suspendUserAction } from "@/app/actions";
+import { liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -28,7 +28,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const supabase = createSupabaseServiceClient() as any;
   const { data: user } = await supabase.from("User").select("id, name, email, role, createdAt, auth_user_id, suspendedAt, suspendedUntil, suspensionReason").eq("id", id).maybeSingle();
   if (!user) notFound();
-  const [identity, audits, reactivations, moderation, reportsAgainst, feedback, bookings, reveal] = await Promise.all([
+  const [identity, audits, reactivations, moderation, reportsAgainst, feedback, bookings, warnings, reveal] = await Promise.all([
     supabase.from("CustomerIdentity").select("cpf, birthDate, createdAt").eq("userId", id).maybeSingle(),
     supabase.from("IdentityAccessAudit").select("id, adminUserId, reason, createdAt").eq("targetUserId", id).order("createdAt", { ascending: false }).limit(20),
     supabase.from("AccountReactivationAudit").select("createdAt").eq("userId", id),
@@ -36,6 +36,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     supabase.from("Report").select("id, category, description, status, createdAt").eq("targetUserId", id).order("createdAt", { ascending: false }).limit(10),
     supabase.from("CustomerFeedback").select("rating, comment, createdAt").eq("customerId", id).order("createdAt", { ascending: false }),
     supabase.from("Booking").select("id", { count: "exact", head: true }).eq("customerId", id),
+    supabase.from("AccountWarning").select("id, reason, createdAt").eq("userId", id).order("createdAt", { ascending: false }),
     // The full CPF shows only for the access this admin just recorded, for 10 minutes.
     query.acesso
       ? supabase.from("IdentityAccessAudit").select("id").eq("id", query.acesso).eq("adminUserId", admin.id).eq("targetUserId", id).gte("createdAt", revealWindowStart()).maybeSingle()
@@ -51,9 +52,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const moderationRows = (moderation.data ?? []) as ModerationRow[];
   const reportRows = (reportsAgainst.data ?? []) as ReportRow[];
   const reactivationCount = reactivations.data?.length ?? 0;
+  const warningRows = (warnings.data ?? []) as { id: string; reason: string; createdAt: string }[];
 
   return <DashboardShell mode="admin" title={user.name}>
-    {query.ok && <p className="form-feedback" role="status">{query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
+    {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     {Number(query.falhas) > 0 && <p className="form-error" role="alert">{query.falhas} conversa(s) não puderam ser canceladas automaticamente. Cancele pela lista de consultas do consultor ou contate o suporte de pagamentos.</p>}
     <div className="profile-management-stack">
@@ -63,6 +65,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <p className="muted">{user.email}</p>
         <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
         <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
+      </section>
+
+      <section className="panel form-stack">
+        <span className="eyebrow">Advertências · {warningRows.length}</span>
+        <p className="muted">Próximo passo sugerido: <strong>{suspended ? "aguardar o fim da suspensão" : warningRows.length === 0 ? "advertência" : warningRows.length === 1 ? "suspensão de 7 dias" : warningRows.length === 2 ? "suspensão de 30 dias" : "banimento"}</strong>, conforme o histórico desta conta.</p>
+        {warningRows.length > 0 && <div className="list">{warningRows.map((item) => <div className="list-row" key={item.id}><p>{item.reason}</p><span className="muted">{when(item.createdAt)}</span></div>)}</div>}
+        {user.role !== Role.ADMIN && <form action={warnUserAction.bind(null, user.id)} className="form-stack"><label className="field"><span>Nova advertência (a pessoa recebe por e-mail e notificação)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label><button className="button button-ghost button-sm" type="submit">Registrar advertência</button></form>}
       </section>
 
       <section className="panel form-stack">
