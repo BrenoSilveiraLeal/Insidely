@@ -1467,3 +1467,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .support-reply-label { font-weight: 800; }
 .support-reply.is-folded { display: none; }
 .support-reply.is-folded:target { display: grid; animation: flash-in .3s ease both; }
+/* Status page: problems in plain words, technical text folded. */
+.error-row { align-items: flex-start; }
+.error-row p { margin: 4px 0 0; }
+.error-fix { font-size: .88rem; }
+.error-tech { margin-top: 8px; font-size: .78rem; color: var(--muted); }
+.error-tech summary { cursor: pointer; font-weight: 700; }
+.error-tech code { display: block; margin-top: 6px; padding: 10px; border-radius: 10px; background: var(--paper-2); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .74rem; }
+.error-when { flex: none; color: var(--muted); font-size: .8rem; font-weight: 700; text-align: right; }

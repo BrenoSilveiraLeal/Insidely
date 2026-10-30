@@ -4,6 +4,7 @@ import { appEmailConfigured, smtpConfigured } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { checkGoogleMeet } from "@/lib/google-meet";
 import { imageModerationConfigured } from "@/lib/image-moderation";
+import { explainError } from "@/lib/error-text";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -66,6 +67,14 @@ export default async function Page() {
     const late = minutes > maxMinutes;
     return { name: label, ok: last.ok && !late, message: `${last.ok ? "Última execução bem-sucedida" : "Última execução FALHOU"} há ${minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} h`}${late ? " — está atrasada" : ""}.` };
   };
+  // Same problem many times is one line, explained in plain words (lib/error-text.ts).
+  const errorGroups = [...((errors ?? []) as { path: string; routeType: string; message: string; createdAt: string }[]).reduce((groups, row) => {
+    const text = explainError(row);
+    const key = `${text.area}|${text.what}`;
+    const group = groups.get(key);
+    if (group) group.count++; else groups.set(key, { key, text, message: row.message ?? "", last: row.createdAt, count: 1 });
+    return groups;
+  }, new Map<string, { key: string; text: ReturnType<typeof explainError>; message: string; last: string; count: number }>()).values()];
   const checks: Check[] = [
     { name: "Banco de dados", ok: !dbError, message: dbError ? `Erro: ${dbError.message}` : `Respondendo (${dbMs} ms).` },
     { name: "Google Meet", ok: meet.ok, message: meet.message + (fallbackRooms ? ` ${fallbackRooms} sala(s) usaram o Jitsi nos últimos 7 dias.` : "") },
@@ -76,7 +85,10 @@ export default async function Page() {
   ];
   return <DashboardShell mode="admin" title="Status do sistema">
     <div className="list">{checks.map((check) => <div className="list-row" key={check.name}><div><strong>{check.ok ? "🟢" : "🔴"} {check.name}</strong><p className="muted">{check.message}</p></div><span className="status">{check.ok ? "OK" : "Atenção"}</span></div>)}</div>
-    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Erros no servidor · últimos 7 dias</span><div className="table-wrap"><table><thead><tr><th>Quando</th><th>Página</th><th>Erro</th></tr></thead><tbody>{((errors ?? []) as { path: string; routeType: string; message: string; createdAt: string }[]).map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.path}</td><td className="muted">{(row.message ?? "").slice(0, 160)}</td></tr>)}</tbody></table>{!errors?.length && <p className="muted">Nenhum erro registrado.</p>}</div></section>
+    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Problemas registrados · últimos 7 dias</span><div className="list error-list">{errorGroups.map((group) => <div className="list-row error-row" key={group.key}>
+      <div><strong>{group.text.area}</strong><p>{group.text.what}</p>{group.text.fix && <p className="muted error-fix">O que fazer: {group.text.fix}</p>}<details className="error-tech"><summary>Detalhes técnicos</summary><code>{group.message.slice(0, 400)}</code></details></div>
+      <span className="error-when">{group.count > 1 ? `${group.count} vezes · ` : ""}última {shortDate(parseDbDate(group.last))}</span>
+    </div>)}{!errorGroups.length && <div className="panel"><p className="muted">Nenhum problema registrado nos últimos 7 dias.</p></div>}</div></section>
     <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Tarefas automáticas · o que fizeram</span><p className="muted">O sistema roda sozinho uma tarefa a cada 5 minutos e outra uma vez por dia. Aqui aparecem só as execuções que fizeram algo ou falharam.</p><div className="table-wrap"><table><thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th></tr></thead><tbody>{notableRuns.map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.job === "daily" ? "Diária" : "A cada 5 min"}</td><td className={row.ok ? undefined : "form-error"}>{row.ok ? "" : "Falhou: "}{describeRun(row.detail) || "Nada pendente."}</td></tr>)}</tbody></table>{!notableRuns.length && <p className="muted">Nenhuma ação nas últimas horas: tudo em dia.</p>}</div></section>
   </DashboardShell>;
 }
