@@ -1,6 +1,7 @@
 import { BookingStatus, PaymentStatus, Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { money, shortDate } from "@/lib/format";
+import Link from "next/link";
+import { bookingCountdown, dateTimeInBrazil, money, shortDate } from "@/lib/format";
 import { meetingRoomState } from "@/lib/booking-policy";
 import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
@@ -21,10 +22,43 @@ export default async function ConsultantDashboard() {
   const performance = await getConsultantPerformance(profile.id);
   const notifications = profile.notifications.map(({ id, title, body, href, readAt }) => ({ id, title, body, href, readAt: readAt?.toISOString() ?? null }));
 
+  const next = [...upcoming].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
+  const later = upcoming.filter((booking) => booking !== next).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+
   return <DashboardShell mode="consultant" title={`Olá, ${profile.user.name.split(" ")[0]}.`} notifications={notifications}><WelcomeTour kind="consultant"/>
-    <div className="grid grid-4"><div className="metric"><span>Visualizações</span><strong>{profile.profileViews.length}</strong></div><div className="metric"><span>Favoritos</span><strong>{profile.favorites.length}</strong></div><div className="metric"><span>Conversas</span><strong>{profile.bookings.length}</strong></div><div className="metric"><span>Repasse liberado</span><strong>{money(revenue)}</strong><small className="muted">Retido: {money(held)}</small></div></div>
-    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Desempenho · últimos 30 dias</span><div className="grid grid-4" style={{ marginTop: 14 }}><div className="metric"><span>Visitas ao perfil</span><strong>{performance.views}</strong></div><div className="metric"><span>Conversas agendadas</span><strong>{performance.booked}</strong></div><div className="metric"><span>Conversão</span><strong>{performance.conversion === null ? "—" : `${String(performance.conversion).replace(".", ",")}%`}</strong></div><div className="metric"><span>Nota média</span><strong>{performance.rating === null ? "—" : `★ ${performance.rating.toFixed(1)}`}</strong></div></div><p className="muted" style={{ marginTop: 10 }}>Você recebeu {money(performance.earnings)} em conversas agendadas nos últimos 30 dias. <a className="text-link" href="/api/ganhos">Baixar planilha de ganhos</a></p></section>
-    <section className="section" style={{ paddingBottom: 0 }}><div className="section-head"><div><span className="eyebrow">Solicitações recebidas</span><h2>{requests.length ? `${requests.length} pedido${requests.length === 1 ? "" : "s"} aguardando atenção` : "Nenhuma solicitação nova"}</h2></div><a className="button button-ghost button-sm" href="/consultor/consultas">Ver consultas</a></div><div className="list" style={{ marginTop: 20 }}>{requests.slice(0, 5).map((booking) => <div className="list-row" key={booking.id}><div><strong>{booking.customer.name}</strong><p>{shortDate(booking.startsAt)} · {booking.durationMinutes} min · {booking.payment?.status === "PAYMENT_REPORTED" ? "Pagamento informado" : "Aguardando pagamento"}</p></div><span className="status">NOVA</span></div>)}{!requests.length && <p className="muted">Quando alguém escolher um horário do seu perfil, o pedido aparecerá aqui.</p>}</div></section>
-    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Próximas consultas</span><div className="list" style={{ marginTop: 20 }}>{!upcoming.length && <p className="muted">Nenhuma consulta agendada.</p>}{upcoming.map((booking) => <div className="list-row" key={booking.id}><div><strong>{booking.customer.name}</strong><p>{shortDate(booking.startsAt)} · {booking.topics.join(", ")}</p></div><span className="status">VALOR RETIDO</span></div>)}</div></section>
+    <div className="consultant-home">
+      {next ? <section className="panel next-conversation">
+        <div><span className="eyebrow">Próxima conversa · {bookingCountdown(next.startsAt)}</span><h2>{next.customer.name}</h2><p className="muted">{dateTimeInBrazil(next.startsAt)} · {next.durationMinutes} min</p>{next.goals && <p className="next-conversation-goal">“{next.goals.length > 180 ? `${next.goals.slice(0, 180)}…` : next.goals}”</p>}</div>
+        <div className="next-conversation-actions"><Link className="button button-dark" href={`/conversa/${next.id}`}>Abrir conversa</Link><Link className="button button-ghost" href="/consultor/consultas">Todas as consultas</Link></div>
+      </section> : <section className="panel next-conversation is-empty">
+        <div><span className="eyebrow">Próxima conversa</span><h2>Nenhuma conversa marcada</h2><p className="muted">Abra horários na agenda para aparecer com disponibilidade na busca.</p></div>
+        <div className="next-conversation-actions"><Link className="button button-dark" href="/consultor/agenda">Abrir horários</Link></div>
+      </section>}
+
+      <section><div className="consultant-home-head"><span className="eyebrow">Últimos 30 dias</span><a className="text-link" href="/api/ganhos">Baixar planilha de ganhos</a></div>
+        <div className="grid grid-4 consultant-metrics">
+          <div className="metric"><span>Visitas ao perfil</span><strong>{performance.views}</strong><small className="muted">{profile.profileViews.length} no total</small></div>
+          <div className="metric"><span>Conversas agendadas</span><strong>{performance.booked}</strong><small className="muted">{profile.favorites.length} {profile.favorites.length === 1 ? "pessoa salvou" : "pessoas salvaram"} seu perfil</small></div>
+          <div className="metric"><span>Conversão</span><strong>{performance.conversion === null ? "—" : `${String(performance.conversion).replace(".", ",")}%`}</strong><small className="muted">visitas que viraram conversa</small></div>
+          <div className="metric"><span>Nota média</span><strong>{performance.rating === null ? "—" : `★ ${performance.rating.toFixed(1)}`}</strong><small className="muted">{performance.rating === null ? "ainda sem avaliações" : "nas avaliações recebidas"}</small></div>
+        </div>
+      </section>
+
+      <div className="consultant-home-columns">
+        <section className="panel consultant-home-card">
+          <div className="consultant-home-head"><span className="eyebrow">Agenda</span><Link className="text-link" href="/consultor/consultas">Ver tudo</Link></div>
+          {requests.length > 0 && <div className="consultant-home-group"><strong>Aguardando pagamento</strong>{requests.slice(0, 3).map((booking) => <Link className="consultant-home-row" href="/consultor/consultas" key={booking.id}><span>{booking.customer.name}</span><small className="muted">{shortDate(booking.startsAt)} · {booking.payment?.status === "PAYMENT_REPORTED" ? "pagamento informado" : "aguardando"}</small></Link>)}</div>}
+          <div className="consultant-home-group"><strong>Depois da próxima</strong>{later.slice(0, 4).map((booking) => <Link className="consultant-home-row" href={`/conversa/${booking.id}`} key={booking.id}><span>{booking.customer.name}</span><small className="muted">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</small></Link>)}{!later.length && <p className="muted">Nenhuma outra conversa marcada.</p>}</div>
+        </section>
+        <section className="panel consultant-home-card">
+          <div className="consultant-home-head"><span className="eyebrow">Ganhos</span><Link className="text-link" href="/consultor/ganhos">Detalhes</Link></div>
+          <div className="earnings-split">
+            <div><span className="muted">Liberado</span><strong>{money(revenue)}</strong></div>
+            <div><span className="muted">Retido até a conversa</span><strong>{money(held)}</strong></div>
+          </div>
+          <p className="muted">Nos últimos 30 dias, {money(performance.earnings)} em conversas agendadas. O valor retido é liberado depois que a conversa acontece.</p>
+        </section>
+      </div>
+    </div>
   </DashboardShell>;
 }

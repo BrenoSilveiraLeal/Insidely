@@ -1264,3 +1264,27 @@ html { scroll-padding-top: 120px; }
 .chat-closed > span::before, .chat-closed > span::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .chat-closed p { margin: 0; color: var(--muted); font-size: .85rem; }
 .blocked-empty { margin: 0; padding: 16px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); text-align: center; font-size: .9rem; }
+/* Consultant overview: next conversation first, then the month's numbers, then agenda and earnings. */
+.consultant-home { display: grid; gap: 26px; }
+.consultant-home-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.consultant-home-card .consultant-home-head { margin-bottom: 4px; }
+.next-conversation { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: center; justify-content: space-between; border-left: 4px solid var(--mineral); }
+.next-conversation h2 { margin: 8px 0 4px; }
+.next-conversation p { margin: 0; }
+.next-conversation-goal { margin-top: 10px !important; max-width: 640px; color: var(--ink); font-style: italic; }
+.next-conversation-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.next-conversation.is-empty { border-left-color: var(--line); }
+.consultant-metrics .metric small { margin-top: 8px; font-size: .78rem; }
+.consultant-home-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.consultant-home-card { display: grid; gap: 14px; align-content: start; }
+.consultant-home-group { display: grid; gap: 6px; }
+.consultant-home-group > strong { font-size: .82rem; }
+.consultant-home-group p { margin: 0; }
+.consultant-home-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font-weight: 700; text-decoration: none; transition: border-color .2s, background .2s; }
+.consultant-home-row:hover { border-color: var(--mineral); background: var(--paper); }
+.earnings-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.earnings-split > div { display: grid; gap: 6px; padding: 14px; border-radius: 14px; background: var(--paper); }
+.earnings-split span { font-size: .8rem; }
+.earnings-split strong { font: 800 1.5rem/1 var(--display); letter-spacing: -.04em; }
+.consultant-home-card > p { margin: 0; font-size: .88rem; }
+@media (max-width: 760px) { .consultant-home-columns { grid-template-columns: 1fr; } .next-conversation { border-left-width: 3px; } }
