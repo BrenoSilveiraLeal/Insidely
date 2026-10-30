@@ -5,7 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, updateConsultantRecordingConsentAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { MeetingRoomMessage } from "@/components/meeting-room-message";
+import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
 import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } from "@/lib/format";
@@ -42,24 +42,51 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
     {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar esta conversa. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
-    {bookings.items.map(booking => <article className="panel" key={booking.id}>
-      <span className="eyebrow">{bookingStatusLabel(booking.status)} · {shortDate(booking.startsAt)}</span><h2>{booking.customer.name}</h2><p>{booking.goals}</p>
-      {customers.has(booking.id) && <CustomerInfo info={customers.get(booking.id) ?? null}/>}
-      {booking.status === "PENDING_PAYMENT" && <div className="meeting-policy compact"><strong>Pedido ainda não pago</strong><p>A conversa e as mensagens serão liberadas após a confirmação do pagamento.</p></div>}
-      {booking.status === "PENDING_PAYMENT" && <p className="muted">Aguardando pagamento até {shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes))}.</p>}
-      {booking.status === "EXPIRED" && <p className="muted">Pagamento não concluído a tempo. O horário foi liberado; este registro permanece no histórico.</p>}
-      {booking.status === "CONFIRMED" && booking.startsAt <= new Date() && <form action={completeBookingAction.bind(null, booking.id)}><button className="button button-dark button-sm">Informar fim da conversa</button></form>}
-      {booking.status === "AWAITING_CONFIRMATION" && <div className="meeting-policy compact"><strong>Confirmação dupla</strong><p>{booking.consultantConfirmedAt ? "Você confirmou. Aguardando a outra pessoa ou o prazo automático." : "Confirme que a conversa aconteceu para agilizar a liberação."}</p>{!booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent button-sm">Confirmar conversa realizada</button></form>}<form className="form-stack" style={{ marginTop: 12 }} action={disputeBookingAction.bind(null, booking.id)}><input type="hidden" name="returnTo" value="/consultor/consultas"/><textarea className="textarea" name="description" aria-label="Descreva o problema" minLength={20} maxLength={2000} required placeholder="Houve algum problema? Explique para o suporte."/><button className="button button-ghost button-sm">Reportar problema</button></form></div>}
-      {booking.status === "DISPUTED" && <p className="form-error">O repasse está suspenso até a análise do suporte.</p>}
-      {(["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) && booking.startsAt > new Date()) && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Cancelar conversa</span></summary><div className="cancel-booking-confirmation"><h3>Precisa cancelar esta conversa?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo do cancelamento</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo do cancelamento."/></label><button className="button button-danger button-sm" type="submit">Confirmar cancelamento</button></form></div></details>}
-      {booking.status === "PENDING_PAYMENT" && <div className="meeting-policy compact"><strong>Sala da conversa</strong><p>A sala será preparada depois da confirmação do pagamento.</p></div>}
-      {booking.status === "CONFIRMED" && roomStates.get(booking.id) === "upcoming" && <p className="muted">{meetingRoomOpeningText(booking.startsAt)}</p>}
-      {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="consent-inline"><label><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o participante também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>}
-      <MeetingRoomMessage booking={booking} calendarSide="consultant" />
-      {customers.get(booking.id) !== undefined && !rated.has(booking.id) && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <CustomerFeedbackForm bookingId={booking.id} customerName={booking.customer.name}/>}
-      {["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status) && customers.has(booking.id) && <ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/>}
-      {booking.conversation && <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={(byConversation.get(booking.conversation.id) ?? []).length}/>}
-    </article>)}
+    {bookings.items.map(booking => {
+      const roomState = roomStates.get(booking.id);
+      const info = customers.get(booking.id);
+      const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
+      const upcoming = ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) && booking.startsAt > new Date();
+      return <article className="panel booking-card" key={booking.id}>
+        <header className="booking-card-head">
+          <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
+          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>
+        </header>
+        <div className="booking-card-person">
+          <h2>{booking.customer.name}</h2>
+          {info?.reputation ? <span className={`booking-reputation ${info.reputation.label === "Atenção" ? "reputation-bad" : ""}`}>★ {info.reputation.average.toFixed(1)} · {info.reputation.label}</span> : info ? <span className="booking-reputation booking-reputation-neutral">Cliente identificado</span> : null}
+        </div>
+        <blockquote className="booking-card-goals"><span>O que o cliente quer conversar</span><p>{booking.goals}</p></blockquote>
+
+        <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes))}. A conversa e a sala são liberadas depois da confirmação.`
+          : booking.status === "EXPIRED" ? "Pagamento não concluído a tempo. O horário foi liberado."
+          : booking.status === "DISPUTED" ? "Em análise pelo suporte. O repasse fica suspenso até a decisão."
+          : booking.status === "CONFIRMED" && roomState === "upcoming" ? meetingRoomOpeningText(booking.startsAt)
+          : booking.status === "CONFIRMED" && roomState === "open" ? "A sala está aberta agora."
+          : booking.status === "AWAITING_CONFIRMATION" ? (booking.consultantConfirmedAt ? "Você confirmou que a conversa aconteceu. Aguardando o cliente ou o prazo automático." : "Confirme que a conversa aconteceu para liberar o repasse.")
+          : null}</p>
+
+        <div className="booking-card-actions">
+          {booking.conversation && <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={(byConversation.get(booking.conversation.id) ?? []).length}/>}
+          {booking.status === "CONFIRMED" && roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na sala</a>}
+          {booking.status === "CONFIRMED" && booking.startsAt <= new Date() && <form action={completeBookingAction.bind(null, booking.id)}><button className="button button-ghost">Informar fim da conversa</button></form>}
+          {booking.status === "AWAITING_CONFIRMATION" && !booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent">Confirmar conversa realizada</button></form>}
+        </div>
+        {info !== undefined && !rated.has(booking.id) && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <CustomerFeedbackForm bookingId={booking.id} customerName={booking.customer.name}/>}
+
+        {booking.status !== "EXPIRED" && <details className="booking-card-more">
+          <summary>Mais opções</summary>
+          <div className="booking-card-more-body">
+            {customers.has(booking.id) && <CustomerInfo info={info ?? null}/>}
+            {paid && <div className="booking-card-option"><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely; abre o Google Meet só no horário marcado.</p><a className="text-link" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">insidely.vercel.app/sala/{booking.id.slice(0, 8)}…</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/consultor/consultas"/></div>}
+            {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="booking-card-option"><strong>Gravação</strong><label className="check-row"><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o cliente também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>}
+            {booking.status === "AWAITING_CONFIRMATION" && <form className="booking-card-option" action={disputeBookingAction.bind(null, booking.id)}><strong>Problema com o pagamento ou a conversa?</strong><input type="hidden" name="returnTo" value="/consultor/consultas"/><textarea className="textarea" name="description" aria-label="Descreva o problema" minLength={20} maxLength={2000} required placeholder="Explique para o suporte o que aconteceu."/><button className="button button-ghost button-sm">Abrir contestação</button></form>}
+            {paid && customers.has(booking.id) && <ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/>}
+            {upcoming && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Cancelar conversa</span></summary><div className="cancel-booking-confirmation"><h3>Precisa cancelar esta conversa?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo do cancelamento</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo do cancelamento."/></label><button className="button button-danger button-sm" type="submit">Confirmar cancelamento</button></form></div></details>}
+          </div>
+        </details>}
+      </article>;
+    })}
   </div>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
 }
 

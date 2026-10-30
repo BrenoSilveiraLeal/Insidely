@@ -905,3 +905,39 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .message-consultant-seen { justify-self: end; margin-right: 4px; }
 .message-customer-seen { justify-self: start; margin-left: 4px; }
 .message-system .message-system-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+
+/* Consultant booking card: who and when, what the customer wants, main actions, the rest folded. */
+.booking-card { display: grid; gap: 16px; align-content: start; }
+.booking-card-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.booking-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; background: var(--paper-2); color: var(--ink); font: 800 .72rem/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; }
+.booking-chip-confirmed { background: rgba(127,185,204,.35); }
+.booking-chip-pending_payment { background: rgba(242,196,93,.4); }
+.booking-chip-awaiting_confirmation, .booking-chip-completed_release_pending { background: rgba(174,160,220,.35); }
+.booking-chip-completed { background: rgba(97,170,120,.28); }
+.booking-chip-cancelled, .booking-chip-expired { background: rgba(23,32,51,.08); color: var(--muted); }
+.booking-chip-disputed { background: rgba(201,79,71,.18); color: var(--red); }
+.booking-card-when { font-weight: 800; font-size: .9rem; }
+.booking-card-person { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.booking-card-person h2 { margin: 0; font: 900 clamp(1.4rem, 2.2vw, 1.8rem)/1.1 var(--display); }
+.booking-reputation { font-size: .8rem; font-weight: 800; color: #9a6b00; }
+.booking-reputation.reputation-bad { color: var(--red); background: none; }
+.booking-card-goals { margin: 0; padding: 14px 16px; border-left: 4px solid var(--mineral); border-radius: 0 14px 14px 0; background: var(--paper); }
+.booking-card-goals span { display: block; margin-bottom: 4px; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.booking-card-goals p { margin: 0; font-size: 1rem; line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.booking-card-note { margin: 0; color: var(--muted); font-size: .9rem; }
+.booking-card-note:empty { display: none; }
+.booking-card-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.booking-card-actions:empty { display: none; }
+.booking-card-actions .conversation-link { margin-top: 0; }
+.booking-card-actions form { margin: 0; }
+.booking-card-more { border-top: 1px solid var(--line); padding-top: 12px; }
+.booking-card-more > summary { cursor: pointer; font-weight: 800; font-size: .9rem; color: var(--muted); list-style: none; }
+.booking-card-more > summary::-webkit-details-marker { display: none; }
+.booking-card-more > summary::after { content: " ▾"; }
+.booking-card-more[open] > summary::after { content: " ▴"; }
+.booking-card-more-body { display: grid; gap: 12px; margin-top: 12px; }
+.booking-card-option { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+.booking-card-option p { margin: 0; }
+.booking-card-option .button { justify-self: start; }
+.booking-card .customer-info { margin: 0; }
+.booking-reputation-neutral { color: var(--muted); }
