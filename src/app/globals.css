@@ -1294,3 +1294,4 @@ html { scroll-padding-top: 120px; }
 .consultant-home-card > p { margin: 0; font-size: .88rem; }
 @media (max-width: 760px) { .consultant-home-columns { grid-template-columns: 1fr; } .next-conversation { border-left-width: 3px; } }
 .wallet-metrics { margin-bottom: 24px; }
+.case-back { margin: 0 0 22px; }

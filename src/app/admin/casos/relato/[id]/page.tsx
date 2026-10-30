@@ -43,7 +43,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return <DashboardShell mode="admin" title={isSupport ? "Chamado de suporte" : "Denúncia"}>
     {query.ok === "analise" && <FlashMessage>Caso marcado como em análise e atribuído a você.</FlashMessage>}
     {query.erro && <p className="form-error">{ERRORS[query.erro] ?? ERRORS["1"]}</p>}
-    <p><Link className="text-link" href="/admin/casos">← Voltar para Casos</Link></p>
+    <p className="case-back"><Link className="text-link" href="/admin/casos">← Voltar para Casos</Link></p>
     <section className="panel case-detail">
       <div className="case-detail-head"><div><span className="status">{isSupport ? "Suporte" : "Denúncia"}</span> <span className="status">{reportStatusLabel(report.status)}</span><h2>{report.category}</h2></div><small className="muted">Aberto em {shortDate(parseDbDate(report.createdAt))}<br />Responsável: {ownerName ?? "ninguém ainda"}</small></div>
       <blockquote className="case-quote">{report.description}</blockquote>
