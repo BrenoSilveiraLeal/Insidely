@@ -27,14 +27,10 @@ export async function createParticipantCalendarEvent({ userId, bookingId, access
   const { data: appUser, error: userError } = await service.from("User").select("role").eq("id", userId).maybeSingle();
   if (userError || !appUser) throw new Error("calendar_user_not_found");
 
+  // A consultant can also book as a customer with the same account: accept either side.
   let query = service.from("Booking").select("id, customerId, professionalProfileId, startsAt, durationMinutes, status, goals").eq("id", bookingId);
-  if (appUser.role === Role.CONSULTANT) {
-    const { data: profile, error } = await service.from("ProfessionalProfile").select("id").eq("userId", userId).maybeSingle();
-    if (error || !profile) throw new Error("calendar_booking_not_found");
-    query = query.eq("professionalProfileId", profile.id);
-  } else {
-    query = query.eq("customerId", userId);
-  }
+  const { data: profile } = appUser.role === Role.CONSULTANT ? await service.from("ProfessionalProfile").select("id").eq("userId", userId).maybeSingle() : { data: null };
+  query = profile ? query.or(`customerId.eq.${userId},professionalProfileId.eq.${profile.id}`) : query.eq("customerId", userId);
   const { data: booking, error: bookingError } = await query.maybeSingle();
   if (bookingError || !booking || booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.AWAITING_CONFIRMATION) throw new Error("calendar_booking_not_available");
 
@@ -60,9 +56,17 @@ export async function createParticipantCalendarEvent({ userId, bookingId, access
   if (response.status === 409) return { eventUrl: `https://calendar.google.com/calendar/event?eid=${eventId}`, alreadyAdded: true };
   if (!response.ok) {
     const message = response.status === 401 || response.status === 403 ? "calendar_permission_missing" : "calendar_event_creation_failed";
+    const body = (await response.text().catch(() => "")).slice(0, 400);
     console.error("google_calendar_event_failed", { bookingId, userId, status: response.status });
+    await recordGoogleError("google-calendar-event", `events.insert ${response.status}: ${body}`);
     throw new Error(message);
   }
   const event = await response.json() as { htmlLink?: string };
   return { eventUrl: event.htmlLink ?? "https://calendar.google.com/calendar/", alreadyAdded: false };
+}
+
+// Google integration failures land on /admin/status with Google's own reason.
+export async function recordGoogleError(routeType: string, message: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("ErrorEvent").insert({ path: "/auth/callback", routeType, message: message.slice(0, 500) }).then(() => undefined, () => undefined);
 }

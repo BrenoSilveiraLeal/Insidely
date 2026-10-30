@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { provisionAppUser } from "@/lib/provision-user";
 import { recordAccess } from "@/lib/access-log";
-import { calendarReturnPath, createParticipantCalendarEvent } from "@/lib/google-calendar";
+import { calendarReturnPath, createParticipantCalendarEvent, recordGoogleError } from "@/lib/google-calendar";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { removeSlotsBusyInGoogle } from "@/lib/google-agenda-sync";
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (agendaSyncFlow) {
       const { data: existingUser } = await createSupabaseServiceClient().from("User").select("id").eq("auth_user_id", user.id).maybeSingle();
       if (!existingUser || existingUser.id !== nextUrl.searchParams.get("userId")) { await supabase.auth.signOut(); return NextResponse.redirect(new URL("/consultor/agenda?sync=account-mismatch", request.url)); }
-      if (!exchange.session?.provider_token) return NextResponse.redirect(new URL("/consultor/agenda?sync=permission-error", request.url));
+      if (!exchange.session?.provider_token) { await recordGoogleError("google-agenda-sync", `no provider_token; scopes asked: freebusy`); return NextResponse.redirect(new URL("/consultor/agenda?sync=permission-error", request.url)); }
       try {
         const removed = await removeSlotsBusyInGoogle(existingUser.id, exchange.session.provider_token);
         return NextResponse.redirect(new URL(`/consultor/agenda?sync=ok&removidos=${removed}`, request.url));
@@ -53,11 +53,12 @@ export async function GET(request: NextRequest) {
     if (calendarFlow) {
       const returnTo = calendarReturnPath(nextUrl.searchParams.get("returnTo"));
       const bookingId = nextUrl.searchParams.get("bookingId") ?? "";
-      if (!exchange.session?.provider_token) return NextResponse.redirect(new URL(`${returnTo}?calendar=permission-error`, request.url));
+      if (!exchange.session?.provider_token) { await recordGoogleError("google-calendar-event", "no provider_token"); return NextResponse.redirect(new URL(`${returnTo}?calendar=permission-error`, request.url)); }
       try {
         await createParticipantCalendarEvent({ userId: result.profile.id, bookingId, accessToken: exchange.session.provider_token });
         return NextResponse.redirect(new URL(`${returnTo}?calendar=added`, request.url));
       } catch (calendarError) {
+        await recordGoogleError("google-calendar-event", calendarError instanceof Error ? calendarError.message : String(calendarError));
         const status = calendarError instanceof Error && calendarError.message === "calendar_permission_missing" ? "permission-error" : "error";
         return NextResponse.redirect(new URL(`${returnTo}?calendar=${status}`, request.url));
       }

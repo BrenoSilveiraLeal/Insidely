@@ -1011,12 +1011,12 @@ export async function blockUserAction(bookingId: string, formData: FormData) {
   redirect(`${returnTo}?bloqueio=ok`);
 }
 
-export async function unblockUserAction(blockedId: string) {
+export async function unblockUserAction(blockedId: string, consultantContext = false) {
   const user = await requireUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("UserBlock").delete().eq("blockerId", user.id).eq("blockedId", blockedId);
   revalidatePath("/dashboard/configuracoes");
-  redirect("/dashboard/configuracoes?bloqueio=removido");
+  redirect(`/dashboard/configuracoes?${consultantContext ? "context=consultant&" : ""}bloqueio=removido#bloqueados`);
 }
 
 // ---- Agenda: recurring slots, copying a week, pause, "avise-me" ----
