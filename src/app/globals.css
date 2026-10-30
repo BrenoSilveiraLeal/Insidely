@@ -974,9 +974,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .reality-compare .section-title + .detail-list { margin-top: 26px; }
 
 /* Reviews on the public profile: consultant reply and discreet report/reply actions */
-.review-block { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.review-block .review-row { border-bottom: 0; }
-.review-reply { margin-left: 18px; padding: 10px 14px; border-left: 3px solid var(--mineral); border-radius: 0 12px 12px 0; background: var(--paper); }
+.review-reply { margin-left: 0; padding: 10px 14px; border-left: 3px solid var(--mineral); border-radius: 0 12px 12px 0; background: var(--paper); }
 .review-reply p { margin: 4px 0 0; }
 .terms-changes { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
 
@@ -1116,3 +1114,17 @@ html { scroll-padding-top: 120px; }
 .review-action-reply > summary:hover, .review-action-reply[open] > summary { color: var(--ink); border-color: var(--ink); }
 .review-action[open] > summary { margin-bottom: 12px; }
 .review-action-buttons { display: flex; justify-content: flex-end; }
+
+/* Public profile reviews: heading with the average, one card per review */
+.reviews-panel { display: grid; gap: 18px; }
+.reviews-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+.reviews-head h2 { margin: 0; }
+.reviews-summary { display: inline-flex; align-items: center; gap: 6px; font-weight: 900; font-size: 1.15rem; color: #9a6b00; }
+.reviews-summary small { font-weight: 600; font-size: .85rem; color: var(--muted); }
+.reviews-panel .list { display: grid; gap: 14px; }
+.review-card { display: grid; gap: 10px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.6); }
+.review-card-top { display: flex; gap: 12px; align-items: center; }
+.review-card-top > div { display: grid; gap: 3px; }
+.review-avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: var(--paper); font-weight: 800; font-size: .85rem; }
+.review-stars { display: inline-flex; gap: 2px; color: #b98200; }
+.review-card .review-comment { margin: 0; color: var(--ink); line-height: 1.5; }
