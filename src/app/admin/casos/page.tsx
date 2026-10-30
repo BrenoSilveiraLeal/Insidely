@@ -16,8 +16,8 @@ type Case = { key: string; kind: string; title: string; detail: string; createdA
 
 // One queue for everything that needs a person: open reports, reported reviews, disputes and
 // one-sided attendance (no-shows) of the last 14 days. Each case can be taken by an admin.
-export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
-  const { ok } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
+  const { ok, erro } = await searchParams;
   const admin = await requireUser([Role.ADMIN]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
@@ -47,11 +47,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   cases.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const owner = new Map(((assignments ?? []) as { caseKey: string; adminUserId: string; admin: { name: string } | { name: string }[] | null }[]).map((row) => [row.caseKey, { id: row.adminUserId, name: (Array.isArray(row.admin) ? row.admin[0]?.name : row.admin?.name) ?? "Admin" }]));
   return <DashboardShell mode="admin" title="Casos">
+    {erro === "assumir" && <FlashMessage param="erro">Esse caso ainda não tem responsável. Use “Assumir e abrir” para abri-lo.</FlashMessage>}
     {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
-    <p className="muted">{cases.length} {cases.length === 1 ? "caso aberto" : "casos abertos"}, do mais antigo para o mais recente.</p>
+    <p className="muted">{cases.length} {cases.length === 1 ? "caso aberto" : "casos abertos"}, do mais antigo para o mais recente. Para abrir um caso, alguém precisa assumi-lo: o responsável fica registrado e é quem responde.</p>
     <div className="list">{cases.map((item) => { const taken = owner.get(item.key); return <div className="list-row case-row" key={item.key}>
-      <div><span className="status">{item.kind}</span> <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · {taken ? `Responsável: ${taken.id === admin.id ? "você" : taken.name}` : "Sem responsável"}</small></div>
-      <div className="verification-row-actions"><Link className="button button-dark button-sm" href={item.href}>Abrir</Link>{taken?.id !== admin.id && <form action={assignCaseAction.bind(null, item.key)}><button className="button button-ghost button-sm">{taken ? "Assumir no lugar" : "Assumir"}</button></form>}</div>
+      <div><span className="status">{item.kind}</span> <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · {taken ? <strong className={`case-owner${taken.id === admin.id ? " is-me" : ""}`}>Responsável: {taken.id === admin.id ? "você" : taken.name}</strong> : "Ninguém assumiu ainda"}</small></div>
+      <div className="verification-row-actions">{taken ? <><Link className="button button-dark button-sm" href={item.href}>Abrir</Link>{taken.id !== admin.id && <form action={assignCaseAction.bind(null, item.key, undefined)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</> : <form action={assignCaseAction.bind(null, item.key, item.href)}><button className="button button-dark button-sm">Assumir e abrir</button></form>}</div>
+
     </div>; })}{!cases.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino.</p></section>}</div>
   </DashboardShell>;
 }

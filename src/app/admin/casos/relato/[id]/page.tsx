@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { answerReportAction, assignCaseAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { FlashMessage } from "@/components/flash-message";
@@ -16,6 +16,7 @@ type Person = { id: string; name: string | null; email: string; role: string };
 const ERRORS: Record<string, string> = {
   resposta: "Escreva uma resposta de 10 a 2000 caracteres para quem abriu o caso.",
   fechado: "Este caso já foi encerrado por outra pessoa.",
+  responsavel: "Só o responsável pelo caso pode respondê-lo. Assuma o caso para responder.",
   "1": "Não foi possível salvar. Tente de novo.",
 };
 
@@ -33,19 +34,22 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     report.bookingId ? supabase.from("Booking").select("id, startsAt, status, totalCents").eq("id", report.bookingId).maybeSingle() : { data: null },
     supabase.from("CaseAssignment").select("adminUserId, admin:User(name)").eq("caseKey", `report:${id}`).maybeSingle(),
   ]);
+  // A case opens only after someone took it (see /admin/casos).
+  if (!assignment) redirect("/admin/casos?erro=assumir");
+  const mine = assignment.adminUserId === admin.id;
   const byId = new Map(((people ?? []) as Person[]).map((person) => [person.id, person]));
   const reporter = byId.get(report.reporterId ?? ""), target = byId.get(report.targetUserId ?? "");
   const isSupport = !report.targetUserId && !report.bookingId;
   const open = report.status === "OPEN" || report.status === "IN_REVIEW";
-  const ownerName = assignment ? (assignment.adminUserId === admin.id ? "você" : (Array.isArray(assignment.admin) ? assignment.admin[0]?.name : assignment.admin?.name) ?? "Admin") : null;
+  const ownerName = mine ? "você" : (Array.isArray(assignment.admin) ? assignment.admin[0]?.name : assignment.admin?.name) ?? "Admin";
   const role = (value: string) => value === "CONSULTANT" ? "Consultor" : value === "ADMIN" ? "Admin" : "Cliente";
   const personRow = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <><Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link><small className="muted">{role(person.role)} · {person.email}</small></> : <small className="muted">Conta removida</small>}</div>;
   return <DashboardShell mode="admin" title={isSupport ? "Chamado de suporte" : "Denúncia"}>
-    {query.ok === "analise" && <FlashMessage>Caso marcado como em análise e atribuído a você.</FlashMessage>}
+    {query.ok === "analise" && <FlashMessage>Caso marcado como em análise.</FlashMessage>}
     {query.erro && <p className="form-error">{ERRORS[query.erro] ?? ERRORS["1"]}</p>}
     <p className="case-back"><Link className="text-link" href="/admin/casos">← Voltar para Casos</Link></p>
     <section className="panel case-detail">
-      <div className="case-detail-head"><div><span className="status">{isSupport ? "Suporte" : "Denúncia"}</span> <span className="status">{reportStatusLabel(report.status)}</span><h2>{report.category}</h2></div><small className="muted">Aberto em {shortDate(parseDbDate(report.createdAt))}<br />Responsável: {ownerName ?? "ninguém ainda"}</small></div>
+      <div className="case-detail-head"><div><span className="status">{isSupport ? "Suporte" : "Denúncia"}</span> <span className="status">{reportStatusLabel(report.status)}</span><h2>{report.category}</h2></div><small className="muted">Aberto em {shortDate(parseDbDate(report.createdAt))}<br />Responsável: <strong>{ownerName}</strong></small></div>
       <blockquote className="case-quote">{report.description}</blockquote>
       <div className="case-facts">
         {personRow(isSupport ? "Quem pediu ajuda" : "Quem denunciou", reporter)}
@@ -54,7 +58,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </div>
       {!open && <div className="case-resolution"><span className="eyebrow">Resposta enviada</span><p>{report.resolution || "Encerrado sem resposta registrada."}</p><small className="muted">Encerrado em {shortDate(parseDbDate(report.updatedAt))}</small></div>}
     </section>
-    {open && <section className="panel case-answer">
+    {open && !mine && <section className="panel case-answer"><span className="eyebrow">Caso de {ownerName}</span><p className="muted">Você pode acompanhar, mas só o responsável responde. Se {ownerName} não puder seguir com o caso, assuma no lugar.</p><form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form></section>}
+    {open && mine && <section className="panel case-answer">
       <span className="eyebrow">Resolver</span>
       <h2>Responder {reporter?.name?.split(" ")[0] ?? "a pessoa"}</h2>
       <p className="muted">A resposta chega como notificação para quem abriu o caso e fica registrada aqui.{target ? " Para advertir ou suspender a pessoa denunciada, abra a conta dela." : ""}</p>
@@ -67,7 +72,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           {target && <Link className="button button-ghost" href={`/admin/usuarios/${target.id}#suspensao`}>Ver conta denunciada</Link>}
         </div>
       </form>
-      {assignment?.adminUserId !== admin.id && <form action={assignCaseAction.bind(null, `report:${report.id}`)}><button className="button button-ghost button-sm">{assignment ? "Assumir no lugar" : "Assumir este caso"}</button></form>}
     </section>}
   </DashboardShell>;
 }

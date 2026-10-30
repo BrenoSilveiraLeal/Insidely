@@ -1231,12 +1231,15 @@ export async function addAdminNoteAction(userId: string, formData: FormData) {
 }
 
 // Case queue: an admin takes ownership of a report, a reported review or a dispute.
-export async function assignCaseAction(caseKey: string) {
+// Taking a case records who handles it; a case only opens after someone took it. With openHref
+// the admin lands on the case right away ("Assumir e abrir").
+export async function assignCaseAction(caseKey: string, openHref?: string) {
   const admin = await requireUser([Role.ADMIN]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("CaseAssignment").upsert({ caseKey, adminUserId: admin.id, assignedAt: new Date().toISOString() }, { onConflict: "caseKey" });
   after(() => logAdminAction(admin.id, "take_case", null, caseKey));
   revalidatePath("/admin/casos");
+  if (openHref) redirect(safeInternalPath(openHref, "/admin/casos").startsWith("/admin/") ? safeInternalPath(openHref, "/admin/casos") : "/admin/casos");
 }
 
 // Web push: a device that allowed notifications.
@@ -1295,12 +1298,12 @@ export async function answerReportAction(reportId: string, formData: FormData) {
   if (decision !== "IN_REVIEW" && (reply.length < 10 || reply.length > 2000)) redirect(`/admin/casos/relato/${reportId}?erro=resposta`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
+  const { data: owner } = await supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", `report:${reportId}`).maybeSingle();
+  if (owner?.adminUserId !== admin.id) redirect(`/admin/casos/relato/${reportId}?erro=responsavel`);
   const now = new Date().toISOString();
   const { data: report } = await supabase.from("Report").update({ status: decision, ...(decision === "IN_REVIEW" ? {} : { resolution: reply }), updatedAt: now }).eq("id", reportId).in("status", ["OPEN", "IN_REVIEW"]).select("reporterId, category").maybeSingle();
   if (!report) redirect(`/admin/casos/relato/${reportId}?erro=fechado`);
-  if (decision === "IN_REVIEW") {
-    await supabase.from("CaseAssignment").upsert({ caseKey: `report:${reportId}`, adminUserId: admin.id, assignedAt: now }, { onConflict: "caseKey" });
-  } else if (report.reporterId) {
+  if (decision !== "IN_REVIEW" && report.reporterId) {
     await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: report.reporterId, title: `Resposta do suporte: ${report.category}`, body: reply.slice(0, 600), href: "/suporte", createdAt: now });
   }
   after(() => logAdminAction(admin.id, decision === "IN_REVIEW" ? "report_in_review" : "resolve_report", null, reportId));
