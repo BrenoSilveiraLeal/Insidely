@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-html-link-for-pages -- after an error, a full page load is the point: it leaves the broken client state behind. */
 
 import { ArrowLeft, RotateCw, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
