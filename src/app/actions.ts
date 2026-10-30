@@ -1252,3 +1252,35 @@ export async function removePushSubscriptionAction(endpoint: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("PushSubscription").delete().eq("endpoint", endpoint).eq("userId", user.id);
 }
+
+// Admin removes an account (e.g. fake or abusive). Same effect as the person deleting it: files
+// removed, the row anonymized (CPF and history kept for the legal period) and the login deleted.
+// Refused while the account has conversations pending, booked or under dispute.
+export async function adminDeleteAccountAction(userId: string, formData: FormData) {
+  const admin = await requireUser([Role.ADMIN]);
+  const back = (message: string) => redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent(message)}#excluir`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: target } = await supabase.from("User").select("id, email, role, auth_user_id").eq("id", userId).maybeSingle();
+  if (!target || target.role === "ADMIN" || !target.auth_user_id) back("Esta conta não pode ser excluída por aqui.");
+  const reason = String(formData.get("reason") || "").trim().slice(0, 500);
+  if (String(formData.get("confirmation") || "").trim().toLowerCase() !== String(target.email).toLowerCase()) back("Digite exatamente o e-mail da conta para confirmar.");
+  if (reason.length < 10) back("Explique o motivo da exclusão com pelo menos 10 caracteres.");
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", userId).maybeSingle();
+  let open = supabase.from("Booking").select("id", { count: "exact", head: true }).in("status", ["PENDING_PAYMENT", "CONFIRMED", "IN_PROGRESS", "AWAITING_CONFIRMATION", "DISPUTED"]);
+  open = profile ? open.or(`customerId.eq.${userId},professionalProfileId.eq.${profile.id}`) : open.eq("customerId", userId);
+  const { count } = await open;
+  if (count) back(`A conta tem ${count} conversa(s) pendente(s), marcada(s) ou em análise. Cancele ou resolva antes de excluir (ou suspenda a conta).`);
+  for (const [bucket, prefix] of [["avatars", `avatars/${target.auth_user_id}`], ["profile-covers", `covers/${target.auth_user_id}`], ["verification-documents", target.auth_user_id]]) {
+    const { data: files } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
+    const paths = (files ?? []).filter((file: { id: string | null }) => file.id).map((file: { name: string }) => `${prefix}/${file.name}`);
+    if (paths.length) await supabase.storage.from(bucket).remove(paths);
+  }
+  await supabase.from("AccountDeletionAudit").insert({ auth_user_id: target.auth_user_id });
+  const { error } = await supabase.from("User").update({ name: "Conta excluída", email: `deleted+${target.auth_user_id}@invalid.insidely`, image: null, auth_user_id: null, onboardingCompleted: false, updatedAt: new Date().toISOString() }).eq("id", userId);
+  if (error) back("Não foi possível excluir a conta agora.");
+  await supabase.auth.admin.deleteUser(target.auth_user_id);
+  after(() => logAdminAction(admin.id, "delete_account", userId, reason));
+  revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
+  redirect("/admin/usuarios?ok=excluida");
+}

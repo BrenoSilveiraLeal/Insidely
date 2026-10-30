@@ -22,7 +22,7 @@ export function DashboardShell({ mode, title, children, profileId, notifications
     </> : <>
       {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}{!canConsultant && mode === "user" && <Link href="/dashboard/virar-consultor">Virar consultor</Link>}
-      <Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
+      {mode !== "admin" && <Link href="/suporte">Suporte</Link>}<Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
     </>}
   </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" ? <AdminNotifications/> : <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
 }

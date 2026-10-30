@@ -36,7 +36,7 @@ export default async function Page() {
   const runRows = (runs ?? []) as { job: string; ok: boolean; detail: string | null; createdAt: string }[];
   const jobCheck = (job: string, label: string, maxMinutes: number): Check => {
     const last = runRows.find((row) => row.job === job);
-    if (!last) return { name: label, ok: false, message: "Ainda não há execução registrada." };
+    if (!last) return { name: label, ok: false, message: job === "daily" ? "Ainda não há execução registrada. Ela roda todo dia às 1h (horário de Brasília); se continuar assim amanhã, confira os Cron Jobs na Vercel." : "Ainda não há execução registrada." };
     const minutes = minutesSince(parseDbDate(last.createdAt));
     const late = minutes > maxMinutes;
     return { name: label, ok: last.ok && !late, message: `${last.ok ? "Última execução bem-sucedida" : "Última execução FALHOU"} há ${minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} h`}${late ? " — está atrasada" : ""}.` };

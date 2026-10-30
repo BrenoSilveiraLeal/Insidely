@@ -1191,3 +1191,17 @@ html { scroll-padding-top: 120px; }
 
 /* A short note right under the page title keeps its distance from the content below. */
 .dash-main > p.muted { margin: 0 0 20px; }
+
+/* Row actions menu ("⋯") on admin tables */
+.row-menu-cell { width: 48px; text-align: right; }
+.row-menu { position: relative; display: inline-block; }
+.row-menu > summary { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; list-style: none; color: var(--muted); }
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu > summary:hover, .row-menu[open] > summary { background: var(--paper-2); color: var(--ink); }
+.row-menu-list { position: absolute; z-index: 20; right: 0; top: calc(100% + 6px); display: grid; min-width: 190px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: var(--shadow); text-align: left; }
+.row-menu-list a { padding: 9px 12px; border-radius: 9px; font-size: .86rem; font-weight: 700; color: var(--ink); text-decoration: none; }
+.row-menu-list a:hover { background: var(--paper); }
+.row-menu-list .row-menu-danger { color: var(--red); }
+.admin-danger { border-color: rgba(179,64,58,.35); }
+/* Empty-state line under a table ("Nenhuma ação registrada ainda.") */
+.table-wrap > table + p { margin: 0; padding: 22px 20px; text-align: center; }

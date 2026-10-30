@@ -20,11 +20,11 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceClient() as any;
     const { data: expired, error: expiryError } = await supabase.rpc("expire_past_unpaid_bookings");
-    if (expiryError) return Response.json({ error: "expiration_failed", detail: expiryError.message }, { status: 500 });
+    if (expiryError) { await recordCronRun(supabase, "daily", false, `expiration_failed: ${expiryError.message}`); return Response.json({ error: "expiration_failed", detail: expiryError.message }, { status: 500 }); }
     const { data: simulationReleased, error: simulationReleaseError } = await supabase.rpc("release_eligible_bookings_system");
-    if (simulationReleaseError) return Response.json({ error: "simulation_release_failed", detail: simulationReleaseError.message }, { status: 500 });
+    if (simulationReleaseError) { await recordCronRun(supabase, "daily", false, `simulation_release_failed: ${simulationReleaseError.message}`); return Response.json({ error: "simulation_release_failed", detail: simulationReleaseError.message }, { status: 500 }); }
     const { data: bookings, error } = await supabase.from("Booking").select("id, status, autoReleaseAt, startsAt, durationMinutes, payment:Payment(status, provider)").in("status", ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING"]).is("disputedAt", null);
-    if (error) return Response.json({ error: "release_failed", detail: error.message }, { status: 500 });
+    if (error) { await recordCronRun(supabase, "daily", false, `release_failed: ${error.message}`); return Response.json({ error: "release_failed", detail: error.message }, { status: 500 }); }
     let released = 0;
     for (const booking of bookings ?? []) {
       try {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addAdminNoteAction, liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
+import { addAdminNoteAction, adminDeleteAccountAction, liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -20,7 +20,7 @@ type ReportRow = { id: string; category: string; description: string; status: st
 type ModerationRow = { reason: string; excerpt: string; createdAt: string };
 type FeedbackRow = { rating: number; comment: string | null; createdAt: string };
 
-export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string; acesso?: string; canceladas?: string; falhas?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ acao?: string; ok?: string; erro?: string; acesso?: string; canceladas?: string; falhas?: string }> }) {
   const admin = await requireUser([Role.ADMIN]);
   const [{ id }, query] = await Promise.all([params, searchParams]);
   // Trust and safety tables are added by migrations beyond the generated legacy types.
@@ -83,7 +83,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {user.role !== Role.ADMIN && <form action={warnUserAction.bind(null, user.id)} className="form-stack"><label className="field"><span>Nova advertência (a pessoa recebe por e-mail e notificação)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label><button className="button button-ghost button-sm" type="submit">Registrar advertência</button></form>}
       </section>}
 
-      <section className="panel form-stack">
+      <section className="panel form-stack" id="suspensao">
         <span className="eyebrow">Suspensão</span>
         {suspended ? <>
           <h2>Suspensa {user.suspendedUntil ? `até ${when(user.suspendedUntil)}` : "permanentemente"}</h2>
@@ -91,7 +91,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <form action={liftSuspensionAction.bind(null, user.id)}><button className="button button-dark button-sm" type="submit">Encerrar suspensão</button></form>
         </> : user.role === Role.ADMIN ? <p className="muted">Contas de administrador não podem ser suspensas por aqui.</p> : <form action={suspendUserAction.bind(null, user.id)} className="form-stack">
           <p className="muted">A conta fica sem acesso ao painel, não agenda, não recebe agendamentos e não envia mensagens. O perfil de consultor sai da busca e as conversas futuras já agendadas com ele são canceladas, com reembolso integral aos clientes. A suspensão continua valendo se a pessoa excluir a conta e voltar com o mesmo CPF.</p>
-          <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue="7"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="permanent">Permanente (banimento)</option></select></label>
+          <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue={query.acao === "banir" ? "permanent" : "7"}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="permanent">Permanente (banimento)</option></select></label>
           <label className="field"><span>Motivo (aparece para a pessoa)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label>
           <button className="button button-danger button-sm" type="submit">Suspender conta</button>
         </form>}
@@ -118,6 +118,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {!isAdmin && <section className="panel"><span className="eyebrow">Mensagens bloqueadas no chat</span><div className="list">{moderationRows.map((item, index) => <div className="list-row" key={index}><div><strong>{item.reason === "offensive" ? "Ofensiva" : "Contato / pagamento por fora"}</strong><p className="muted">“{item.excerpt}”</p></div><span className="muted">{when(item.createdAt)}</span></div>)}{!moderationRows.length && <p className="muted">Nenhuma.</p>}</div></section>}
 
       {!isAdmin && <section className="panel"><span className="eyebrow">Avaliações dadas pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>}
+      {!isAdmin && user.auth_user_id && <section className="panel form-stack admin-danger" id="excluir">
+        <span className="eyebrow">Excluir conta</span>
+        <p className="muted">Remove o acesso, as fotos e o perfil público. O CPF e o histórico ficam guardados pelo prazo legal, e a pessoa só volta reativando esta mesma conta. Não é possível com conversas pendentes, marcadas ou em análise.</p>
+        <form action={adminDeleteAccountAction.bind(null, user.id)} className="form-stack">
+          <label className="field"><span>Motivo (fica no registro de ações)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label>
+          <label className="field"><span>Para confirmar, digite o e-mail da conta: {user.email}</span><input className="input" name="confirmation" type="email" required autoComplete="off"/></label>
+          <button className="button button-danger button-sm" type="submit">Excluir conta definitivamente</button>
+        </form>
+      </section>}
     </div>
   </DashboardShell>;
 }

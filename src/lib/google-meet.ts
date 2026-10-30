@@ -21,7 +21,11 @@ async function getGoogleAccessToken() {
     body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Google OAuth failed: ${response.status}`);
+  if (!response.ok) {
+    const { error } = await response.json().catch(() => ({})) as { error?: string };
+    // invalid_grant: the refresh token was revoked or expired (Testing-mode OAuth apps expire them after 7 days).
+    throw new Error(error === "invalid_grant" ? "O token do Google (GOOGLE_REFRESH_TOKEN) expirou ou foi revogado: gere um novo. Enquanto isso, as salas usam o Jitsi." : `Google OAuth failed: ${response.status}${error ? ` (${error})` : ""}`);
+  }
   const payload = await response.json() as { access_token?: string; scope?: string; expires_in?: number };
   if (!payload.access_token) throw new Error("Google OAuth did not return an access token.");
   if (payload.scope && !payload.scope.split(" ").includes(MEET_SCOPE)) throw new Error("The Google refresh token is missing the Meet scope.");
