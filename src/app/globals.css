@@ -866,7 +866,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .message-consultant { justify-self: end; margin-left: auto; background: var(--mineral); color: var(--ink); border-bottom-right-radius: 5px; }
 .message-customer { justify-self: start; margin-right: auto; background: #cfe6ee; color: var(--ink); border-bottom-left-radius: 5px; }
 .conversation-empty { align-self: center; text-align: center; }
-.conversation-link { position: relative; display: inline-flex; gap: 8px; align-items: center; justify-self: start; }
+.conversation-link { position: relative; display: flex; width: fit-content; gap: 8px; align-items: center; justify-self: start; margin-top: 18px; }
 .unread-badge { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; background: var(--red); color: white; font: 800 .72rem/1 var(--sans); box-shadow: 0 0 0 2px var(--paper); }
 
 /* Customer rating by the consultant: five clickable stars */
