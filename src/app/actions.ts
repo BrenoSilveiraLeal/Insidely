@@ -1288,25 +1288,74 @@ export async function adminDeleteAccountAction(userId: string, formData: FormDat
   redirect("/admin/usuarios?ok=excluida");
 }
 
-// Admin answers a support request or report: the reply goes to the requester as a notification
-// and stays on the case as its resolution. "IN_REVIEW" only moves the case along, without a reply.
+// Support cases are threads (ReportMessage). The admin who took the case replies; the reply reaches
+// the person in the app (notification → /dashboard/suporte/[id]) and by e-mail. "REPLY" keeps the
+// case open waiting for the person; RESOLVED / DISMISSED close it with that last message.
 export async function answerReportAction(reportId: string, formData: FormData) {
   const admin = await requireUser([Role.ADMIN]);
   const decision = String(formData.get("decision") || "");
   const reply = String(formData.get("reply") || "").trim();
-  if (!["RESOLVED", "DISMISSED", "IN_REVIEW"].includes(decision)) redirect(`/admin/casos/relato/${reportId}?erro=1`);
-  if (decision !== "IN_REVIEW" && (reply.length < 10 || reply.length > 2000)) redirect(`/admin/casos/relato/${reportId}?erro=resposta`);
+  const back = `/admin/casos/relato/${reportId}`;
+  if (!["REPLY", "RESOLVED", "DISMISSED"].includes(decision)) redirect(`${back}?erro=1`);
+  if (reply.length < 10 || reply.length > 4000) redirect(`${back}?erro=resposta`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: owner } = await supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", `report:${reportId}`).maybeSingle();
-  if (owner?.adminUserId !== admin.id) redirect(`/admin/casos/relato/${reportId}?erro=responsavel`);
+  if (owner?.adminUserId !== admin.id) redirect(`${back}?erro=responsavel`);
   const now = new Date().toISOString();
-  const { data: report } = await supabase.from("Report").update({ status: decision, ...(decision === "IN_REVIEW" ? {} : { resolution: reply }), updatedAt: now }).eq("id", reportId).in("status", ["OPEN", "IN_REVIEW"]).select("reporterId, category").maybeSingle();
-  if (!report) redirect(`/admin/casos/relato/${reportId}?erro=fechado`);
-  if (decision !== "IN_REVIEW" && report.reporterId) {
-    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: report.reporterId, title: `Resposta do suporte: ${report.category}`, body: reply.slice(0, 600), href: "/suporte", createdAt: now });
+  const { data: report } = await supabase.from("Report").update({ status: decision === "REPLY" ? "IN_REVIEW" : decision, ...(decision === "REPLY" ? {} : { resolution: reply }), updatedAt: now }).eq("id", reportId).in("status", ["OPEN", "IN_REVIEW"]).select("reporterId, category").maybeSingle();
+  if (!report) redirect(`${back}?erro=fechado`);
+  await supabase.from("ReportMessage").insert({ reportId, authorId: admin.id, fromStaff: true, body: reply, createdAt: now });
+  if (report.reporterId) {
+    const href = `/dashboard/suporte/${reportId}`;
+    const title = decision === "REPLY" ? `O suporte respondeu: ${report.category}` : `Caso encerrado pelo suporte: ${report.category}`;
+    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: report.reporterId, title, body: reply.slice(0, 300), href, createdAt: now });
+    after(async () => {
+      const { data: person } = await supabase.from("User").select("email, name").eq("id", report.reporterId).maybeSingle();
+      if (!person?.email) return;
+      const safe = (value: string) => value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[c] ?? c);
+      await sendTransactionalEmail({ to: person.email, subject: title, html: `<p>Olá${person.name ? `, ${safe(person.name.split(" ")[0])}` : ""}!</p><p>O suporte da Insidely respondeu ao seu caso <strong>${safe(report.category)}</strong>:</p><blockquote style="margin:0;padding:12px 16px;border-left:3px solid #ff7657;background:#f6f1e8">${safe(reply).replaceAll("\n", "<br>")}</blockquote><p>${decision === "REPLY" ? "Você pode responder ou marcar o caso como resolvido no aplicativo." : "Se ainda precisar de ajuda, abra um novo pedido no suporte."}</p><p><a href="${getAppUrl()}${href}">Ver o caso na Insidely</a></p>` }).catch((error) => console.error("support_reply_email_failed", { error }));
+    });
   }
-  after(() => logAdminAction(admin.id, decision === "IN_REVIEW" ? "report_in_review" : "resolve_report", null, reportId));
-  revalidatePath("/admin/casos"); revalidatePath("/admin/suporte"); revalidatePath("/admin/denuncias"); revalidatePath("/admin");
-  redirect(decision === "IN_REVIEW" ? `/admin/casos/relato/${reportId}?ok=analise` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
+  after(() => logAdminAction(admin.id, decision === "REPLY" ? "reply_report" : "resolve_report", null, reportId));
+  revalidatePath("/admin/casos"); revalidatePath(back); revalidatePath("/admin/suporte"); revalidatePath("/admin/denuncias"); revalidatePath("/admin");
+  redirect(decision === "REPLY" ? `${back}?ok=enviada` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
+}
+
+// The person who opened a case answers the team on the same thread (never a new case), or closes it.
+export async function replySupportCaseAction(reportId: string, formData: FormData) {
+  const user = await requireUser();
+  const body = String(formData.get("body") || "").trim();
+  const back = `/dashboard/suporte/${reportId}`;
+  if (body.length < 2 || body.length > 4000) redirect(`${back}?erro=curta`);
+  if (!await consumeQuota(`support-reply:${user.id}`, 20, 3600)) redirect(`${back}?erro=limite`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const now = new Date().toISOString();
+  const { data: report } = await supabase.from("Report").update({ status: "OPEN", updatedAt: now }).eq("id", reportId).eq("reporterId", user.id).in("status", ["OPEN", "IN_REVIEW"]).select("category").maybeSingle();
+  if (!report) redirect(`${back}?erro=fechado`);
+  await supabase.from("ReportMessage").insert({ reportId, authorId: user.id, fromStaff: false, body, createdAt: now });
+  await notifyCaseStaff(supabase, reportId, `Nova resposta no caso: ${report.category}`, body.slice(0, 300), now);
+  revalidatePath(back); revalidatePath("/admin/casos");
+  redirect(`${back}?ok=enviada`);
+}
+
+export async function closeSupportCaseAction(reportId: string) {
+  const user = await requireUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const now = new Date().toISOString();
+  const { data: report } = await supabase.from("Report").update({ status: "RESOLVED", updatedAt: now }).eq("id", reportId).eq("reporterId", user.id).in("status", ["OPEN", "IN_REVIEW"]).select("category").maybeSingle();
+  if (report) await notifyCaseStaff(supabase, reportId, `Caso marcado como resolvido: ${report.category}`, "Quem abriu o caso confirmou que o problema foi resolvido.", now);
+  revalidatePath(`/dashboard/suporte/${reportId}`); revalidatePath("/admin/casos");
+  redirect(`/dashboard/suporte/${reportId}?ok=resolvido`);
+}
+
+// The admin who took the case is notified; with nobody assigned yet, every admin is.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function notifyCaseStaff(supabase: any, reportId: string, title: string, body: string, createdAt: string) {
+  const { data: owner } = await supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", `report:${reportId}`).maybeSingle();
+  const { data: admins } = owner ? { data: [{ id: owner.adminUserId }] } : await supabase.from("User").select("id").eq("role", "ADMIN");
+  const rows = ((admins ?? []) as { id: string }[]).map((admin) => ({ id: crypto.randomUUID(), userId: admin.id, title, body, href: `/admin/casos/relato/${reportId}`, createdAt }));
+  if (rows.length) await supabase.from("Notification").insert(rows);
 }
