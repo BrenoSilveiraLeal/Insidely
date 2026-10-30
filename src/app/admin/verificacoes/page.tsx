@@ -1,3 +1,4 @@
+import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { reviewVerificationAction } from "@/app/actions";
@@ -19,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
   // Requests with a file first; the demo profiles were seeded without one.
   const pending = [...d.pending].sort((a, b) => Number(b.documents.length > 0) - Number(a.documents.length > 0));
   return <DashboardShell mode="admin" title="Verificações">
-    {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Comprovante aprovado. O perfil já mostra o vínculo verificado e o consultor foi avisado." : "Comprovante recusado. O consultor foi avisado e pode enviar outro."}</p>}
+    {query.ok && <FlashMessage key={query.ok}>{query.ok === "aprovado" ? "Comprovante aprovado. O perfil já mostra o vínculo verificado e o consultor foi avisado." : "Comprovante recusado. O consultor foi avisado e pode enviar outro."}</FlashMessage>}
     <div className="list">{pending.map((v) => <div className="list-row" key={v.id}>
       <div><strong>{v.professionalProfile?.user?.name ?? "Perfil indisponível"}</strong><p>{v.professionalProfile?.headline ?? "Perfil profissional"} · {v.professionalProfile?.experiences?.[0]?.company?.name ?? "Empresa não informada"}</p><span className="status">{verificationMethodLabel(v.method)}</span></div>
       <div className="verification-row-actions">

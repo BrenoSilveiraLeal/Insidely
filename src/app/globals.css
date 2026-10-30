@@ -1209,3 +1209,7 @@ html { scroll-padding-top: 120px; }
 .admin-danger { border-color: rgba(179,64,58,.35); }
 /* Empty-state line under a table ("Nenhuma ação registrada ainda.") */
 .table-wrap > table + p { margin: 0; padding: 22px 20px; text-align: center; }
+
+.flash-message { margin: 0 0 18px; transition: opacity .4s, transform .4s; animation: flash-in .3s ease both; }
+.flash-message.is-leaving { opacity: 0; transform: translateY(-6px); }
+@keyframes flash-in { from { opacity: 0; transform: translateY(-6px); } }
