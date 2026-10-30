@@ -1449,3 +1449,14 @@ html { scroll-padding-top: 120px; }
 .catalog-tab.is-active { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .catalog-tab.is-active span { color: rgba(247,242,232,.75); }
 .case-open-owned { display: inline-flex; gap: 10px; align-items: center; } .case-open-cell { display: flex; align-items: center; }
+/* Number fields without the browser's up/down arrows (typing is how these fields are filled). */
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* City field with suggestions from the IBGE list. */
+.city-input { position: relative; }
+.city-input .input { padding-left: 38px; }
+.city-input-icon { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.city-input-list { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 300px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; border: 1px solid var(--line); border-radius: 14px; background: #fffdf7; color: var(--ink); box-shadow: 0 14px 34px rgba(23,32,51,.18); }
+.city-input-list li { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; padding: 9px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+.city-input-list li small { color: var(--muted); font-weight: 800; font-size: .75rem; }
+.city-input-list li.is-active { background: var(--paper-2); }

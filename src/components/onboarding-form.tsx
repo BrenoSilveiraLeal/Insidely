@@ -1,13 +1,23 @@
 "use client";
 import { KeepValuesForm } from "@/components/keep-values-form";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Compass, Mic } from "lucide-react";
 import { completeOnboardingAction } from "@/app/actions";
 import { CustomerIdentityFields } from "@/components/customer-identity-form";
 import { CatalogPicker } from "@/components/catalog-picker";
+import { TimedMessage } from "@/components/timed-message";
+import { CityInput } from "@/components/city-input";
+import { findUnsafeProfileText, unsafeProfileTextMessage } from "@/lib/chat-moderation";
 type Option={id:string;name:string};
 type Role="USER"|"CONSULTANT";
+
+// Same fields and labels the server checks (ONBOARDING_PROFILE_TEXTS in actions.ts), checked here
+// too so a bad word is caught on the profile step instead of after the last one.
+const PROFILE_TEXTS:[string,string][]=[["Título profissional","headline"],["Cargo","title"],["Localização","location"],["O que você pode contextualizar","bio"],["Empresa","companyIdName"],["Área ou profissão","professionIdName"]];
+
+// Each submission gets a stamp, so the same error twice still shows (and fades) again.
+async function submitOnboarding(_:{text?:string;at:number}|undefined,formData:FormData){return {text:await completeOnboardingAction(undefined,formData),at:Date.now()};}
 
 const ROLES: { value: Role; icon: typeof Compass; title: string; lead: string; points: string[] }[] = [
   { value: "USER", icon: Compass, title: "Quero conversar com profissionais", lead: "Para decidir uma vaga, um curso ou uma mudança de carreira.", points: ["Encontre quem trabalha na empresa ou área que te interessa", "Agende uma conversa por vídeo de 30 ou 60 minutos", "Pague pela Insidely, com o valor protegido até a conversa acontecer"] },
@@ -20,26 +30,44 @@ const ROLES: { value: Role; icon: typeof Compass; title: string; lead: string; p
 export function OnboardingForm({firstName,initialRole,companies,professions,next}:{firstName:string;initialRole:Role;companies:Option[];professions:Option[];next?:string}){
   const [role,setRole]=useState<Role>(initialRole);
   const [step,setStep]=useState(0);
-  const [error,action,pending]=useActionState(completeOnboardingAction,undefined);
+  const [result,action,pending]=useActionState(submitOnboarding,undefined);
+  const [stepError,setStepError]=useState<{text:string;at:number}|null>(null);
+  const [navAt,setNavAt]=useState(0);
   const steps=useRef<(HTMLFieldSetElement|null)[]>([]);
+  const top=useRef<HTMLDivElement>(null);
   const consultant=role==="CONSULTANT";
   const titles=consultant?["Como você quer usar","Seu perfil profissional","Identificação"]:["Como você quer usar","Identificação"];
   const last=titles.length-1;
-  const current=Math.min(step,last);
-  const go=(target:number)=>{ setStep(target); requestAnimationFrame(()=>steps.current[target]?.querySelector<HTMLElement>("h2")?.focus()); };
+  // A server error about the profile sends the person back to the profile step until they move on.
+  const profileFix=consultant&&!!result?.text&&/^O campo "|confidencialidade/i.test(result.text)&&result.at>navAt;
+  const current=profileFix?1:Math.min(step,last);
+  const go=(target:number)=>{ setStep(target); setNavAt(Date.now()); setStepError(null); requestAnimationFrame(()=>{ top.current?.scrollIntoView({behavior:"smooth",block:"start"}); steps.current[target]?.querySelector<HTMLElement>("h2")?.focus({preventScroll:true}); }); };
+  const showError=(text:string)=>{ setStepError({text,at:Date.now()}); requestAnimationFrame(()=>top.current?.scrollIntoView({behavior:"smooth",block:"start"})); };
   const advance=()=>{
-    const fields=steps.current[current]?.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>("input,select,textarea")??[];
+    const box=steps.current[current];
+    const fields=box?.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>("input,select,textarea")??[];
     for(const field of fields){ if(!field.checkValidity()){ field.reportValidity(); return; } }
+    if(consultant&&current===1&&box){
+      const form=box.closest("form");
+      const found=form?findUnsafeProfileText(PROFILE_TEXTS.map(([label,name])=>[label,new FormData(form).getAll(name).map(String).join(" ")])):null;
+      if(found){ showError(unsafeProfileTextMessage(found)); return; }
+    }
     go(current+1);
   };
+  // A server error goes back to the step that holds the problem and is shown at the top of it.
+  useEffect(()=>{
+    if(!result?.text)return;
+    requestAnimationFrame(()=>top.current?.scrollIntoView({behavior:"smooth",block:"start"}));
+  },[result]);
+  const message=stepError??(result?.text?{text:result.text,at:result.at}:null);
   const stepIndex=(name:"role"|"profile"|"identity")=>name==="role"?0:name==="profile"?1:last;
   return <KeepValuesForm action={action} className="auth-form onboarding-flow">
     {next&&<input type="hidden" name="next" value={next}/>}
-    <div className="onboarding-progress" aria-label={`Etapa ${current+1} de ${titles.length}: ${titles[current]}`}>
+    <div ref={top} className="onboarding-progress" aria-label={`Etapa ${current+1} de ${titles.length}: ${titles[current]}`}>
       <span className="onboarding-progress-label">Olá, {firstName} · etapa {current+1} de {titles.length}</span>
       <div className="onboarding-progress-bar">{titles.map((title,index)=><span key={title} className={index<=current?"is-done":undefined}/>)}</div>
     </div>
-    {error&&<p className="form-error" role="alert">{error}</p>}
+    {message&&<TimedMessage key={message.at} text={message.text} error duration={9000}/>}
 
     <fieldset className="onboarding-step" hidden={current!==stepIndex("role")} ref={(el)=>{steps.current[0]=el;}}>
       <h2 tabIndex={-1}>Como você quer usar a Insidely?</h2>
@@ -85,7 +113,7 @@ export function ConsultantProfileFields({companies,professions}:{companies:Optio
       <CatalogPicker id="professionId" name="professionId" label="Área ou profissão" kind="profession" options={professions} required/>
       <div className="profile-fields-row">
         <div className="field"><label htmlFor="yearsExperience">Anos de experiência</label><input className="input" id="yearsExperience" name="yearsExperience" type="number" min="0" max="60" placeholder="Ex.: 4" required/></div>
-        <div className="field"><label htmlFor="location">Cidade</label><input className="input" id="location" name="location" placeholder="Ex.: São Paulo, SP" required/></div>
+        <div className="field"><label htmlFor="location">Cidade</label><CityInput id="location" name="location" required/></div>
       </div>
     </div>
     <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={5} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Conte em poucas frases o que você vive no dia a dia e sobre o que pode conversar. Ex.: Trabalho há 4 anos com produto em fintechs. Posso contar como é a rotina do time, como funciona o processo seletivo e o que eu gostaria de ter sabido antes de entrar."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo. Quanto mais concreto, mais fácil para quem vai agendar.":`Pelo menos ${BIO_MIN} caracteres · faltam ${BIO_MIN-bioLength}`}</small></div>
