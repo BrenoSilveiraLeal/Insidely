@@ -53,6 +53,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const moderationRows = (moderation.data ?? []) as ModerationRow[];
   const reportRows = (reportsAgainst.data ?? []) as ReportRow[];
   const reactivationCount = reactivations.data?.length ?? 0;
+  // Admins are staff, not customers or consultants: no reputation, warnings or identity record.
+  const isAdmin = user.role === Role.ADMIN;
   const warningRows = (warnings.data ?? []) as { id: string; reason: string; createdAt: string }[];
 
   return <DashboardShell mode="admin" title={user.name}>
@@ -64,7 +66,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <span className="eyebrow">{user.role} · desde {when(user.createdAt)}{!user.auth_user_id && " · conta excluída"}</span>
         <h2>{user.name}</h2>
         <p className="muted">{user.email}</p>
-        <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
+        {!isAdmin && <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>}
         <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
       </section>
 
@@ -74,12 +76,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <form action={addAdminNoteAction.bind(null, user.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={2000} required placeholder="Ex.: Ligou para o suporte em 30/10 contestando a denúncia; pediu revisão."/><button className="button button-ghost button-sm">Adicionar nota</button></form>
       </section>
 
-      <section className="panel form-stack">
+      {!isAdmin && <section className="panel form-stack">
         <span className="eyebrow">Advertências · {warningRows.length}</span>
         <p className="muted">Próximo passo sugerido: <strong>{suspended ? "aguardar o fim da suspensão" : warningRows.length === 0 ? "advertência" : warningRows.length === 1 ? "suspensão de 7 dias" : warningRows.length === 2 ? "suspensão de 30 dias" : "banimento"}</strong>, conforme o histórico desta conta.</p>
         {warningRows.length > 0 && <div className="list">{warningRows.map((item) => <div className="list-row" key={item.id}><p>{item.reason}</p><span className="muted">{when(item.createdAt)}</span></div>)}</div>}
         {user.role !== Role.ADMIN && <form action={warnUserAction.bind(null, user.id)} className="form-stack"><label className="field"><span>Nova advertência (a pessoa recebe por e-mail e notificação)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label><button className="button button-ghost button-sm" type="submit">Registrar advertência</button></form>}
-      </section>
+      </section>}
 
       <section className="panel form-stack">
         <span className="eyebrow">Suspensão</span>
@@ -95,7 +97,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </form>}
       </section>
 
-      <section className="panel form-stack">
+      {!isAdmin && <section className="panel form-stack">
         <span className="eyebrow">Identificação · todo acesso é registrado</span>
         {!identity.data ? <p className="muted">Esta conta ainda não registrou CPF.</p> : reveal.data ? <div className="customer-info"><dl>
           <div><dt>CPF</dt><dd>{formatCpf(identity.data.cpf)}</dd></div>
@@ -109,13 +111,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </form>
         </>}
         {auditRows.length > 0 && <><strong>Histórico de acessos</strong><div className="list">{auditRows.map((item) => <div className="list-row" key={item.id}><div><strong>{adminName(item.adminUserId)}</strong><p className="muted">{item.reason}</p></div><span className="muted">{when(item.createdAt)}</span></div>)}</div></>}
-      </section>
+      </section>}
 
-      <section className="panel"><span className="eyebrow">Denúncias recebidas</span><div className="list">{reportRows.map((item) => <div className="list-row" key={item.id}><div><strong>{item.category}</strong><p className="muted">{item.description}</p></div><span className="status">{item.status} · {when(item.createdAt)}</span></div>)}{!reportRows.length && <p className="muted">Nenhuma denúncia.</p>}</div></section>
+      {!isAdmin && <section className="panel"><span className="eyebrow">Denúncias recebidas</span><div className="list">{reportRows.map((item) => <div className="list-row" key={item.id}><div><strong>{item.category}</strong><p className="muted">{item.description}</p></div><span className="status">{item.status} · {when(item.createdAt)}</span></div>)}{!reportRows.length && <p className="muted">Nenhuma denúncia.</p>}</div></section>}
 
-      <section className="panel"><span className="eyebrow">Mensagens bloqueadas no chat</span><div className="list">{moderationRows.map((item, index) => <div className="list-row" key={index}><div><strong>{item.reason === "offensive" ? "Ofensiva" : "Contato / pagamento por fora"}</strong><p className="muted">“{item.excerpt}”</p></div><span className="muted">{when(item.createdAt)}</span></div>)}{!moderationRows.length && <p className="muted">Nenhuma.</p>}</div></section>
+      {!isAdmin && <section className="panel"><span className="eyebrow">Mensagens bloqueadas no chat</span><div className="list">{moderationRows.map((item, index) => <div className="list-row" key={index}><div><strong>{item.reason === "offensive" ? "Ofensiva" : "Contato / pagamento por fora"}</strong><p className="muted">“{item.excerpt}”</p></div><span className="muted">{when(item.createdAt)}</span></div>)}{!moderationRows.length && <p className="muted">Nenhuma.</p>}</div></section>}
 
-      <section className="panel"><span className="eyebrow">Avaliações dadas pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>
+      {!isAdmin && <section className="panel"><span className="eyebrow">Avaliações dadas pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>}
     </div>
   </DashboardShell>;
 }
