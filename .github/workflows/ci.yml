@@ -24,7 +24,7 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_e2e_test_secret
       STRIPE_SECRET_KEY: sk_test_e2e_test_secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
