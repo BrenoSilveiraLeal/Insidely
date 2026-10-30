@@ -12,7 +12,7 @@ export const metadata = { title: "Painel" };
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const data = await getViewerDashboard(user.id);
   if (!data) return null;
   const upcoming = data.customerBookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && meetingRoomState(booking.startsAt, booking.durationMinutes) !== "ended");

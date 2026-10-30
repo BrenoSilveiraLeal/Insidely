@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<{ cancelamento?: string; contestacao?: string; calendar?: string }> }) {
   const query = await searchParams;
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const dashboard = await getViewerDashboard(user.id);
   // Self-bookings (a consultant testing their own profile) cannot be reviewed.
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();

@@ -9,7 +9,7 @@ export const metadata = { title: "Virar consultor" };
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   if (user.role !== Role.USER) redirect(user.role === Role.CONSULTANT ? "/consultor" : "/admin");
   const [companies, professions] = await Promise.all([getPublicCompanies(), getPublicProfessions()]);
   return <DashboardShell mode="user" title="Virar consultor">

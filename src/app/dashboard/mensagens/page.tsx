@@ -24,7 +24,7 @@ function requestStatus(status: string) {
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string }> }) {
   const query = await searchParams;
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const dashboard = await getViewerDashboard(user.id);
   const requests = dashboard?.customerBookings ?? [];
   // A consultant test-booking their own profile has nobody to report.

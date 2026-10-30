@@ -92,7 +92,7 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   if (stored.role !== Role.ADMIN && !options?.allowSuspended && await getSuspension(stored.id)) redirect("/conta-suspensa");
   // Admins see full CPFs and suspend accounts: two-step verification is mandatory for them.
   if (stored.role === Role.ADMIN && !options?.allowWithoutMfa && assurance?.currentLevel !== "aal2") redirect("/dashboard/configuracoes?mfa=obrigatorio");
-  if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : "/dashboard");
+  if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : stored.role === Role.ADMIN ? "/admin" : "/dashboard");
   if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(nextPath ? "/onboarding?next=" + encodeURIComponent(nextPath) : "/onboarding");
   // Every customer and consultant account registers a CPF; older accounts do it on the next visit.
   if (!options?.allowIncomplete && !await hasAcceptedCurrentTerms(stored.id)) redirect(nextPath ? "/aceitar-termos?next=" + encodeURIComponent(nextPath) : "/aceitar-termos");

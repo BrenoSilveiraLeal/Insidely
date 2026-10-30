@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ context?: string }> }) {
   const params = await searchParams;
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const consultantContext = user.role === Role.CONSULTANT && params.context === "consultant";
   const dashboard = await getViewerDashboard(user.id);
   const history = Array.from(new Map((dashboard?.customerBookings ?? []).sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime()).map((booking) => [booking.professional.id, booking.professional])).values());

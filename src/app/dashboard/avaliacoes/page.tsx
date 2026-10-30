@@ -13,7 +13,7 @@ export const metadata = { title: "Avaliações" };
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const dashboard = await getViewerDashboard(user.id);
   // A consultant may test-book their own profile, but cannot review it (the database refuses).
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
