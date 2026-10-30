@@ -3,6 +3,7 @@ import { Role } from "@/lib/domain";
 import { appEmailConfigured, smtpConfigured } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { checkGoogleMeet } from "@/lib/google-meet";
+import { imageModerationConfigured } from "@/lib/image-moderation";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -62,6 +63,7 @@ export default async function Page() {
     { name: "Banco de dados", ok: !dbError, message: dbError ? `Erro: ${dbError.message}` : `Respondendo (${dbMs} ms).` },
     { name: "Google Meet", ok: meet.ok, message: meet.message + (fallbackRooms ? ` ${fallbackRooms} sala(s) usaram o Jitsi nos últimos 7 dias.` : "") },
     { name: "Envio de e-mails", ok: appEmailConfigured(), message: appEmailConfigured() ? (smtpConfigured() ? "Configurado via SMTP (Gmail)." : "Configurado via Resend.") : "Nenhum provedor configurado: e-mails não são enviados." },
+    { name: "Moderação de fotos", ok: imageModerationConfigured(), message: imageModerationConfigured() ? "Fotos de perfil e capas são verificadas automaticamente antes de serem publicadas." : "DESLIGADA: falta a variável OPENAI_API_KEY na Vercel. Sem ela, qualquer foto é aceita." },
     jobCheck("reminders", "Tarefa de 5 minutos (lembretes, salas, avisos)", 20),
     jobCheck("daily", "Tarefa diária (expirações, retenção, avisos)", 26 * 60),
   ];
