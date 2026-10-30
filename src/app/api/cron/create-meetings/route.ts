@@ -1,11 +1,12 @@
 import { closeEndedMeetings, ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
+import { isCronAuthorized } from "@/lib/cron-auth";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!isCronAuthorized(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (process.env.GOOGLE_MEET_ENABLED !== "true") return Response.json({ ok: true, created: 0, disabled: true });
 
   // The service role is required because this is a protected scheduled job.

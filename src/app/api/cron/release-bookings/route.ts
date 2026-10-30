@@ -8,12 +8,12 @@ import { remindEmptyAgendas } from "@/lib/empty-agenda";
 import { recordCronRun } from "@/lib/admin-log";
 import { alertAdmins } from "@/lib/ops-alerts";
 
+import { isCronAuthorized } from "@/lib/cron-auth";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  const authorization = request.headers.get("authorization");
-  if (!secret || authorization !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!isCronAuthorized(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   try {
     // The migration adds provider-specific columns beyond the generated legacy type.
