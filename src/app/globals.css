@@ -1358,3 +1358,4 @@ html { scroll-padding-top: 120px; }
 }
 /* "Abra sua agenda": the quick button keeps its distance from the text above it. */
 .agenda-grid .panel > form:first-of-type { margin-top: 16px; }
+.timed-message { margin-top: 12px; animation: flash-in .3s ease both; }
