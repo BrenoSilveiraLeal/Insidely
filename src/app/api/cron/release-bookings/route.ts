@@ -4,6 +4,7 @@ import { parseDbDate } from "@/lib/format";
 import { applyRetention } from "@/lib/retention";
 import { flagSuspiciousAccounts } from "@/lib/suspicious";
 import { promptDecisionStories } from "@/lib/decision-stories";
+import { remindEmptyAgendas } from "@/lib/empty-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,9 @@ export async function GET(request: Request) {
     }
     const suspicious = await flagSuspiciousAccounts(supabase).catch((flagError) => { console.error("suspicious_scan_failed", { error: flagError }); return null; });
     const decisionPrompts = await promptDecisionStories(supabase).catch((promptError) => { console.error("decision_prompt_failed", { error: promptError }); return null; });
+    const emptyAgendas = await remindEmptyAgendas(supabase).catch((agendaError) => { console.error("empty_agenda_failed", { error: agendaError }); return null; });
     const retention = await applyRetention(supabase).catch((retentionError) => { console.error("retention_failed", { error: retentionError }); return null; });
-    return Response.json({ ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts });
+    return Response.json({ ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "release_failed" }, { status: 500 });
   }

@@ -1197,3 +1197,21 @@ export async function reviewDecisionStoryAction(bookingId: string, decision: "AP
   await (createSupabaseServiceClient() as any).from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
   revalidatePath("/admin/historias"); revalidatePath("/");
 }
+
+// What the consultant tells about the area (aggregated anonymously on the profession page).
+export async function saveAreaInsightsAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const salaryRange = String(formData.get("salaryRange") || "") || null;
+  const areaPro = String(formData.get("areaPro") || "").trim().slice(0, 200) || null;
+  const areaCon = String(formData.get("areaCon") || "").trim().slice(0, 200) || null;
+  for (const text of [areaPro, areaCon]) {
+    if (!text) continue;
+    const check = moderateChatMessage(text, { countScatteredDigits: false });
+    if (!check.allowed) return { status: "error", message: check.reason === "offensive" ? "O texto tem palavrões ou ofensas." : "O texto não pode ter telefone, e-mail, link ou rede social." };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (createSupabaseServiceClient() as any).from("ProfessionalProfile").update({ salaryRange, areaPro, areaCon, updatedAt: new Date().toISOString() }).eq("userId", user.id);
+  if (error) return { status: "error", message: "Não foi possível salvar agora." };
+  revalidatePath("/consultor/perfil"); revalidatePath("/profissao/[slug]", "page");
+  return { status: "success", message: "Obrigado! Suas respostas aparecem de forma anônima na página da sua área." };
+}

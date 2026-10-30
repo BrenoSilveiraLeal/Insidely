@@ -7,6 +7,8 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
 import { getIdentityVerifiedProfileIds, getProfileSignals, isWatchingAvailability } from "@/lib/profile-signals";
 import { toggleAvailabilityWatchAction } from "@/app/actions";
+import { getAlsoTalkedWith } from "@/lib/area-insights";
+import { ProfessionalCard } from "@/components/cards";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
 import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
@@ -52,6 +54,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const [verifiedIdentities, signals] = await Promise.all([getIdentityVerifiedProfileIds(), getProfileSignals(profile.id)]);
   const identityVerified = verifiedIdentities.has(profile.id);
   const watching = viewer ? await isWatchingAvailability(viewer.id, profile.id) : false;
+  const alsoTalked = (await Promise.all((await getAlsoTalkedWith(profile.id)).map((otherId) => getProfessional(otherId).catch(() => null)))).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
@@ -99,5 +102,6 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         </aside>
       </div>
     </section>
+    {alsoTalked.length > 0 && <section className="section"><div className="container"><span className="eyebrow">Recomendações</span><h2 className="section-title">Quem conversou com {name} também conversou com</h2><div className="grid grid-3">{alsoTalked.map((item, index) => <ProfessionalCard key={item.id} profile={item} index={index}/>)}</div></div></section>}
   </PublicShell>;
 }

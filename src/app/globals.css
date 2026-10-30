@@ -1028,3 +1028,17 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .agenda-sync { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
 .agenda-sync > div { display: grid; gap: 4px; flex: 1 1 360px; }
 .agenda-sync p { margin: 0; }
+.search-more { grid-column: 1 / -1; }
+.search-more > summary { cursor: pointer; font-weight: 800; font-size: .88rem; }
+.search-more-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; margin-top: 12px; }
+.area-insights { display: grid; gap: 16px; margin-bottom: 28px; }
+.area-salary { display: grid; gap: 8px; }
+.area-salary-row { display: grid; grid-template-columns: 150px 1fr 24px; gap: 10px; align-items: center; font-size: .86rem; }
+.area-salary-bar { display: block; height: 10px; min-width: 6px; border-radius: 999px; background: var(--mineral); }
+.area-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.area-points ul { margin: 6px 0 0; padding-left: 18px; }
+.completeness { display: grid; gap: 10px; margin-top: 20px; }
+.completeness-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.completeness-bar { flex: 1 1 240px; height: 12px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
+.completeness-bar span { display: block; height: 100%; border-radius: 999px; background: var(--mineral); }
+.completeness-list { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding-left: 18px; }
