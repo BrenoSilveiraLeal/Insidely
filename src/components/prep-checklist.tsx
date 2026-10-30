@@ -1,33 +1,16 @@
-"use client";
+import { Clock, MessageSquareText, Video, Wifi } from "lucide-react";
 
-import { useEffect, useState } from "react";
-
-const ITEMS = [
-  "Testei câmera e microfone (meet.google.com/new → \"Verificar áudio e vídeo\")",
-  "Estou num lugar silencioso e com boa internet",
-  "Reli o que foi combinado e anotei minhas perguntas",
-  "Sei que a sala abre exatamente no horário marcado",
+const TIPS = [
+  { icon: Video, title: "Teste câmera e microfone", text: <>Abra <a className="text-link" href="https://meet.google.com/new" target="_blank" rel="noreferrer">meet.google.com/new</a> e use “Verificar áudio e vídeo”.</> },
+  { icon: Wifi, title: "Lugar tranquilo", text: "Silêncio e uma internet estável fazem diferença em 30 minutos." },
+  { icon: MessageSquareText, title: "Suas perguntas", text: "Releia o que foi combinado e anote o que quer perguntar." },
+  { icon: Clock, title: "Pontualidade", text: "A sala abre exatamente no horário marcado." },
 ];
 
-// A short guide shown in the hours before a conversation. Ticks are remembered in this browser only.
-export function PrepChecklist({ bookingId }: { bookingId: string }) {
-  const key = `insidely-prep-${bookingId}`;
-  const [done, setDone] = useState<number[]>([]);
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? "[]");
-      // Restoring the ticks saved in this browser after mount.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (Array.isArray(saved)) setDone(saved.filter((item) => typeof item === "number"));
-    } catch { /* nothing saved */ }
-  }, [key]);
-  const toggle = (index: number) => setDone((current) => {
-    const next = current.includes(index) ? current.filter((item) => item !== index) : [...current, index];
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* not remembered */ }
-    return next;
-  });
-  return <section className="panel prep-checklist">
-    <span className="eyebrow">Antes da conversa · {done.length}/{ITEMS.length}</span>
-    {ITEMS.map((item, index) => <label className="check-row" key={item}><input type="checkbox" checked={done.includes(index)} onChange={() => toggle(index)}/><span>{item}</span></label>)}
+// A short guide shown in the hours before a conversation: tips to read, nothing to tick.
+export function PrepChecklist() {
+  return <section className="prep-tips" aria-label="Dicas para a conversa">
+    <span className="eyebrow">Antes da conversa</span>
+    <div className="prep-tips-grid">{TIPS.map(({ icon: Icon, title, text }) => <div className="prep-tip" key={title}><span className="prep-tip-icon" aria-hidden="true"><Icon size={17}/></span><div><strong>{title}</strong><p>{text}</p></div></div>)}</div>
   </section>;
 }

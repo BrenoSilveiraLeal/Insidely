@@ -1013,7 +1013,14 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .starts-in small { font-weight: 600; color: var(--muted); }
 .starts-in-soon { background: rgba(242,196,93,.45); }
 .starts-in-live { background: var(--mineral); }
-.prep-checklist { display: grid; gap: 8px; }
+.prep-tips { display: grid; gap: 12px; }
+.prep-tips-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.prep-tip { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.5); }
+.prep-tip strong { display: block; font-size: .86rem; }
+.prep-tip p { margin: 3px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.prep-tip-icon { display: grid; flex: 0 0 32px; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--paper-2); color: var(--ink); }
+@media (max-width: 980px) { .prep-tips-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .prep-tips-grid { grid-template-columns: 1fr; } }
 .survey-card { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .survey-card > div:first-child { display: grid; gap: 4px; }
 .home-stories { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 28px; }
