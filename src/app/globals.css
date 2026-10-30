@@ -887,7 +887,8 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 
 /* Admin: companies and areas queue */
 .catalog-admin { display: grid; gap: 24px; }
-.catalog-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); gap: 12px; }
+.catalog-counters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 520px) { .catalog-counters { grid-template-columns: 1fr; } }
 .catalog-request { display: grid; gap: 20px; }
 .catalog-request-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; }
 .catalog-request-head h2 { margin: 6px 0 0; }
