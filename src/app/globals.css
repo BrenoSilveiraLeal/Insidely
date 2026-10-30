@@ -1161,3 +1161,15 @@ html { scroll-padding-top: 120px; }
 .file-picker small { flex-basis: 100%; }
 .field-label { font-weight: 800; font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; }
 .completeness-list { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+
+/* Two independent card columns (see TwoColumns) */
+.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.two-columns-col { display: grid; gap: 20px; align-content: start; min-width: 0; }
+.two-columns-item { min-width: 0; }
+.two-columns-item > * { height: auto; }
+.consultas-feedback { display: grid; gap: 10px; margin-bottom: 16px; }
+.consultas-feedback:empty { display: none; }
+@media (max-width: 860px) {
+  .two-columns { display: flex; flex-direction: column; }
+  .two-columns-col { display: contents; }
+}

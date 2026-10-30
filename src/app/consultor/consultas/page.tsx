@@ -1,3 +1,4 @@
+import { TwoColumns } from "@/components/two-columns";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
 import { BlockUserForm, ConversationReportForm, CustomerFeedbackForm, customerFeedbackText, reportFeedbackText } from "@/components/conversation-safety";
@@ -35,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   const rated = new Set((feedbackRows ?? []).map((row: { bookingId: string }) => row.bookingId));
   const unread = await getUnreadCounts(user.id, bookings.items.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
   const customers = await getCustomersForConsultant(user.id, bookings.items.filter((booking) => booking.status !== "EXPIRED").map((booking) => booking.id));
-  return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="grid grid-2">
+  return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="consultas-feedback">
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
     {query.avaliacao && <p className={query.avaliacao === "ok" ? "form-feedback" : "form-error"} role={query.avaliacao === "ok" ? "status" : "alert"}>{customerFeedbackText(query.avaliacao)}</p>}
@@ -43,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
     {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar esta conversa. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
-    {bookings.items.map(booking => {
+    </div><TwoColumns>{bookings.items.map(booking => {
       const roomState = roomStates.get(booking.id);
       const info = customers.get(booking.id);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
@@ -88,7 +89,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
         </details>}
       </article>;
     })}
-  </div>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
+  </TwoColumns>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
 }
 
 // Basic data about who booked: enough to recognize the person and, if something serious happens,

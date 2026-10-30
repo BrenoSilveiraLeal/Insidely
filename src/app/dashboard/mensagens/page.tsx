@@ -1,3 +1,4 @@
+import { TwoColumns } from "@/components/two-columns";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
@@ -35,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     <div className="section-head"><p className="muted">Seus pedidos e conversas. A conversa é liberada depois que o pagamento é confirmado.</p><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
-    <div className="grid grid-2">{requests.map((booking) => {
+    <TwoColumns>{requests.map((booking) => {
       const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
       const note = booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento."
@@ -66,7 +67,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           </div>
         </details>}
       </article>;
-    })}</div>
+    })}</TwoColumns>
     {!requests.length && <section className="panel"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}
   </DashboardShell>;
 }
