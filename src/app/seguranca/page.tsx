@@ -18,7 +18,7 @@ export default function SecurityPage() {
   return <PublicShell>
     <section className="page-hero" data-mark="✓"><div className="container page-hero-inner"><span className="eyebrow">Segurança</span><h1>Conversas entre desconhecidos, com proteção dos dois lados.</h1><p>Veja como a Insidely protege quem procura uma conversa e quem compartilha a própria experiência.</p></div></section>
     <section className="section"><div className="container grid grid-2 security-grid">{items.map(([title, text], index) => <article className="panel" key={title}><span className="eyebrow">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2><p>{text}</p></article>)}</div>
-      <div className="container"><p className="muted">Detalhes completos nos <Link className="text-link" href="/termos">Termos de Uso</Link> e na <Link className="text-link" href="/privacidade">Política de Privacidade</Link>. Dúvidas sobre seus dados: insidelybrasil@gmail.com.</p></div>
+      <div className="container"><p className="muted security-note">Detalhes completos nos <Link className="text-link" href="/termos">Termos de Uso</Link> e na <Link className="text-link" href="/privacidade">Política de Privacidade</Link>. Dúvidas sobre seus dados: insidelybrasil@gmail.com.</p></div>
     </section>
   </PublicShell>;
 }

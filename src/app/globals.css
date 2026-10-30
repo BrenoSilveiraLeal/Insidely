@@ -1099,3 +1099,5 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 
 /* Anything scrolled into view (anchors, focus, assistive tech) lands below the fixed header. */
 html { scroll-padding-top: 120px; }
+
+.security-note { margin-top: 36px; }
