@@ -2,6 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/app/actions";
 import { DashboardNavToggle } from "@/components/dashboard-nav-toggle";
 import { NotificationPopover } from "@/components/notification-popover";
+import { AdminNotifications } from "@/components/admin-notifications";
 
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
@@ -23,5 +24,5 @@ export function DashboardShell({ mode, title, children, profileId, notifications
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}{!canConsultant && mode === "user" && <Link href="/dashboard/virar-consultor">Virar consultor</Link>}
       <Link href="/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
     </>}
-  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode !== "admin" && <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
+  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" ? <AdminNotifications/> : <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
 }
