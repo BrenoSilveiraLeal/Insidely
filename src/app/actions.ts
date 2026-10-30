@@ -13,6 +13,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
 import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } from "@/lib/chat-moderation";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
+import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
 import { canReviewBooking } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
@@ -849,4 +850,11 @@ export async function rateCustomerAction(bookingId: string, formData: FormData) 
   if (error) redirect(`/consultor/consultas?avaliacao=${error.code === "23505" ? "repetida" : "erro"}`);
   revalidatePath("/consultor/consultas");
   redirect("/consultor/consultas?avaliacao=ok");
+}
+
+// Called by the open conversation page when a message arrives or the tab comes back into view.
+export async function markConversationReadAction(bookingId: string) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const conversationId = await conversationIdForParticipant(bookingId, user.id);
+  if (conversationId) await markConversationRead(conversationId, user.id);
 }

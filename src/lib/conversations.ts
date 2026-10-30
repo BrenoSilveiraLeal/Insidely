@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
-export type ConversationMessage = { id: string; body: string; senderId: string; createdAt: string };
+export type ConversationMessage = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null };
 export type ConversationView = {
   bookingId: string; conversationId: string; status: string; startsAt: string; durationMinutes: number; meetingUrl: string | null;
   customerId: string; consultantId: string; viewerIsConsultant: boolean; otherName: string; messages: ConversationMessage[];
@@ -24,7 +24,7 @@ export async function getConversationForParticipant(bookingId: string, userId: s
   // A customer self-booking their own profile counts as the consultant (it is their own profile).
   const viewerIsConsultant = profile.userId === userId;
   const [{ data: messages }, otherName] = await Promise.all([
-    supabase.from("Message").select("id, body, senderId, createdAt").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
+    supabase.from("Message").select("id, body, senderId, createdAt, readAt").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
     viewerIsConsultant ? customerName(supabase, booking.customerId) : consultantPublicName(supabase, booking.professionalProfileId),
   ]);
   return { bookingId, conversationId: conversation.id, status: booking.status, startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
@@ -44,9 +44,28 @@ async function consultantPublicName(supabase: any, profileId: string) {
   return (user as { name?: string } | undefined)?.name || "Consultor";
 }
 
+// Opening the conversation reads everything the other side sent: the badge resets and each of those
+// messages gets its own "readAt", which the sender sees as "Lida às HH:MM".
 export async function markConversationRead(conversationId: string, userId: string) {
-  const { error } = await service().from("ConversationRead").upsert({ conversationId, userId, lastReadAt: new Date().toISOString() }, { onConflict: "conversationId,userId" });
-  if (error) console.error("conversation_read_failed", { conversationId, error });
+  const now = new Date().toISOString();
+  const supabase = service();
+  const [{ error }, { error: messageError }] = await Promise.all([
+    supabase.from("ConversationRead").upsert({ conversationId, userId, lastReadAt: now }, { onConflict: "conversationId,userId" }),
+    supabase.from("Message").update({ readAt: now }).eq("conversationId", conversationId).neq("senderId", userId).is("readAt", null),
+  ]);
+  if (error || messageError) console.error("conversation_read_failed", { conversationId, error: error ?? messageError });
+}
+
+// The conversation of a booking, only if this user takes part in it.
+export async function conversationIdForParticipant(bookingId: string, userId: string) {
+  const supabase = service();
+  const { data: booking } = await supabase.from("Booking").select("customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  if (!booking) return null;
+  const [{ data: profile }, { data: conversation }] = await Promise.all([
+    supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
+    supabase.from("Conversation").select("id").eq("bookingId", bookingId).maybeSingle(),
+  ]);
+  return conversation && [booking.customerId, profile?.userId].includes(userId) ? conversation.id as string : null;
 }
 
 // Messages from the other side since the viewer last opened each conversation, keyed by conversation id.
