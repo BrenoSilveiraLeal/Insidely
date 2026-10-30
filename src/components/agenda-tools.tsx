@@ -75,7 +75,7 @@ export function PauseProfile({ pausedUntilLabel, paused, upcoming }: { paused: b
         <a className="text-link" href="/consultor/consultas">Abrir Consultas</a>
       </div> : after.length > 0 ? <div className="agenda-pause-note">
         <strong>{after.length === 1 ? "Sua conversa depois da volta continua valendo." : `Suas ${after.length} conversas depois da volta continuam valendo.`}</strong>
-        <p className="muted">Se você não aparecer em uma conversa marcada, o cliente é avisado e recebe o reembolso.</p>
+        <p className="muted">Se você faltar a uma conversa marcada, o cliente é avisado e pode contestar: o valor não é repassado a você e volta para ele.</p>
       </div> : null}
       <Feedback state={state}/>
       <div className="agenda-pause-actions"><button className="button button-ghost" type="button" onClick={() => { setConfirming(false); setUntil(""); }}>Cancelar</button><button className="button button-accent" disabled={pending || blocking.length > 0}>{pending ? "Pausando…" : "Pausar meu perfil"}</button></div>
