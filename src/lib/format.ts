@@ -2,12 +2,22 @@ export function money(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 }
 
+// "30 de out. às 20:20": Intl's own output ("30 de out., 20:20") puts a comma right after the
+// abbreviation's period, so the pieces are joined by hand.
+function brazilDateParts(date: Date | string, weekday: boolean) {
+  const parts = new Intl.DateTimeFormat("pt-BR", { ...(weekday ? { weekday: "short" as const } : {}), day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).formatToParts(new Date(date));
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return { weekday: part("weekday").replace(/\.$/, ""), day: part("day"), month: part("month"), time: `${part("hour")}:${part("minute")}` };
+}
+
 export function shortDate(date: Date | string) {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(date));
+  const { day, month, time } = brazilDateParts(date, false);
+  return `${day} de ${month} às ${time}`;
 }
 
 export function dateTimeInBrazil(date: Date | string) {
-  return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(date));
+  const { weekday, day, month, time } = brazilDateParts(date, true);
+  return `${weekday}, ${day} de ${month} às ${time}`;
 }
 
 export function bookingCountdown(date: Date | string, now = new Date()) {
