@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 
 // Daily: 14 days after a finished conversation, invite the customer to tell what they decided.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,10 +19,14 @@ export async function promptDecisionStories(supabase: any, now = new Date()) {
   return prompted;
 }
 
-// Approved stories for the home page carousel (text only, never the customer's name).
-export async function getPublishedStories(limit = 8) {
+// Stories the team featured on the home page carousel (text only, never the customer's name).
+// Until the featuredAt column exists (migration 20261101098000), the latest approved ones are used.
+export async function getPublishedStories(limit = HOME_STORY_LIMIT) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (createSupabaseServiceClient() as any).from("DecisionStory").select("bookingId, story").eq("allowPublish", true).eq("status", "APPROVED").order("createdAt", { ascending: false }).limit(limit);
+  const supabase = createSupabaseServiceClient() as any;
+  const featured = await supabase.from("DecisionStory").select("bookingId, story").eq("allowPublish", true).eq("status", "APPROVED").not("featuredAt", "is", null).order("featuredAt").limit(limit);
+  if (!featured.error) return (featured.data ?? []) as { bookingId: string; story: string }[];
+  const { data } = await supabase.from("DecisionStory").select("bookingId, story").eq("allowPublish", true).eq("status", "APPROVED").order("createdAt", { ascending: false }).limit(limit);
   return (data ?? []) as { bookingId: string; story: string }[];
 }
 

@@ -31,6 +31,7 @@ import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
 import { sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
+import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { imageModerationMessage, moderateImage } from "@/lib/image-moderation";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -1192,7 +1193,24 @@ export async function saveDecisionStoryAction(bookingId: string, _: FormState, f
 export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED") {
   const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "review_story", null, `${decision} ${bookingId}`));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (createSupabaseServiceClient() as any).from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
+  const supabase = createSupabaseServiceClient() as any;
+  await supabase.from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
+  // A story taken off the air also leaves the home page.
+  if (decision === "REJECTED") await supabase.from("DecisionStory").update({ featuredAt: null }).eq("bookingId", bookingId).then(() => undefined, () => undefined);
+  revalidatePath("/admin/historias"); revalidatePath("/"); revalidatePath("/profissional/[id]", "page");
+}
+
+// Up to HOME_STORY_LIMIT approved stories are featured in the home page carousel.
+export async function featureDecisionStoryAction(bookingId: string, featured: boolean) {
+  const actor = await requireUser([Role.ADMIN]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  if (featured) {
+    const { count } = await supabase.from("DecisionStory").select("bookingId", { count: "exact", head: true }).not("featuredAt", "is", null);
+    if ((count ?? 0) >= HOME_STORY_LIMIT) redirect("/admin/historias?erro=limite");
+  }
+  await supabase.from("DecisionStory").update({ featuredAt: featured ? new Date().toISOString() : null }).eq("bookingId", bookingId).eq("status", "APPROVED");
+  after(() => logAdminAction(actor.id, "review_story", null, `${featured ? "FEATURE" : "UNFEATURE"} ${bookingId}`));
   revalidatePath("/admin/historias"); revalidatePath("/");
 }
 

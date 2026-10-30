@@ -16,7 +16,7 @@ const hiddenQuestions = [["01", "Como é uma terça-feira comum, não o dia da e
 
 export default async function Home() {
   // "Decidi!" stories approved by the team, in a small carousel (text only, no names).
-  const stories = await getPublishedStories(8).catch(() => []);
+  const stories = await getPublishedStories().catch(() => []);
   const data = await getHomeData().catch(() => ({ professionalCount: 0, companyCount: 0, completedCount: 0, rating: 0, professionals: [], companies: [], professions: [] }));
   return <PublicShell><ScrollReveals><InsideHero/><section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
     <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list"><span className="question-list-line" aria-hidden="true" />{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p></article>)}</div></div></section><StoryMotion/>

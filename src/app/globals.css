@@ -1434,3 +1434,9 @@ html { scroll-padding-top: 120px; }
 .profile-stories-list figure { margin: 0; padding: 14px 16px; border-radius: 14px; background: var(--paper); }
 .profile-stories-list blockquote { margin: 0; line-height: 1.55; }
 .profile-stories-list figcaption { margin-top: 8px; color: var(--muted); font-size: .8rem; font-weight: 700; }
+/* Admin → Histórias: status chips per story and the home page counter. */
+.stories-admin-head { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.stories-admin-head p { margin: 0; max-width: 640px; }
+.story-admin-row p { margin: 0 0 10px; }
+.story-admin-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.support-case-state.is-featured { background: rgba(255,118,87,.18); color: #8a2c1d; }
