@@ -5,6 +5,7 @@ import { checkNoShows } from "@/lib/attendance";
 import { reactivateExpiredPauses } from "@/lib/pause";
 import { emailUnreadMessages } from "@/lib/conversation-extras";
 import { recordCronRun } from "@/lib/admin-log";
+import { sendPendingPushes } from "@/lib/push";
 import { alertAdmins } from "@/lib/ops-alerts";
 import { consumeQuota } from "@/lib/auth-email-throttle";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -58,7 +59,8 @@ export async function GET() {
   const noShows = await checkNoShows(supabase, now);
   const resumedPauses = await reactivateExpiredPauses(supabase, now).catch(() => 0);
   const unreadEmails = await emailUnreadMessages(supabase, now).catch((error) => { console.error("unread_scan_failed", { error }); return 0; });
-  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails };
+  const pushes = await sendPendingPushes(supabase, now).catch((error) => { console.error("push_scan_failed", { error }); return 0; });
+  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails, pushes };
   await recordCronRun(supabase, "reminders", true, result);
   return Response.json(result);
 }

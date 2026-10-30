@@ -1238,3 +1238,17 @@ export async function assignCaseAction(caseKey: string) {
   after(() => logAdminAction(admin.id, "take_case", null, caseKey));
   revalidatePath("/admin/casos");
 }
+
+// Web push: a device that allowed notifications.
+export async function savePushSubscriptionAction(subscription: { endpoint?: string; keys?: { p256dh?: string; auth?: string } }) {
+  const user = await requireUser();
+  if (!subscription.endpoint?.startsWith("https://") || !subscription.keys?.p256dh || !subscription.keys.auth) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("PushSubscription").upsert({ endpoint: subscription.endpoint.slice(0, 1000), userId: user.id, p256dh: subscription.keys.p256dh.slice(0, 200), auth: subscription.keys.auth.slice(0, 100) }, { onConflict: "endpoint" });
+}
+
+export async function removePushSubscriptionAction(endpoint: string) {
+  const user = await requireUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("PushSubscription").delete().eq("endpoint", endpoint).eq("userId", user.id);
+}

@@ -10,8 +10,8 @@
   --blue: #7fb9cc;
   --pink: #e58fa8;
   --lilac: #aea0dc;
-  --red: #c94f47;
-  --muted: #667085;
+  --red: #b3403a;
+  --muted: #5a6375;
   --line: rgba(23, 32, 51, .17);
   --shadow: 0 24px 70px rgba(23,32,51,.15);
   --radius: 28px;
@@ -1093,3 +1093,9 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .bar-chart-label { position: absolute; top: 100%; padding-top: 6px; font-size: .74rem; color: var(--muted); text-transform: capitalize; }
 .bar-chart-table { font-size: .82rem; }
 .bar-chart-table summary { cursor: pointer; color: var(--muted); }
+
+/* Accessibility: small orange labels on the paper background use a darker orange (4.5:1). */
+.question-list article > span { color: #a8402a; }
+
+/* Anything scrolled into view (anchors, focus, assistive tech) lands below the fixed header. */
+html { scroll-padding-top: 120px; }

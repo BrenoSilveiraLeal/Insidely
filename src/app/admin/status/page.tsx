@@ -27,10 +27,11 @@ export default async function Page() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { error: dbError, ms: dbMs } = await measureDatabase(supabase);
-  const [meet, { data: runs }, { count: fallbackRooms }] = await Promise.all([
+  const [meet, { data: runs }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
     checkGoogleMeet(),
     supabase.from("CronRun").select("job, ok, detail, createdAt").order("createdAt", { ascending: false }).limit(60),
     supabase.from("Booking").select("id", { count: "exact", head: true }).like("meetingUrl", "https://meet.jit.si%").gte("startsAt", daysAgo(7)),
+    supabase.from("ErrorEvent").select("path, routeType, message, createdAt").gte("createdAt", daysAgo(7)).order("createdAt", { ascending: false }).limit(30),
   ]);
   const runRows = (runs ?? []) as { job: string; ok: boolean; detail: string | null; createdAt: string }[];
   const jobCheck = (job: string, label: string, maxMinutes: number): Check => {
@@ -49,6 +50,7 @@ export default async function Page() {
   ];
   return <DashboardShell mode="admin" title="Status do sistema">
     <div className="list">{checks.map((check) => <div className="list-row" key={check.name}><div><strong>{check.ok ? "🟢" : "🔴"} {check.name}</strong><p className="muted">{check.message}</p></div><span className="status">{check.ok ? "OK" : "Atenção"}</span></div>)}</div>
+    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Erros no servidor · últimos 7 dias</span><div className="table-wrap"><table><thead><tr><th>Quando</th><th>Página</th><th>Erro</th></tr></thead><tbody>{((errors ?? []) as { path: string; routeType: string; message: string; createdAt: string }[]).map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.path}</td><td className="muted">{(row.message ?? "").slice(0, 160)}</td></tr>)}</tbody></table>{!errors?.length && <p className="muted">Nenhum erro registrado.</p>}</div></section>
     <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Últimas execuções</span><div className="table-wrap"><table><thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th><th>Detalhe</th></tr></thead><tbody>{runRows.slice(0, 20).map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.job === "daily" ? "Diária" : "5 minutos"}</td><td>{row.ok ? "OK" : "Falhou"}</td><td className="muted">{(row.detail ?? "").slice(0, 140)}</td></tr>)}</tbody></table></div></section>
   </DashboardShell>;
 }

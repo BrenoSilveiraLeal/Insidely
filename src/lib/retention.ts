@@ -11,6 +11,8 @@ export const DELETED_ACCOUNT_YEARS = 5;
 export async function applyRetention(supabase: any, now = new Date()) {
   const accessCutoff = new Date(now); accessCutoff.setMonth(accessCutoff.getMonth() - ACCESS_LOG_MONTHS);
   const { count: accessLogs } = await supabase.from("AccessLog").delete({ count: "exact" }).lt("createdAt", accessCutoff.toISOString());
+  await supabase.from("ErrorEvent").delete().lt("createdAt", new Date(now.getTime() - 30 * 86_400_000).toISOString());
+  await supabase.from("CronRun").delete().lt("createdAt", new Date(now.getTime() - 30 * 86_400_000).toISOString());
   const accountCutoff = new Date(now); accountCutoff.setFullYear(accountCutoff.getFullYear() - DELETED_ACCOUNT_YEARS);
   const { data: expired } = await supabase.from("User").select("id").is("auth_user_id", null).like("email", "deleted+%@invalid.insidely").lt("updatedAt", accountCutoff.toISOString()).limit(500);
   const ids = (expired ?? []).map((row: { id: string }) => row.id);

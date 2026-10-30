@@ -26,8 +26,19 @@ export async function ProfessionalCard({ profile, index = 0 }: { profile: Profil
   </Link>;
 }
 
+// Company colors come from the catalog: white text on dark ones, navy (or black) on light ones (WCAG 4.5:1).
+function readableOn(hex: string) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex ?? "");
+  if (!match) return "#ffffff";
+  const channel = (index: number) => { const value = parseInt(match[1].slice(index, index + 2), 16) / 255; return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4; };
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  if (1.05 / (luminance + 0.05) >= 4.5) return "#ffffff";
+  // Mid-tone colors (e.g. a bright red) reach 4.5:1 only with black.
+  return (luminance + 0.05) / (0.0112 + 0.05) >= 4.5 ? "#172033" : "#000000";
+}
+
 export function CompanyCard({ company }: { company: { slug: string; name: string; sector: string; logoText: string; color: string; _count: { experiences: number } } }) {
-  return <Link href={`/empresa/${company.slug}`} className="card company-card"><span className="logo-tile" style={{ background: company.color }}>{company.logoText}</span><div><h3>{company.name}</h3><p className="muted">{company.sector}</p><span className="count">{company._count.experiences} experiências <ArrowUpRight size={14}/></span></div></Link>;
+  return <Link href={`/empresa/${company.slug}`} className="card company-card"><span className="logo-tile" style={{ background: company.color, color: readableOn(company.color) }}>{company.logoText}</span><div><h3>{company.name}</h3><p className="muted">{company.sector}</p><span className="count">{company._count.experiences} experiências <ArrowUpRight size={14}/></span></div></Link>;
 }
 
 export function ProfessionCard({ profession }: { profession: { slug: string; name: string; category: string; accent: string; _count: { experiences: number } } }) {
