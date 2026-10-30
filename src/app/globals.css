@@ -1448,3 +1448,4 @@ html { scroll-padding-top: 120px; }
 .catalog-tab:hover { border-color: var(--ink); }
 .catalog-tab.is-active { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .catalog-tab.is-active span { color: rgba(247,242,232,.75); }
+.case-open-owned { display: inline-flex; gap: 10px; align-items: center; } .case-open-cell { display: flex; align-items: center; }

@@ -38,10 +38,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     report.bookingId ? supabase.from("Booking").select("id, startsAt, status, totalCents").eq("id", report.bookingId).maybeSingle() : { data: null },
     supabase.from("CaseAssignment").select("adminUserId, admin:User(name)").eq("caseKey", `report:${id}`).maybeSingle(),
   ]);
-  // A case opens only after someone took it (see /admin/casos).
-  if (!assignment) redirect("/admin/casos?erro=assumir");
-  const mine = assignment.adminUserId === admin.id;
-  const ownerName = mine ? "você" : (Array.isArray(assignment.admin) ? assignment.admin[0]?.name : assignment.admin?.name) ?? "Admin";
+  // An open case opens only after someone took it (see /admin/casos); closed ones are history.
+  if (!assignment && OPEN_REPORT_STATUSES.includes(report.status)) redirect("/admin/casos?erro=assumir");
+  const mine = assignment?.adminUserId === admin.id;
+  const ownerName = mine ? "você" : assignment ? (Array.isArray(assignment.admin) ? assignment.admin[0]?.name : assignment.admin?.name) ?? "Admin" : "ninguém";
   const byId = new Map(((people ?? []) as Person[]).map((person) => [person.id, person]));
   const reporter = byId.get(report.reporterId ?? ""), target = byId.get(report.targetUserId ?? "");
   const isSupport = !report.targetUserId && !report.bookingId;

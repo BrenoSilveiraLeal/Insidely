@@ -30,3 +30,15 @@ export async function getMySupportCases(userId: string) {
   const { data } = await (createSupabaseServiceClient() as any).from("Report").select("id, category, description, status, bookingId, targetUserId, createdAt, updatedAt").eq("reporterId", userId).order("updatedAt", { ascending: false }).limit(50);
   return (data ?? []) as SupportCase[];
 }
+
+// Who took each report case (CaseAssignment "report:<id>"), for the support and reports lists.
+export async function getReportCaseOwners(reportIds: string[], adminId: string) {
+  const owners = new Map<string, { name: string; mine: boolean }>();
+  if (!reportIds.length) return owners;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (createSupabaseServiceClient() as any).from("CaseAssignment").select("caseKey, adminUserId, admin:User(name)").in("caseKey", reportIds.map((id) => `report:${id}`));
+  for (const row of (data ?? []) as { caseKey: string; adminUserId: string; admin: { name: string } | { name: string }[] | null }[]) {
+    owners.set(row.caseKey.slice("report:".length), { name: (Array.isArray(row.admin) ? row.admin[0]?.name : row.admin?.name) ?? "Admin", mine: row.adminUserId === adminId });
+  }
+  return owners;
+}
