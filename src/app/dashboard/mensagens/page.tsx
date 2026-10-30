@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Role } from "@/lib/domain";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
+import { StartsIn } from "@/components/starts-in";
 import { meetingRoomState } from "@/lib/booking-policy";
 import { getViewerDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
@@ -47,7 +48,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
       return <article className="panel booking-card" key={booking.id}>
         <header className="booking-card-head">
           <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{requestStatus(booking.status)}</span>
-          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>
+          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
         </header>
         <div className="booking-card-person"><h2>{booking.professional.user.name}</h2><span className="booking-reputation booking-reputation-neutral">{money(booking.totalCents)}</span></div>
         {booking.goals && <blockquote className="booking-card-goals"><span>O que você quer conversar</span><p>{booking.goals}</p></blockquote>}

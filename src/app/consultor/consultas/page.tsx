@@ -6,6 +6,7 @@ import { chatFeedbackText } from "@/lib/chat-moderation";
 import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, updateConsultantRecordingConsentAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
+import { StartsIn } from "@/components/starts-in";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
 import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } from "@/lib/format";
@@ -50,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       return <article className="panel booking-card" key={booking.id}>
         <header className="booking-card-head">
           <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
-          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>
+          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
         </header>
         <div className="booking-card-person">
           <h2>{booking.customer.name}</h2>

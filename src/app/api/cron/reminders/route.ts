@@ -2,6 +2,8 @@ import { canReviewBooking } from "@/lib/booking-policy";
 import { sendBookingReminderEmails } from "@/lib/email";
 import { closeEndedMeetings } from "@/lib/google-meet";
 import { checkNoShows } from "@/lib/attendance";
+import { reactivateExpiredPauses } from "@/lib/pause";
+import { emailUnreadMessages } from "@/lib/conversation-extras";
 import { consumeQuota } from "@/lib/auth-email-throttle";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -52,7 +54,9 @@ export async function GET() {
   const reviewPrompts = await sendReviewPrompts(supabase, now);
   const closedRooms = await closeEndedMeetings(supabase, now);
   const noShows = await checkNoShows(supabase, now);
-  return Response.json({ ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows });
+  const resumedPauses = await reactivateExpiredPauses(supabase, now).catch(() => 0);
+  const unreadEmails = await emailUnreadMessages(supabase, now).catch((error) => { console.error("unread_scan_failed", { error }); return 0; });
+  return Response.json({ ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails });
 }
 
 // Once a paid conversation's scheduled end passes, invite the customer to rate it. Only bookings

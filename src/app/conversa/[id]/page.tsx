@@ -5,6 +5,8 @@ import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/com
 import { DashboardShell } from "@/components/dashboard-shell";
 import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
+import { StartsIn } from "@/components/starts-in";
+import { PrepChecklist } from "@/components/prep-checklist";
 import { canSendBookingMessage } from "@/lib/booking-policy";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { getConversationForParticipant, markConversationRead } from "@/lib/conversations";
@@ -14,6 +16,12 @@ import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Conversa" };
 export const dynamic = "force-dynamic";
+
+// The preparation checklist appears in the 24 hours before the conversation and while it happens.
+function showChecklist(startsAt: Date, durationMinutes: number) {
+  const now = Date.now();
+  return startsAt.getTime() - now < 24 * 60 * 60_000 && startsAt.getTime() + durationMinutes * 60_000 > now;
+}
 
 const REPORTABLE = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"];
 
@@ -30,10 +38,11 @@ export default async function ConversationPage({ params, searchParams }: { param
   const startsAt = parseDbDate(conversation.startsAt);
   return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} canConsultant={user.role === Role.CONSULTANT}>
     <div className="conversation-page">
-      <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {shortDate(startsAt)} · {conversation.durationMinutes} min</span></div>
+      <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {shortDate(startsAt)} · {conversation.durationMinutes} min</span>{conversation.status === "CONFIRMED" && <StartsIn startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
       {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
       {query.bloqueio === "ok" && <p className="form-feedback" role="status">Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro.</p>}
       {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
+      {conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist bookingId={id}/>}
       <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>
       <section className="panel conversation-panel">
         <RealtimeMessageThread bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages}/>

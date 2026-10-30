@@ -45,3 +45,8 @@ export async function getProfileSignals(profileId: string) {
   }
   return { fastResponder: median !== null && median <= 3, medianResponseHours: median, attendanceRate };
 }
+
+export async function isWatchingAvailability(userId: string, profileId: string) {
+  const { data } = await service().from("AvailabilityWatch").select("userId").eq("userId", userId).eq("professionalProfileId", profileId).maybeSingle();
+  return Boolean(data);
+}

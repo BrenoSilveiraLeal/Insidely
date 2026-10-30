@@ -4,6 +4,7 @@ import { provisionAppUser } from "@/lib/provision-user";
 import { recordAccess } from "@/lib/access-log";
 import { calendarReturnPath, createParticipantCalendarEvent } from "@/lib/google-calendar";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { removeSlotsBusyInGoogle } from "@/lib/google-agenda-sync";
 
 export function safeNextPath(raw: string | null) { return raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\") ? raw : "/continuar"; }
 
@@ -21,6 +22,18 @@ export async function GET(request: NextRequest) {
     if (nextPath === "/redefinir-senha") return NextResponse.redirect(new URL(nextPath, request.url));
     const nextUrl = new URL(nextPath, request.url);
     const calendarFlow = nextUrl.pathname === "/auth/google-calendar/complete";
+    const agendaSyncFlow = nextUrl.pathname === "/auth/google-agenda/complete";
+    if (agendaSyncFlow) {
+      const { data: existingUser } = await createSupabaseServiceClient().from("User").select("id").eq("auth_user_id", user.id).maybeSingle();
+      if (!existingUser || existingUser.id !== nextUrl.searchParams.get("userId")) { await supabase.auth.signOut(); return NextResponse.redirect(new URL("/consultor/agenda?sync=account-mismatch", request.url)); }
+      if (!exchange.session?.provider_token) return NextResponse.redirect(new URL("/consultor/agenda?sync=permission-error", request.url));
+      try {
+        const removed = await removeSlotsBusyInGoogle(existingUser.id, exchange.session.provider_token);
+        return NextResponse.redirect(new URL(`/consultor/agenda?sync=ok&removidos=${removed}`, request.url));
+      } catch (syncError) {
+        return NextResponse.redirect(new URL(`/consultor/agenda?sync=${syncError instanceof Error && syncError.message === "calendar_permission_missing" ? "permission-error" : "error"}`, request.url));
+      }
+    }
     if (calendarFlow) {
       const expectedUserId = nextUrl.searchParams.get("userId");
       const { data: existingUser } = await createSupabaseServiceClient().from("User").select("id").eq("auth_user_id", user.id).maybeSingle();

@@ -100,7 +100,7 @@ async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "co
   for (const recipient of recipients) {
     const subject = kind === "confirmation" ? "Sua conversa na Insidely foi confirmada" : `Lembrete: sua conversa na Insidely começa às ${time}`;
     const intro = kind === "confirmation" ? `Sua conversa com ${escapeHtml(recipient.with)} foi confirmada.` : `Sua conversa com ${escapeHtml(recipient.with)} começa em breve.`;
-    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "confirmation" ? ics : undefined, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p>${emailButton(appUrl + recipient.chat, "Abrir o chat da conversa")}</p>${kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : ""}` });
+    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "confirmation" ? ics : undefined, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p>${emailButton(appUrl + recipient.chat, "Abrir o chat da conversa")}</p>${kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : "<p><strong>Antes de entrar:</strong></p><ul><li>Teste câmera e microfone em meet.google.com.</li><li>Escolha um lugar silencioso e com boa internet.</li><li>Releia o que foi combinado e anote suas perguntas.</li><li>A sala abre exatamente no horário marcado.</li></ul>"}` });
   }
 }
 

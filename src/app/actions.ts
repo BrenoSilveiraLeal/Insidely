@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Role } from "@/lib/domain";
-import { requireUser } from "@/lib/session";
+import { getSuspension, requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
@@ -15,6 +15,7 @@ import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } 
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 import { VERIFICATION_METHODS } from "@/lib/verification";
 import { recordAccess } from "@/lib/access-log";
+import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
 import { canReviewBooking } from "@/lib/booking-policy";
@@ -27,7 +28,7 @@ import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-e
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendSecurityEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
+import { sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -464,6 +465,7 @@ export async function createBookingAction(profileId: string, _previousState: For
     if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
     if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
     if (message.includes("blocked")) return { status: "error", message: "Não é possível agendar com este consultor." };
+    if (message.includes("consultant_paused")) return { status: "error", message: "Este consultor está com a agenda pausada no momento." };
     if (message.includes("account_suspended")) return { status: "error", message: "Este agendamento não está disponível no momento." };
     if (message.includes("consultant_identity_required")) return { status: "error", message: "Este consultor ainda não concluiu o cadastro e não pode receber agendamentos no momento." };
     if (message.includes("identity_required")) return { status: "error", message: "Antes de agendar, registre seu CPF e sua data de nascimento. Recarregue a página para ver o formulário." };
@@ -527,6 +529,7 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
     // visit); this only does anything for an immediate conversation that is already under way.
     try { await ensureGoogleMeetForBooking(supabase, id); }
     catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
+    await postWelcomeMessage(supabase, id).catch((error) => console.error("welcome_message_failed", { bookingId: id, error }));
     // Notifications and e-mails run after the response: the payment is already confirmed, so the
     // customer sees the confirmation without waiting on them.
     after(async () => {
@@ -569,6 +572,7 @@ export async function createAvailabilityAction(_: FormState, formData: FormData)
     await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + duration * 60_000).toISOString() });
     revalidatePath("/consultor/agenda");
     revalidatePath("/buscar");
+    after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
     return { status: "success", message: "Horário adicionado à sua agenda e ao seu perfil." };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -585,6 +589,7 @@ export async function createInstantAvailabilityAction(): Promise<FormState> {
     await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + 30 * 60_000).toISOString() });
     revalidatePath("/consultor/agenda");
     revalidatePath("/buscar");
+    after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
     return { status: "success", message: "Disponibilidade imediata aberta por 30 minutos." };
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -847,7 +852,7 @@ export async function liftSuspensionAction(userId: string) {
   const now = new Date().toISOString();
   const { data: user } = await supabase.from("User").update({ suspendedAt: null, suspendedUntil: null, suspensionReason: null, updatedAt: now }).eq("id", userId).select("auth_user_id").maybeSingle();
   // A deleted account keeps its profile off; it comes back only if the person reactivates the account.
-  if (user?.auth_user_id) await supabase.from("ProfessionalProfile").update({ isActive: true, updatedAt: now }).eq("userId", userId);
+  if (user?.auth_user_id) await supabase.from("ProfessionalProfile").update({ isActive: true, updatedAt: now }).eq("userId", userId).is("pausedAt", null);
   await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Suspensão encerrada", body: "Sua conta voltou a funcionar normalmente.", href: "/continuar", createdAt: now });
   revalidatePath("/admin/usuarios"); revalidatePath("/buscar");
   redirect(`/admin/usuarios/${userId}?ok=liberada`);
@@ -1011,4 +1016,184 @@ export async function unblockUserAction(blockedId: string) {
   await (createSupabaseServiceClient() as any).from("UserBlock").delete().eq("blockerId", user.id).eq("blockedId", blockedId);
   revalidatePath("/dashboard/configuracoes");
   redirect("/dashboard/configuracoes?bloqueio=removido");
+}
+
+// ---- Agenda: recurring slots, copying a week, pause, "avise-me" ----
+
+const BRASILIA_OFFSET = "-03:00";
+
+// Creates the same weekly slots ("toda terça 19:00") for the next weeks, in Brasília time. Slots that
+// overlap something already on the agenda are skipped instead of failing the whole batch.
+export async function createRecurringAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const weekdays = formData.getAll("weekday").map(Number).filter((day) => day >= 0 && day <= 6);
+  const time = String(formData.get("time") || "");
+  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
+  const weeks = Math.min(8, Math.max(1, Number(formData.get("weeks")) || 4));
+  if (!weekdays.length || !/^\d{2}:\d{2}$/.test(time)) return { status: "error", message: "Escolha os dias da semana e o horário." };
+  const todayInBrasilia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  let created = 0, skipped = 0;
+  for (let offset = 0; offset < weeks * 7; offset++) {
+    const day = new Date(new Date(`${todayInBrasilia}T12:00:00${BRASILIA_OFFSET}`).getTime() + offset * 86_400_000);
+    const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(day);
+    if (!weekdays.includes(new Date(`${date}T12:00:00Z`).getUTCDay())) continue;
+    const startsAt = new Date(`${date}T${time}:00${BRASILIA_OFFSET}`);
+    if (startsAt.getTime() <= Date.now() + 10 * 60_000) continue;
+    try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + duration * 60_000).toISOString() }); created++; }
+    catch { skipped++; }
+  }
+  if (created) after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
+  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
+  return created
+    ? { status: "success", message: `${created} ${created === 1 ? "horário criado" : "horários criados"}${skipped ? ` (${skipped} já ocupado${skipped === 1 ? "" : "s"} na agenda, ignorado${skipped === 1 ? "" : "s"})` : ""}.` }
+    : { status: "error", message: "Nenhum horário novo: os dias escolhidos já estão ocupados ou já passaram." };
+}
+
+// Copies every slot of the next 7 days (free or booked) to the following weeks.
+export async function duplicateWeekAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const weeks = Math.min(8, Math.max(1, Number(formData.get("weeks")) || 1));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
+  if (!profile) return { status: "error", message: "Perfil não encontrado." };
+  const now = Date.now();
+  const { data: slots } = await supabase.from("Availability").select("startsAt, endsAt").eq("professionalProfileId", profile.id).gte("startsAt", new Date(now).toISOString()).lt("startsAt", new Date(now + 7 * 86_400_000).toISOString());
+  if (!slots?.length) return { status: "error", message: "Não há horários nos próximos 7 dias para copiar." };
+  let created = 0, skipped = 0;
+  for (let week = 1; week <= weeks; week++) for (const slot of slots as { startsAt: string; endsAt: string }[]) {
+    const start = parseDbDate(slot.startsAt).getTime() + week * 7 * 86_400_000, end = parseDbDate(slot.endsAt).getTime() + week * 7 * 86_400_000;
+    try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: new Date(start).toISOString(), p_ends_at: new Date(end).toISOString() }); created++; }
+    catch { skipped++; }
+  }
+  if (created) after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
+  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
+  return created
+    ? { status: "success", message: `${created} ${created === 1 ? "horário copiado" : "horários copiados"}${skipped ? ` (${skipped} já existia${skipped === 1 ? "" : "m"})` : ""}.` }
+    : { status: "error", message: "Esses horários já existem nas próximas semanas." };
+}
+
+// Pause: allowed only when no conversation is booked inside the pause; the profile leaves search.
+export async function pauseProfileAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const untilRaw = String(formData.get("until") || "");
+  const until = untilRaw ? new Date(`${untilRaw}T23:59:59${BRASILIA_OFFSET}`) : null;
+  if (until && (Number.isNaN(until.getTime()) || until.getTime() <= Date.now())) return { status: "error", message: "Escolha uma data de volta no futuro." };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
+  if (!profile) return { status: "error", message: "Perfil não encontrado." };
+  let query = supabase.from("Booking").select("startsAt").eq("professionalProfileId", profile.id).in("status", ["PENDING_PAYMENT", "CONFIRMED"]).gt("startsAt", new Date().toISOString());
+  if (until) query = query.lte("startsAt", until.toISOString());
+  const { data: pending } = await query.order("startsAt");
+  if (pending?.length) {
+    const dates = pending.map((row: { startsAt: string }) => shortDate(parseDbDate(row.startsAt))).join(", ");
+    return { status: "error", message: `Antes de pausar, resolva ${pending.length === 1 ? "a conversa marcada" : `as ${pending.length} conversas marcadas`} nesse período (${dates}): faça a conversa ou cancele em Consultas. No cancelamento, o cliente recebe 100% de volta.` };
+  }
+  const now = new Date().toISOString();
+  await supabase.from("ProfessionalProfile").update({ pausedAt: now, pausedUntil: until?.toISOString() ?? null, isActive: false, updatedAt: now }).eq("id", profile.id);
+  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
+  return { status: "success", message: until ? `Perfil pausado até ${shortDate(until)}. Ele volta sozinho depois disso.` : "Perfil pausado. Ele volta quando você reativar." };
+}
+
+export async function resumeProfileAction() {
+  const user = await requireUser([Role.CONSULTANT]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const suspended = Boolean(await getSuspension(user.id));
+  await supabase.from("ProfessionalProfile").update({ pausedAt: null, pausedUntil: null, ...(suspended ? {} : { isActive: true }), updatedAt: new Date().toISOString() }).eq("userId", user.id);
+  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
+  redirect("/consultor/agenda?pausa=retomada");
+}
+
+// "Avise-me quando abrir horário" on a profile without free slots.
+export async function toggleAvailabilityWatchAction(profileId: string) {
+  const user = await requireUser(undefined, { nextPath: `/profissional/${profileId}` });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: existing } = await supabase.from("AvailabilityWatch").select("userId").eq("userId", user.id).eq("professionalProfileId", profileId).maybeSingle();
+  if (existing) await supabase.from("AvailabilityWatch").delete().eq("userId", user.id).eq("professionalProfileId", profileId);
+  else await supabase.from("AvailabilityWatch").insert({ userId: user.id, professionalProfileId: profileId });
+  revalidatePath(`/profissional/${profileId}`);
+}
+
+// New slots: everyone who asked to be warned gets a notification and an e-mail (once, then the
+// request ends); people who favorited the profile get a notification at most once a day.
+async function notifyAvailabilityWatchers(consultantUserId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", consultantUserId).maybeSingle();
+  if (!profile) return;
+  const { data: card } = await supabase.from("public_profile_cards").select("user").eq("id", profile.id).maybeSingle();
+  const name = (Array.isArray(card?.user) ? card.user[0]?.name : card?.user?.name) || "Um consultor";
+  const href = `/profissional/${profile.id}`;
+  const now = new Date().toISOString();
+  const { data: watches } = await supabase.from("AvailabilityWatch").select("userId, user:User(email, name)").eq("professionalProfileId", profile.id);
+  for (const watch of (watches ?? []) as { userId: string; user: { email: string; name: string } | { email: string; name: string }[] | null }[]) {
+    const person = Array.isArray(watch.user) ? watch.user[0] : watch.user;
+    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: watch.userId, title: "Novo horário disponível", body: `${name} abriu horários na agenda.`, href, createdAt: now });
+    if (person?.email) await sendTransactionalEmail({ to: person.email, subject: `${name} abriu horários na Insidely`, html: `<p>Olá, ${person.name || ""}!</p><p>Você pediu para ser avisado: <strong>${name}</strong> acabou de abrir horários para conversa.</p><p><a href="${getAppUrl()}${href}">Ver horários disponíveis</a></p>` }).catch(() => undefined);
+  }
+  if (watches?.length) await supabase.from("AvailabilityWatch").delete().eq("professionalProfileId", profile.id);
+  if (!await consumeQuota(`favorite-slots:${profile.id}`, 1, 86_400)) return;
+  const { data: favorites } = await supabase.from("Favorite").select("userId").eq("professionalProfileId", profile.id);
+  const watched = new Set((watches ?? []).map((watch: { userId: string }) => watch.userId));
+  const rows = (favorites ?? []).filter((favorite: { userId: string }) => !watched.has(favorite.userId)).map((favorite: { userId: string }) => ({ id: crypto.randomUUID(), userId: favorite.userId, title: "Novo horário de um favorito", body: `${name} abriu horários na agenda.`, href, createdAt: now }));
+  if (rows.length) await supabase.from("Notification").insert(rows);
+}
+
+// The consultant's welcome message (posted automatically when a payment is confirmed).
+export async function saveWelcomeMessageAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const text = String(formData.get("welcomeMessage") || "").trim().slice(0, 600);
+  if (text) {
+    const check = moderateChatMessage(text, { countScatteredDigits: false });
+    if (!check.allowed) return { status: "error", message: check.reason === "offensive" ? "A mensagem tem palavrões ou ofensas." : "A mensagem não pode ter telefone, e-mail, link ou rede social." };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("ProfessionalProfile").update({ welcomeMessage: text || null, updatedAt: new Date().toISOString() }).eq("userId", user.id);
+  revalidatePath("/consultor/perfil");
+  return { status: "success", message: text ? "Mensagem de boas-vindas salva. Ela vai para o chat de cada conversa confirmada." : "Mensagem de boas-vindas desativada." };
+}
+
+// ---- After the conversation: one-click survey and "Decidi!" stories ----
+
+async function customerBookingForUser(bookingId: string, userId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const parties = await bookingParticipants(supabase, bookingId);
+  if (!parties || parties.customerId !== userId || parties.consultantId === userId) return null;
+  if (!canReviewBooking(parties.booking.status, parseDbDate(parties.booking.startsAt), parties.booking.durationMinutes)) return null;
+  return { supabase, parties };
+}
+
+export async function answerSurveyAction(bookingId: string, answer: "YES" | "PARTLY" | "NO") {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const found = await customerBookingForUser(bookingId, user.id);
+  if (found && ["YES", "PARTLY", "NO"].includes(answer)) await found.supabase.from("ConversationSurvey").upsert({ bookingId, customerId: user.id, answer }, { onConflict: "bookingId" });
+  revalidatePath("/dashboard/avaliacoes");
+}
+
+export async function saveDecisionStoryAction(bookingId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const story = String(formData.get("story") || "").trim().slice(0, 600);
+  if (story.length < 20) return { status: "error", message: "Conte em pelo menos 20 caracteres o que você decidiu." };
+  const check = moderateChatMessage(story, { countScatteredDigits: false });
+  if (!check.allowed) return { status: "error", message: check.reason === "offensive" ? "O texto tem palavrões ou ofensas. Reescreva para enviar." : "O texto não pode ter telefone, e-mail, link ou rede social." };
+  const found = await customerBookingForUser(bookingId, user.id);
+  if (!found) return { status: "error", message: "Esta conversa não está disponível." };
+  const allowPublish = formData.get("allowPublish") === "on";
+  await found.supabase.from("DecisionStory").upsert({ bookingId, customerId: user.id, story, allowPublish, status: "PENDING" }, { onConflict: "bookingId" });
+  if (allowPublish) {
+    const { data: admins } = await found.supabase.from("User").select("id").eq("role", "ADMIN");
+    if (admins?.length) await found.supabase.from("Notification").insert(admins.map((admin: { id: string }) => ({ id: crypto.randomUUID(), userId: admin.id, title: "Nova história para aprovar", body: story.slice(0, 120), href: "/admin/historias", createdAt: new Date().toISOString() })));
+  }
+  return { status: "success", message: allowPublish ? "Obrigado! Sua história vai para análise e pode aparecer na página inicial, sem o seu nome completo." : "Obrigado por contar! Sua história fica só com a equipe da Insidely." };
+}
+
+export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED") {
+  await requireUser([Role.ADMIN]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
+  revalidatePath("/admin/historias"); revalidatePath("/");
 }

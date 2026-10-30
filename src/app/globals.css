@@ -987,3 +987,44 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .cookie-banner p { flex: 1 1 320px; margin: 0; }
 .cookie-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .conversation-safety-row { display: grid; gap: 10px; }
+
+/* Consultant agenda: pause, week grid, recurring slots */
+.agenda-page { display: grid; gap: 20px; }
+.agenda-pause > summary { cursor: pointer; display: grid; gap: 4px; list-style: none; }
+.agenda-pause > summary::-webkit-details-marker { display: none; }
+.agenda-pause[open] > summary { margin-bottom: 14px; }
+.agenda-paused { border-color: var(--amber); background: rgba(242,196,93,.16); }
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.week-day { display: grid; align-content: start; gap: 6px; min-height: 120px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.week-day strong { font-size: .78rem; text-transform: capitalize; }
+.week-slot { display: inline-block; padding: 4px 8px; border-radius: 999px; background: rgba(127,185,204,.35); font-size: .76rem; font-weight: 800; text-align: center; }
+.week-slot-booked { background: var(--mineral); }
+.week-empty { color: var(--muted); font-size: .8rem; }
+.week-legend { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.weekday-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.weekday-picker legend { width: 100%; margin-bottom: 6px; font-weight: 800; }
+.weekday-picker label { cursor: pointer; }
+.weekday-picker input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.weekday-picker span { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; font-weight: 800; font-size: .85rem; }
+.weekday-picker input:checked + span { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.weekday-picker input:focus-visible + span { outline: 2px solid var(--mineral); outline-offset: 2px; }
+.agenda-copy { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
+.agenda-copy .select { width: auto; }
+@media (max-width: 760px) { .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Countdown to a conversation and the preparation checklist */
+.starts-in { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: baseline; padding: 4px 10px; border-radius: 999px; background: var(--paper-2); font-size: .78rem; font-weight: 800; }
+.starts-in small { font-weight: 600; color: var(--muted); }
+.starts-in-soon { background: rgba(242,196,93,.45); }
+.starts-in-live { background: var(--mineral); }
+.prep-checklist { display: grid; gap: 8px; }
+.survey-card { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.survey-card > div:first-child { display: grid; gap: 4px; }
+.home-stories { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 28px; }
+.home-stories figure { margin: 0; padding: 18px; border-radius: 18px; background: rgba(255,255,255,.45); }
+.home-stories blockquote { margin: 0; font-size: 1rem; line-height: 1.45; }
+.home-stories figcaption { margin-top: 8px; font-size: .8rem; color: var(--muted); }
+.decision-story { max-width: 760px; }
+.agenda-sync { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.agenda-sync > div { display: grid; gap: 4px; flex: 1 1 360px; }
+.agenda-sync p { margin: 0; }

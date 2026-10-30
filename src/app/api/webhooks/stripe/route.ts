@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
+import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { sendBookingConfirmationEmails } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
       await notifyBookingParticipants(supabase, bookingId);
       try {
         await ensureGoogleMeetForBooking(supabase, bookingId);
+        await postWelcomeMessage(supabase, bookingId).catch((error) => console.error("welcome_message_failed", { bookingId, error }));
         await sendBookingConfirmationEmails(supabase, bookingId);
       } catch (error) {
         console.error("booking_confirmation_integrations_failed", { bookingId, error });

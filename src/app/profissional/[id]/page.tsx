@@ -5,7 +5,8 @@ import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, Shie
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
-import { getIdentityVerifiedProfileIds, getProfileSignals } from "@/lib/profile-signals";
+import { getIdentityVerifiedProfileIds, getProfileSignals, isWatchingAvailability } from "@/lib/profile-signals";
+import { toggleAvailabilityWatchAction } from "@/app/actions";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
 import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
@@ -50,6 +51,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const isNew = await isNewProfile(profile.id);
   const [verifiedIdentities, signals] = await Promise.all([getIdentityVerifiedProfileIds(), getProfileSignals(profile.id)]);
   const identityVerified = verifiedIdentities.has(profile.id);
+  const watching = viewer ? await isWatchingAvailability(viewer.id, profile.id) : false;
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
@@ -86,7 +88,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <p className="muted">Este perfil ainda não abriu horários para conversa.</p>}
+            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><form action={toggleAvailabilityWatchAction.bind(null, profile.id)}><button className={`button ${watching ? "button-ghost" : "button-dark"} button-sm`}>{watching ? "✓ Você será avisado · cancelar" : "Avise-me quando abrir horário"}</button></form></div>}
           </div>
 
           {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
