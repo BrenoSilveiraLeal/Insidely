@@ -49,6 +49,6 @@ export default async function Page() {
     <div className="list">{cases.map((item) => { const taken = owner.get(item.key); return <div className="list-row case-row" key={item.key}>
       <div><span className="status">{item.kind}</span> <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · {taken ? `Responsável: ${taken.id === admin.id ? "você" : taken.name}` : "Sem responsável"}</small></div>
       <div className="verification-row-actions"><Link className="button button-dark button-sm" href={item.href}>Abrir</Link>{taken?.id !== admin.id && <form action={assignCaseAction.bind(null, item.key)}><button className="button button-ghost button-sm">{taken ? "Assumir no lugar" : "Assumir"}</button></form>}</div>
-    </div>; })}{!cases.length && <div className="panel">Nenhum caso aberto.</div>}</div>
+    </div>; })}{!cases.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino.</p></section>}</div>
   </DashboardShell>;
 }

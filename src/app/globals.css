@@ -1188,3 +1188,6 @@ html { scroll-padding-top: 120px; }
 .admin-totals > .metric { grid-column: span 2; }
 .admin-totals > .metric:nth-child(n + 4) { grid-column: span 3; }
 @media (max-width: 760px) { .admin-totals { grid-template-columns: 1fr 1fr; } .admin-totals > .metric, .admin-totals > .metric:nth-child(n + 4) { grid-column: span 1; } .admin-totals > .metric:last-child { grid-column: span 2; } }
+
+/* A short note right under the page title keeps its distance from the content below. */
+.dash-main > p.muted { margin: 0 0 20px; }
