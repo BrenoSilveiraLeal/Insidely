@@ -1,15 +1,14 @@
+import { ConversationLink } from "@/components/conversation-link";
+import { getUnreadCounts } from "@/lib/conversations";
 import { ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import Link from "next/link";
 import { Role } from "@/lib/domain";
-import { sendMessageAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { MeetingRoomMessage } from "@/components/meeting-room-message";
-import { RealtimeMessageThread } from "@/components/realtime-message-thread";
 import { getViewerDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
-import { canSendBookingMessage } from "@/lib/booking-policy";
 import { money, shortDate } from "@/lib/format";
 import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
 
@@ -28,6 +27,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   // A consultant test-booking their own profile has nobody to report.
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const ownProfileId = ownProfile?.id;
+  const unread = await getUnreadCounts(user.id, requests.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
 
   return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}><GoogleCalendarFeedback code={query.calendar}/>
     <div className="section-head"><div><span className="eyebrow">Acompanhe seus pedidos</span><h2>Agendamentos e conversas</h2><p className="muted">Todo pedido de agendamento aparece aqui. A conversa é liberada depois que o pagamento for confirmado.</p></div><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
@@ -38,8 +38,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
       <p className="muted">{booking.durationMinutes} min · {money(booking.totalCents)} · pedido de agendamento</p>
       {booking.status === "CANCELLED" ? <div className="meeting-policy compact"><span>×</span><div><strong>Este agendamento foi cancelado</strong><p>Esta conversa não seguirá para a próxima etapa. O histórico do pedido continua disponível nesta tela.</p></div></div> : <div className="meeting-policy compact"><span>◷</span><div><strong>{booking.status === "PENDING_PAYMENT" ? "Finalize o pedido" : booking.conversation ? "Conversa protegida" : "Pedido recebido"}</strong><p>{booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento." : booking.conversation ? "Use este espaço para alinhar os últimos detalhes." : "Assim que este pedido avançar, as mensagens aparecerão aqui."}</p></div></div>
       } <MeetingRoomMessage booking={booking} />
-      {booking.conversation && <RealtimeMessageThread conversationId={booking.conversation.id} currentUserId={user.id} initialMessages={booking.conversation.messages.map((message) => ({ id: message.id, body: message.body, senderId: message.senderId }))}/>}
-      {booking.status === "PENDING_PAYMENT" ? <Link className="button button-accent button-block" href={`/checkout/${booking.id}`}>Continuar pagamento</Link> : booking.status === "CANCELLED" ? null : booking.conversation && canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input type="hidden" name="returnTo" value="/dashboard/mensagens"/><input className="input" name="body" aria-label={`Mensagem para ${booking.professional.user.name}`} placeholder="Escreva uma mensagem"/><button className="button button-dark">Enviar</button></form> : <p className="muted">O pedido está aguardando a próxima etapa.</p>}
+      {booking.status === "PENDING_PAYMENT" ? <Link className="button button-accent button-block" href={`/checkout/${booking.id}`}>Continuar pagamento</Link> : booking.status === "CANCELLED" ? null : booking.conversation ? <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={booking.conversation.messages.length}/> : <p className="muted">O pedido está aguardando a próxima etapa.</p>}
       {["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status) && booking.professional.id !== ownProfileId && <ConversationReportForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/>}
     </article>)}</div>
     {!requests.length && <section className="panel"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}

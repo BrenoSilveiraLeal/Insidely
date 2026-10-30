@@ -592,6 +592,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
     const message = error instanceof Error ? error.message : "";
     redirect(`${returnTo}?mensagem=${message.includes("offensive_language") ? "ofensiva" : message.includes("contact_sharing") ? "bloqueada" : message.includes("rate_limited") ? "limite" : "erro"}`);
   }
+  revalidatePath(returnTo);
   revalidatePath("/dashboard/mensagens");
   revalidatePath("/consultor/consultas");
 }
@@ -834,12 +835,12 @@ export async function reportConversationAction(bookingId: string, formData: Form
   redirect(`${returnTo}?denuncia=ok`);
 }
 
-// Consultants rate the customer once the conversation's time is over. Only the team sees it.
+// Consultants rate the customer (1 to 5 stars) once the conversation's time is over; see customerReputation.
 export async function rateCustomerAction(bookingId: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);
   const rating = Number(formData.get("rating"));
   const comment = String(formData.get("comment") || "").trim().slice(0, 1000);
-  if (!Number.isInteger(rating) || rating < 0 || rating > 5) redirect("/consultor/consultas?avaliacao=erro");
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) redirect("/consultor/consultas?avaliacao=erro");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const parties = await bookingParticipants(supabase, bookingId);

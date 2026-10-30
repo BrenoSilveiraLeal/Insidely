@@ -833,3 +833,55 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 /* Type-ahead for companies and areas, with the "not listed yet" note */
 .catalog-picker-note { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(242, 196, 93, .18); color: var(--ink); }
 .catalog-request form { margin-top: 12px; align-items: end; }
+
+/* Home hero: the title scales with its own column instead of the viewport, so on notebook widths and
+   with Windows display zoom it never runs under the "O anúncio diz" cards. */
+.inside-hero-content { container-type: inline-size; min-width: 0; }
+@media (min-width: 951px) {
+  .inside-hero .inside-hero-content h1 { font-size: clamp(3rem, 11.5cqi, 9rem); max-width: none; }
+  .inside-hero .inside-scene { transform: none; }
+}
+@media (min-width: 1151px) {
+  .inside-hero .inside-hero-grid { gap: clamp(32px, 4vw, 64px); }
+}
+
+/* Last home sections: room above and below, so the eyebrow and the buttons never touch the edges. */
+.final-cta { padding-block: clamp(72px, 9vw, 128px); }
+.final-cta-inner { min-height: 0; }
+.final-copy > div { margin-top: 32px; }
+.reviews-section { padding-block: clamp(80px, 9vw, 120px); }
+
+/* "Sair" looks like the other menu items; on hover the left edge turns red instead of amber. */
+.side-nav form { margin: 0; }
+.side-nav form .side-nav-logout { width: 100%; padding: 12px 14px; border: 0; border-radius: 13px; background: transparent; color: #c3c7c0; font: 700 .86rem var(--sans); text-align: left; cursor: pointer; }
+.side-nav form .side-nav-logout:hover, .side-nav form .side-nav-logout:focus-visible { background: #292c28; color: white; box-shadow: inset 3px 0 0 var(--red); }
+
+/* Conversation page: fixed-height history that scrolls, consultant on the right (orange),
+   customer on the left (blue), for both participants. */
+.conversation-page { display: grid; gap: 16px; max-width: 920px; }
+.conversation-header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.conversation-panel { display: grid; gap: 14px; }
+.conversation-thread { height: min(60vh, 560px); max-height: none; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); align-content: start; }
+.message { display: grid; gap: 3px; overflow-wrap: anywhere; }
+.message small { font-size: .7rem; font-weight: 800; opacity: .75; }
+.message-consultant { justify-self: end; margin-left: auto; background: var(--mineral); color: var(--ink); border-bottom-right-radius: 5px; }
+.message-customer { justify-self: start; margin-right: auto; background: #cfe6ee; color: var(--ink); border-bottom-left-radius: 5px; }
+.conversation-empty { align-self: center; text-align: center; }
+.conversation-link { position: relative; display: inline-flex; gap: 8px; align-items: center; justify-self: start; }
+.unread-badge { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; background: var(--red); color: white; font: 800 .72rem/1 var(--sans); box-shadow: 0 0 0 2px var(--paper); }
+
+/* Customer rating by the consultant: five clickable stars */
+.customer-feedback h3 { margin: 0; }
+.star-rating { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 4px; margin: 0; padding: 0; border: 0; }
+.star-rating legend { width: 100%; margin-bottom: 4px; font-weight: 800; }
+.star-rating input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.star-rating label { cursor: pointer; font-size: 2rem; line-height: 1; color: var(--paper-2); -webkit-text-stroke: 1px rgba(23,32,51,.35); transition: color .15s; }
+.star-rating label:hover, .star-rating label:hover ~ label, .star-rating input:checked ~ label { color: var(--amber); }
+.star-rating input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+.reputation { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reputation-stars { color: #b9870f; font-weight: 800; }
+.reputation-good { background: rgba(127,185,204,.3); }
+.reputation-bad { background: rgba(201,79,71,.18); color: var(--red); }
+.final-cta-inner > .final-copy { display: block; text-align: left; }
+.final-copy .eyebrow { justify-content: flex-start; margin-inline: 0; }
+.final-copy > div { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px; }

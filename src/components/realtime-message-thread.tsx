@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Message = { id: string; body: string; senderId: string };
 
-export function RealtimeMessageThread({ conversationId, currentUserId, initialMessages }: { conversationId: string; currentUserId: string; initialMessages: Message[] }) {
+// The consultant's messages sit on the right in orange and the customer's on the left, the same way
+// for both participants, so it is always clear who said what.
+export function RealtimeMessageThread({ conversationId, currentUserId, consultantId, otherName, initialMessages }: { conversationId: string; currentUserId: string; consultantId: string; otherName: string; initialMessages: Message[] }) {
   const [messages, setMessages] = useState(initialMessages);
+  const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -23,5 +26,16 @@ export function RealtimeMessageThread({ conversationId, currentUserId, initialMe
     });
     return () => { cancelled = true; if (channel) void supabase.removeChannel(channel); };
   }, [conversationId]);
-  return <div className="message-thread" aria-live="polite">{messages.map((message) => <div key={message.id} className={`message ${message.senderId === currentUserId ? "message-own" : ""}`}>{message.body}</div>)}</div>;
+  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [messages.length]);
+  return <div className="message-thread conversation-thread" aria-live="polite">
+    {messages.map((message) => {
+      const fromConsultant = message.senderId === consultantId;
+      return <div key={message.id} className={`message ${fromConsultant ? "message-consultant" : "message-customer"}`}>
+        <small>{message.senderId === currentUserId ? "Você" : otherName}</small>
+        <span>{message.body}</span>
+      </div>;
+    })}
+    {!messages.length && <p className="muted conversation-empty">Nenhuma mensagem ainda. Use este espaço para alinhar os detalhes da conversa.</p>}
+    <div ref={end}/>
+  </div>;
 }

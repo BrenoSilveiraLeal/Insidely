@@ -61,7 +61,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <span className="eyebrow">{user.role} · desde {when(user.createdAt)}{!user.auth_user_id && " · conta excluída"}</span>
         <h2>{user.name}</h2>
         <p className="muted">{user.email}</p>
-        <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota interna ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
+        <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>
         <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
       </section>
 
@@ -99,7 +99,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       <section className="panel"><span className="eyebrow">Mensagens bloqueadas no chat</span><div className="list">{moderationRows.map((item, index) => <div className="list-row" key={index}><div><strong>{item.reason === "offensive" ? "Ofensiva" : "Contato / pagamento por fora"}</strong><p className="muted">“{item.excerpt}”</p></div><span className="muted">{when(item.createdAt)}</span></div>)}{!moderationRows.length && <p className="muted">Nenhuma.</p>}</div></section>
 
-      <section className="panel"><span className="eyebrow">Avaliação interna dada pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>
+      <section className="panel"><span className="eyebrow">Avaliações dadas pelos consultores</span><div className="list">{ratings.map((item, index) => <div className="list-row" key={index}><div><strong>★ {item.rating}</strong>{item.comment && <p className="muted">{item.comment}</p>}</div><span className="muted">{when(item.createdAt)}</span></div>)}{!ratings.length && <p className="muted">Nenhuma avaliação.</p>}</div></section>
     </div>
   </DashboardShell>;
 }

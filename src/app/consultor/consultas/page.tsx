@@ -1,7 +1,9 @@
+import { ConversationLink } from "@/components/conversation-link";
+import { getUnreadCounts } from "@/lib/conversations";
 import { ConversationReportForm, CustomerFeedbackForm, customerFeedbackText, reportFeedbackText } from "@/components/conversation-safety";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { chatFeedbackText } from "@/lib/chat-moderation";
-import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, sendMessageAction, updateConsultantRecordingConsentAction } from "@/app/actions";
+import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, updateConsultantRecordingConsentAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { PaginationControls } from "@/components/pagination-controls";
@@ -10,7 +12,6 @@ import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } fr
 import { canReviewBooking, meetingRoomState, paymentDeadline } from "@/lib/booking-policy";
 import { getConsultantBookings, getConsultantMessages } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
-import { canSendBookingMessage } from "@/lib/booking-policy";
 import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
 import { getCustomersForConsultant, type ConsultantCustomerInfo } from "@/lib/customer-identity";
 
@@ -31,6 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: feedbackRows } = bookings.items.length ? await (createSupabaseServiceClient() as any).from("CustomerFeedback").select("bookingId").in("bookingId", bookings.items.map((booking) => booking.id)) : { data: [] };
   const rated = new Set((feedbackRows ?? []).map((row: { bookingId: string }) => row.bookingId));
+  const unread = await getUnreadCounts(user.id, bookings.items.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
   const customers = await getCustomersForConsultant(user.id, bookings.items.filter((booking) => booking.status !== "EXPIRED").map((booking) => booking.id));
   return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="grid grid-2">
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
@@ -56,7 +58,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       <MeetingRoomMessage booking={booking} calendarSide="consultant" />
       {customers.get(booking.id) !== undefined && !rated.has(booking.id) && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <CustomerFeedbackForm bookingId={booking.id} customerName={booking.customer.name}/>}
       {["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status) && customers.has(booking.id) && <ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/>}
-      {booking.conversation && <><div className="message-thread">{(byConversation.get(booking.conversation.id) ?? []).map(message => <div key={message.id} className={`message ${message.senderId === user.id ? "message-own" : ""}`}><small>{message.sender.name}</small><br/>{message.body}</div>)}</div>{canSendBookingMessage(booking.status) ? <form action={sendMessageAction.bind(null, booking.conversation.id)} className="message-form"><input type="hidden" name="returnTo" value="/consultor/consultas"/><input className="input" name="body" aria-label={`Mensagem para ${booking.customer.name}`} placeholder="Responder"/><button className="button button-dark">Enviar</button></form> : <p className="muted">A conversa será liberada após a confirmação do pagamento.</p>}</>}
+      {booking.conversation && <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={(byConversation.get(booking.conversation.id) ?? []).length}/>}
     </article>)}
   </div>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
 }
@@ -66,13 +68,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
 function CustomerInfo({ info }: { info: ConsultantCustomerInfo | null }) {
   const since = (value: string) => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" }).format(parseDbDate(value));
   return <details className="customer-info">
-    <summary>Dados do cliente</summary>
-    {info ? <dl>
+    <summary>Dados do cliente{info?.reputation && ` · ★ ${info.reputation.average.toFixed(1)} ${info.reputation.label}`}</summary>
+    {info ? <><dl>
       <div><dt>CPF</dt><dd>{info.maskedCpf} <span className="status">Identificado</span></dd></div>
       <div><dt>Idade</dt><dd>{info.age} anos</dd></div>
       <div><dt>Na Insidely desde</dt><dd>{since(info.memberSince)}</dd></div>
       <div><dt>Conversas realizadas</dt><dd>{info.pastConversations}</dd></div>
-    </dl> : <p className="muted">Agendamento anterior à identificação obrigatória: este cliente ainda não registrou CPF.</p>}
-    <p className="muted">Se algo grave acontecer na conversa, use &quot;Reportar problema&quot; ou o <a className="text-link" href="/suporte">suporte</a>. A Insidely guarda a identificação completa e a entrega às autoridades mediante requisição legal.</p>
+    </dl>
+      {info.reputation ? <div className="form-stack"><div className="reputation"><span className="reputation-stars">★ {info.reputation.average.toFixed(1)}</span><span className="muted">({info.reputation.count} {info.reputation.count === 1 ? "avaliação" : "avaliações"} de consultores)</span><span className={`status ${info.reputation.label === "Atenção" ? "reputation-bad" : "reputation-good"}`}>{info.reputation.label}</span></div>{info.reputation.recent.map((item, index) => <p className="muted" key={index}>★ {item.rating} · “{item.comment}”</p>)}</div> : <p className="muted">Ainda sem avaliações de outros consultores.</p>}</> : <p className="muted">Agendamento anterior à identificação obrigatória: este cliente ainda não registrou CPF.</p>}
+    <p className="muted">Se algo grave acontecer na conversa, use o botão &quot;Denunciar&quot; ou o <a className="text-link" href="/suporte">suporte</a>. A Insidely guarda a identificação completa e a entrega às autoridades mediante requisição legal.</p>
   </details>;
 }

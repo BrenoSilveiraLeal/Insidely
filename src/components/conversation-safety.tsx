@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { rateCustomerAction, reportConversationAction } from "@/app/actions";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 
@@ -20,17 +21,22 @@ export function reportFeedbackText(code: string) {
   return code === "ok" ? "Denúncia enviada. A equipe da Insidely vai analisar o caso." : code === "curta" ? "Escolha o tipo de problema e descreva com pelo menos 20 caracteres." : "Não foi possível enviar a denúncia. Tente novamente ou fale com o suporte.";
 }
 
-// Internal rating of the customer by the consultant, after the conversation. Only the team sees it.
+// The consultant rates the customer after the conversation (1 to 5 stars). The average and the
+// comments form the customer's reputation, which other consultants see before a conversation.
 export function CustomerFeedbackForm({ bookingId, customerName }: { bookingId: string; customerName: string }) {
-  return <form action={rateCustomerAction.bind(null, bookingId)} className="meeting-policy compact form-stack">
-    <strong>Como foi atender {customerName}?</strong>
-    <p className="muted">Avaliação interna: o cliente não vê. Ajuda a equipe a identificar comportamentos problemáticos.</p>
-    <div className="profile-form-grid">
-      <label className="field"><span>Nota</span><select className="select" name="rating" defaultValue="5">{[5, 4, 3, 2, 1, 0].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label className="field"><span>Comentário (opcional)</span><input className="input" name="comment" maxLength={1000}/></label>
-    </div>
-    <button className="button button-ghost button-sm" type="submit">Enviar avaliação</button>
-  </form>;
+  return <details className="cancel-booking-details customer-feedback">
+    <summary><span>★ Avaliar cliente</span></summary>
+    <form action={rateCustomerAction.bind(null, bookingId)} className="form-stack">
+      <h3>Como foi conversar com {customerName}?</h3>
+      <fieldset className="star-rating"><legend>Nota</legend>
+        {/* Highest first: with row-reverse they display 1 to 5, and "checked ~ label" fills the lower stars. */}
+        {[5, 4, 3, 2, 1].map((value) => <Fragment key={value}><input type="radio" id={`star-${bookingId}-${value}`} name="rating" value={value} required/><label htmlFor={`star-${bookingId}-${value}`} title={`${value} ${value === 1 ? "estrela" : "estrelas"}`}><span aria-hidden="true">★</span><span className="sr-only">{value} {value === 1 ? "estrela" : "estrelas"}</span></label></Fragment>)}
+      </fieldset>
+      <label className="field"><span>Comentário (opcional)</span><textarea className="textarea" name="comment" maxLength={1000} placeholder="Pontualidade, respeito, preparo para a conversa…"/></label>
+      <p className="muted">A nota e o comentário ficam no histórico do cliente e aparecem para outros consultores antes de uma conversa com ele.</p>
+      <button className="button button-accent button-sm" type="submit">Enviar avaliação</button>
+    </form>
+  </details>;
 }
 
 export function customerFeedbackText(code: string) {
