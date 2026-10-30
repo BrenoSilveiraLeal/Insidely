@@ -1359,3 +1359,56 @@ html { scroll-padding-top: 120px; }
 /* "Abra sua agenda": the quick button keeps its distance from the text above it. */
 .agenda-grid .panel > form:first-of-type { margin-top: 16px; }
 .timed-message { margin-top: 12px; animation: flash-in .3s ease both; }
+/* Temporary-error page: the 404 layout with a calm blue panel and a slow pulse. */
+.error-page { min-height: 100vh; padding-top: 48px; }
+.error-brand { display: inline-block; margin-bottom: 22px; color: var(--ink); font: 900 1.6rem/1 var(--display); letter-spacing: -.05em; text-decoration: none; }
+.error-art { background: var(--blue); }
+.error-pulse { position: relative; z-index: 1; width: 120px; height: 120px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 0 rgba(23,32,51,.35); animation: error-pulse 2.4s ease-out infinite; }
+@keyframes error-pulse { 0% { box-shadow: 0 0 0 0 rgba(23,32,51,.35); } 70% { box-shadow: 0 0 0 46px rgba(23,32,51,0); } 100% { box-shadow: 0 0 0 0 rgba(23,32,51,0); } }
+.error-support { margin-top: 22px !important; color: #d0d3da; font-size: .82rem !important; }
+.error-support a { color: var(--paper); text-decoration: underline; text-underline-offset: 3px; }
+.error-support code { padding: 2px 7px; border-radius: 6px; background: rgba(247,242,232,.12); color: var(--paper); font-family: var(--font-mono); letter-spacing: .04em; }
+.error-spin { animation: error-spin .9s linear infinite; }
+@keyframes error-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .error-pulse, .error-spin { animation: none; } }
+
+/* Sign-up completion in guided steps (onboarding) and the role choice on the sign-up form. */
+.onboarding-flow { display: grid; gap: 20px; width: min(560px, 100%); }
+.onboarding-progress { display: grid; gap: 10px; }
+.onboarding-progress-label { color: #c9ccd3; font-size: .8rem; font-weight: 700; }
+.onboarding-progress-bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.onboarding-progress-bar span { height: 5px; border-radius: 999px; background: rgba(247,242,232,.16); transition: background .3s; }
+.onboarding-progress-bar span.is-done { background: var(--coral, #ff7657); }
+.onboarding-step { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; animation: flash-in .3s ease both; }
+.onboarding-step[hidden] { display: none; }
+.onboarding-step h2 { margin: 0; font: 850 clamp(1.7rem, 3vw, 2.3rem)/1.02 var(--display); letter-spacing: -.04em; outline: none; }
+.onboarding-lead { margin: -6px 0 4px; color: #c9ccd3; }
+.onboarding-nav { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-top: 6px; }
+.onboarding-nav > :only-child { margin-left: auto; }
+.onboarding-nav .button-ghost { border-color: rgba(247,242,232,.4); color: var(--paper); }
+.role-cards { display: grid; gap: 12px; }
+.role-card { position: relative; display: grid; gap: 8px; padding: 18px 18px 16px; border: 1.5px solid rgba(247,242,232,.18); border-radius: 18px; background: rgba(255,255,255,.04); cursor: pointer; transition: border-color .2s, background .2s; }
+.role-card:hover { border-color: rgba(247,242,232,.4); }
+.role-card.is-selected { border-color: #ff7657; background: rgba(255,118,87,.1); }
+.role-card input { position: absolute; opacity: 0; pointer-events: none; }
+.role-card:has(input:focus-visible) { outline: 2px solid #ff7657; outline-offset: 3px; }
+.role-card-head { display: flex; gap: 12px; align-items: center; }
+.role-card-head strong { flex: 1; font-size: 1rem; }
+.role-card-icon { display: grid; flex: 0 0 36px; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: rgba(247,242,232,.1); }
+.role-card.is-selected .role-card-icon { background: #ff7657; color: var(--ink); }
+.role-card-check { display: grid; place-items: center; width: 22px; height: 22px; border: 1.5px solid rgba(247,242,232,.35); border-radius: 50%; color: transparent; }
+.role-card.is-selected .role-card-check { border-color: #ff7657; background: #ff7657; color: var(--ink); }
+.role-card-lead { color: #d6d8de; font-size: .9rem; }
+.role-card ul { display: grid; gap: 4px; margin: 2px 0 0; padding-left: 18px; color: #b9bdc6; font-size: .84rem; }
+.profile-fields { display: grid; gap: 16px; }
+.profile-fields-group { display: grid; gap: 14px; }
+.profile-fields-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.bio-counter.is-ok { color: #7ecfc4; }
+@media (max-width: 520px) { .profile-fields-row { grid-template-columns: 1fr; } }
+.role-mini { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.role-mini legend { margin-bottom: 8px; padding: 0; font-weight: 700; }
+.role-mini-option { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1.5px solid rgba(247,242,232,.18); border-radius: 14px; cursor: pointer; transition: border-color .2s, background .2s; }
+.role-mini-option:has(input:checked) { border-color: #ff7657; background: rgba(255,118,87,.1); }
+.role-mini-option input { margin-top: 3px; accent-color: #ff7657; }
+.role-mini-option span { display: grid; gap: 2px; }
+.role-mini-option small { color: #b9bdc6; font-size: .8rem; }
