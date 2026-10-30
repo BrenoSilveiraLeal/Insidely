@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/app-url";
 import { exchangeGoogleCode, GOOGLE_LOGIN_COOKIE, googleLoginConfig } from "@/lib/google-login";
 import { provisionAppUser } from "@/lib/provision-user";
+import { recordAccess } from "@/lib/access-log";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function safeNextPath(raw: unknown) {
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken, nonce: saved.nonce });
     if (error || !data.user?.email) { console.error("google_login_id_token_failed", { message: error?.message }); return fail("error"); }
     const result = await provisionAppUser(data.user);
+    if (result.status === "ok") await recordAccess(data.user.id, "google");
     if (result.status === "conflict") return fail("conta_existente");
     if (result.status === "linking") return fail("vinculacao");
     if (result.status !== "ok") return fail("profile");

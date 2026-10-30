@@ -186,3 +186,15 @@ export async function sendCustomerCancellationEmail(supabase: any, bookingId: st
   const why = reason ? `<p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p>` : "";
   await sendTransactionalEmail({ to: consultant.email, subject: "Uma conversa na Insidely foi cancelada pelo cliente", html: `<p>Olá, ${escapeHtml(consultant.name || "!")}</p><p>${escapeHtml(customer?.name || "O cliente")} cancelou a conversa marcada para <strong>${escapeHtml(date)}</strong> (${booking.durationMinutes} minutos).</p>${why}<p>O horário voltou a ficar disponível no seu perfil.</p>` });
 }
+
+// Security notices: sign-in from a new device, account suspension, report received.
+export async function sendSecurityEmail(to: string, name: string, kind: "new_device" | "suspended" | "report_received", details: { when?: string; device?: string; reason?: string; until?: string | null } = {}) {
+  if (!emailConfigured()) return;
+  const hello = `<p>Olá, ${escapeHtml(name || "!")}</p>`;
+  const body = kind === "new_device"
+    ? { subject: "Novo acesso à sua conta Insidely", html: `${hello}<p>Sua conta foi acessada de um aparelho ou navegador novo em <strong>${escapeHtml(details.when ?? "")}</strong> (${escapeHtml(details.device ?? "navegador")}).</p><p>Se foi você, pode ignorar este e-mail. Se não foi, troque sua senha agora e ative a verificação em duas etapas.</p><p>${emailButton(getAppUrl() + "/recuperar-senha", "Trocar minha senha")}</p>` }
+    : kind === "suspended"
+      ? { subject: "Sua conta Insidely foi suspensa", html: `${hello}<p>A equipe da Insidely suspendeu sua conta ${details.until ? `até <strong>${escapeHtml(details.until)}</strong>` : "por tempo indeterminado"} por descumprimento dos Termos de Uso.</p><p><strong>Motivo:</strong> ${escapeHtml(details.reason ?? "")}</p><p>Se acredita que houve um engano, fale com o suporte.</p><p>${emailButton(getAppUrl() + "/suporte", "Falar com o suporte")}</p>` }
+      : { subject: "Recebemos sua denúncia", html: `${hello}<p>Recebemos sua denúncia e a equipe da Insidely vai analisar o caso. Você não precisa fazer mais nada agora.</p><p>Em caso de ameaça ou crime, você também pode procurar a polícia; a Insidely guarda a identificação das duas pessoas para colaborar com as autoridades.</p>` };
+  await sendTransactionalEmail({ to, subject: body.subject, html: body.html });
+}

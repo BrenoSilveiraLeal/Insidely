@@ -40,5 +40,5 @@ export function CustomerFeedbackForm({ bookingId, customerName }: { bookingId: s
 }
 
 export function customerFeedbackText(code: string) {
-  return code === "ok" ? "Avaliação do cliente registrada." : code === "repetida" ? "Você já avaliou este cliente nesta conversa." : "Não foi possível registrar a avaliação.";
+  return code === "ok" ? "Avaliação do cliente registrada." : code === "ofensiva" ? "O comentário tem palavrões, abreviações ofensivas ou ofensas. Reescreva para enviar." : code === "contato" ? "O comentário parece ter telefone, e-mail, link ou rede social. Reescreva sem dados de contato." : code === "repetida" ? "Você já avaliou este cliente nesta conversa." : "Não foi possível registrar a avaliação.";
 }

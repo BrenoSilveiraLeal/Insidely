@@ -972,3 +972,17 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 
 /* Reality check: room between the big heading and the first item of each column */
 .reality-compare .section-title + .detail-list { margin-top: 26px; }
+
+/* Reviews on the public profile: consultant reply and discreet report/reply actions */
+.review-block { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.review-block .review-row { border-bottom: 0; }
+.review-reply { margin-left: 18px; padding: 10px 14px; border-left: 3px solid var(--mineral); border-radius: 0 12px 12px 0; background: var(--paper); }
+.review-reply p { margin: 4px 0 0; }
+.review-action > summary { cursor: pointer; font-size: .78rem; color: var(--muted); }
+.review-action[open] > summary { margin-bottom: 8px; }
+.terms-changes { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+
+/* Cookie choice */
+.cookie-banner { position: fixed; z-index: 90; left: 16px; right: 16px; bottom: 16px; max-width: 760px; margin-inline: auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); font-size: .88rem; }
+.cookie-banner p { flex: 1 1 320px; margin: 0; }
+.cookie-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }

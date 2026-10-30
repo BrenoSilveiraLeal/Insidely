@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { provisionAppUser } from "@/lib/provision-user";
+import { recordAccess } from "@/lib/access-log";
 import { calendarReturnPath, createParticipantCalendarEvent } from "@/lib/google-calendar";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
     if (result.status === "conflict") return NextResponse.redirect(new URL("/entrar?social=conta_existente", request.url));
     if (result.status === "linking") return NextResponse.redirect(new URL("/entrar?social=vinculacao", request.url));
     if (result.status !== "ok") return NextResponse.redirect(new URL("/entrar?social=profile", request.url));
+    if (!calendarFlow) await recordAccess(user.id, "oauth");
 
     if (calendarFlow) {
       const returnTo = calendarReturnPath(nextUrl.searchParams.get("returnTo"));

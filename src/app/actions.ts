@@ -14,6 +14,8 @@ import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
 import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } from "@/lib/chat-moderation";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 import { VERIFICATION_METHODS } from "@/lib/verification";
+import { recordAccess } from "@/lib/access-log";
+import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
 import { canReviewBooking } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
@@ -25,7 +27,7 @@ import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-e
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
+import { sendSecurityEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -102,7 +104,7 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
   }
   if (!password) return { message: "Digite sua senha.", field: "password" };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error?.code === "email_not_confirmed") return { message: "Confirme seu e-mail antes de entrar. Não recebeu o link? Cadastre-se de novo com o mesmo e-mail para reenviá-lo.", field: "email", hint: "register" };
   if (error?.code === "invalid_credentials") {
     // Same answer whether the account exists or not, so the login never reveals who is registered.
@@ -111,6 +113,7 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
   }
   if (error?.status === 429 || error?.code === "over_request_rate_limit") return { message: "Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente." };
   if (error) return { message: "Não foi possível entrar agora. Tente novamente." };
+  if (signIn.user) await recordAccess(signIn.user.id, "password");
   // Always pass through /continuar so MFA and onboarding run before the requested page.
   const next = safeInternalPath(String(formData.get("next") || ""), "");
   redirect(next && next !== "/continuar" ? `/continuar?next=${encodeURIComponent(next)}` : "/continuar");
@@ -272,6 +275,13 @@ export async function requestEmailChangeAction(_: FormState, formData: FormData)
 
 export async function logoutAction() { const supabase = await createSupabaseServerClient(); await supabase.auth.signOut(); redirect("/"); }
 
+// Review comments follow the chat rules; instead of publishing "####", the person rewrites the text.
+function reviewTextError(reason: "contact" | "offensive") {
+  return reason === "offensive"
+    ? "Seu comentário tem palavrões, abreviações ofensivas ou ofensas. Reescreva para publicar."
+    : "Seu comentário parece ter telefone, e-mail, link ou rede social. Contatos não podem ser publicados; reescreva para publicar.";
+}
+
 const IDENTITY_ERRORS: Record<string, string> = {
   invalid_cpf: "Digite um CPF válido.",
   underage_or_invalid_birth_date: "É preciso ter 18 anos ou mais para agendar conversas na Insidely.",
@@ -317,6 +327,29 @@ function profileTextError(formData: FormData, fields: [label: string, name: stri
   return found ? unsafeProfileTextMessage(found) : null;
 }
 const ONBOARDING_PROFILE_TEXTS: [string, string][] = [["Título profissional", "headline"], ["Cargo", "title"], ["Localização", "location"], ["O que você pode contextualizar", "bio"], ["Empresa", "companyIdName"], ["Área ou profissão", "professionIdName"]];
+
+// The verification proves the main (first) experience. If a verified consultant swaps that company,
+// the badge would vouch for a company nobody checked, so it is removed until a new proof is approved.
+async function mainVerifiedCompany(userId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id, verificationStatus").eq("userId", userId).maybeSingle();
+  if (!profile || profile.verificationStatus !== "VERIFIED") return null;
+  const { data: experience } = await supabase.from("EmploymentExperience").select("companyId").eq("professionalProfileId", profile.id).order("isCurrent", { ascending: false }).order("startedAt", { ascending: false }).limit(1).maybeSingle();
+  return { profileId: profile.id as string, companyId: (experience?.companyId ?? null) as string | null };
+}
+
+async function dropVerificationIfCompanyChanged(userId: string, before: Awaited<ReturnType<typeof mainVerifiedCompany>>) {
+  if (!before) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: experience } = await supabase.from("EmploymentExperience").select("companyId").eq("professionalProfileId", before.profileId).order("isCurrent", { ascending: false }).order("startedAt", { ascending: false }).limit(1).maybeSingle();
+  if ((experience?.companyId ?? null) === before.companyId) return false;
+  const now = new Date().toISOString();
+  await supabase.from("ProfessionalProfile").update({ verificationStatus: "NOT_SUBMITTED", updatedAt: now }).eq("id", before.profileId);
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Selo de vínculo removido", body: "A empresa principal do seu perfil mudou, então o selo de vínculo verificado saiu. Envie um comprovante da nova empresa para recuperá-lo.", href: "/consultor/perfil", createdAt: now });
+  return true;
+}
 
 type CatalogPending = { title: string; company: string | null; profession: string | null };
 
@@ -379,7 +412,10 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
   if (role === Role.CONSULTANT) { const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS); if (textError) return textError; }
   const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
+  if (role === Role.CONSULTANT && formData.get("confidentiality") !== "on") return "Aceite o termo de confidencialidade para consultores.";
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
   await recordCatalogRequests(user.id, [catalog]);
   const next = String(formData.get("next") || "");
   redirect(next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard");
@@ -389,6 +425,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
 export async function becomeConsultantAction(_: string | undefined, formData: FormData) {
   const user = await requireUser([Role.USER]);
   if (formData.get("terms") !== "on") return "Aceite os termos para consultores.";
+  if (formData.get("confidentiality") !== "on") return "Aceite o termo de confidencialidade para consultores.";
   const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS);
   if (textError) return textError;
   const catalog = applyUnlistedCatalog(formData, "companyId", "professionId", "title");
@@ -558,7 +595,7 @@ export async function completeBookingAction(id: string) { await requireUser([Rol
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
-export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: maskUnsafeGoal(comment.trim()).slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
+export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; const commentCheck = comment.trim() ? moderateChatMessage(comment, { countScatteredDigits: false }) : { allowed: true as const }; if (!commentCheck.allowed) return { status: "error", message: reviewTextError(commentCheck.reason) }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment.trim().slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);
@@ -601,7 +638,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
 }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = String(formData.get("name") || "").trim().replace(/\s+/g, " "); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); await recordCatalogRequests(user.id, catalog); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt); const before = await mainVerifiedCompany(user.id); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); await recordCatalogRequests(user.id, catalog); const dropped = await dropVerificationIfCompanyChanged(user.id, before); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return dropped ? "Perfil atualizado. Como a empresa principal mudou, o selo de vínculo verificado saiu; envie um comprovante da nova empresa em Verificação." : catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; const method = String(formData.get("method") || ""); if (!VERIFICATION_METHODS.some((item) => item.value === method)) { await supabase.storage.from("verification-documents").remove([path]); return "Escolha o tipo de comprovante."; } try { await rpc("submit_verification", { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: method }); } catch (error) { await supabase.storage.from("verification-documents").remove([path]); return error instanceof Error && error.message.includes("verification_pending") ? "Você já tem um comprovante em análise. Aguarde a resposta da equipe." : "Não foi possível enviar o comprovante agora. Tente novamente."; } revalidatePath("/consultor/perfil"); return "Comprovante enviado. A equipe da Insidely vai analisar e você recebe uma notificação com o resultado."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateProfileImage(file); if (!moderation.allowed) return moderation.message; const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {
@@ -779,6 +816,8 @@ export async function suspendUserAction(userId: string, formData: FormData) {
   const supabase = createSupabaseServiceClient() as any;
   const { error } = await supabase.from("User").update({ suspendedAt: now.toISOString(), suspendedUntil: days ? new Date(now.getTime() + days * 86_400_000).toISOString() : null, suspensionReason: reason, updatedAt: now.toISOString() }).eq("id", userId).neq("role", "ADMIN");
   if (error) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent(error.message)}`);
+  const { data: suspendedUser } = await supabase.from("User").select("email, name").eq("id", userId).maybeSingle();
+  if (suspendedUser?.email) await sendSecurityEmail(suspendedUser.email, suspendedUser.name, "suspended", { reason, until: days ? new Date(now.getTime() + days * 86_400_000).toLocaleString("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }) : null }).catch((error) => console.error("suspension_email_failed", { error }));
   // Out of search and booking while suspended; free slots are kept for when it is lifted.
   const { data: profile } = await supabase.from("ProfessionalProfile").update({ isActive: false, updatedAt: now.toISOString() }).eq("userId", userId).select("id").maybeSingle();
   // Conversations already booked with a suspended consultant will not happen: cancel them with a full
@@ -850,6 +889,7 @@ export async function reportConversationAction(bookingId: string, formData: Form
   const { data: admins } = await supabase.from("User").select("id").eq("role", "ADMIN");
   if (admins?.length) await supabase.from("Notification").insert(admins.map((admin: { id: string }) => ({ id: crypto.randomUUID(), userId: admin.id, title: "Nova denúncia em conversa", body: category, href: "/admin/denuncias", createdAt: now })));
   revalidatePath("/admin/denuncias");
+  if (user.email) await sendSecurityEmail(user.email, user.name, "report_received").catch((error) => console.error("report_email_failed", { error }));
   redirect(`${returnTo}?denuncia=ok`);
 }
 
@@ -863,7 +903,9 @@ export async function rateCustomerAction(bookingId: string, formData: FormData) 
   const supabase = createSupabaseServiceClient() as any;
   const parties = await bookingParticipants(supabase, bookingId);
   if (!parties || parties.consultantId !== user.id || parties.customerId === user.id || !canReviewBooking(parties.booking.status, parseDbDate(parties.booking.startsAt), parties.booking.durationMinutes)) redirect("/consultor/consultas?avaliacao=erro");
-  const { error } = await supabase.from("CustomerFeedback").insert({ bookingId, consultantUserId: user.id, customerId: parties.customerId, rating, comment: comment ? maskUnsafeGoal(comment) : null });
+  const commentCheck = comment ? moderateChatMessage(comment, { countScatteredDigits: false }) : { allowed: true as const };
+  if (!commentCheck.allowed) redirect(`/consultor/consultas?avaliacao=${commentCheck.reason === "offensive" ? "ofensiva" : "contato"}`);
+  const { error } = await supabase.from("CustomerFeedback").insert({ bookingId, consultantUserId: user.id, customerId: parties.customerId, rating, comment: comment || null });
   if (error) redirect(`/consultor/consultas?avaliacao=${error.code === "23505" ? "repetida" : "erro"}`);
   revalidatePath("/consultor/consultas");
   redirect("/consultor/consultas?avaliacao=ok");
@@ -874,4 +916,59 @@ export async function markConversationReadAction(bookingId: string) {
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const conversationId = await conversationIdForParticipant(bookingId, user.id);
   if (conversationId) await markConversationRead(conversationId, user.id);
+}
+
+// Reviews: anyone signed in can report one the filter missed; admins remove it or keep it.
+export async function reportReviewAction(reviewId: string, profileId: string, formData: FormData) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN], { nextPath: `/profissional/${profileId}` });
+  const reason = String(formData.get("reason") || "").trim().slice(0, 1000);
+  if (reason.length < 10) redirect(`/profissional/${profileId}?avaliacao=curta`);
+  if (!await consumeQuota(`review-report:${user.id}`, 5, 3600)) redirect(`/profissional/${profileId}?avaliacao=limite`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: review } = await supabase.from("Review").select("id, comment, rating, professionalProfileId").eq("id", reviewId).maybeSingle();
+  if (!review) redirect(`/profissional/${profileId}`);
+  await supabase.from("ReviewReport").insert({ reviewId, reporterId: user.id, reason, reviewComment: review.comment, reviewRating: review.rating, professionalProfileId: review.professionalProfileId });
+  const { data: admins } = await supabase.from("User").select("id").eq("role", "ADMIN");
+  if (admins?.length) await supabase.from("Notification").insert(admins.map((admin: { id: string }) => ({ id: crypto.randomUUID(), userId: admin.id, title: "Avaliação denunciada", body: reason.slice(0, 140), href: "/admin/denuncias", createdAt: new Date().toISOString() })));
+  redirect(`/profissional/${profileId}?avaliacao=denunciada`);
+}
+
+export async function resolveReviewReportAction(reportId: string, decision: "REMOVED" | "KEPT") {
+  await requireUser([Role.ADMIN]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: report } = await supabase.from("ReviewReport").select("reviewId, professionalProfileId").eq("id", reportId).maybeSingle();
+  if (!report) redirect("/admin/denuncias");
+  if (decision === "REMOVED" && report.reviewId) await supabase.from("Review").delete().eq("id", report.reviewId);
+  // Every open report about the same review is settled by one decision.
+  await supabase.from("ReviewReport").update({ status: decision, resolvedAt: new Date().toISOString() }).eq(report.reviewId ? "reviewId" : "id", report.reviewId ?? reportId).eq("status", "OPEN");
+  if (report.professionalProfileId) revalidatePath(`/profissional/${report.professionalProfileId}`);
+  revalidatePath("/admin/denuncias");
+  redirect("/admin/denuncias");
+}
+
+// The consultant answers a review publicly, once, under the same rules as the chat.
+export async function replyToReviewAction(reviewId: string, profileId: string, formData: FormData) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const body = String(formData.get("body") || "").trim().slice(0, 1000);
+  const check = body ? moderateChatMessage(body, { countScatteredDigits: false }) : { allowed: false as const, reason: "offensive" as const };
+  if (body.length < 2) redirect(`/profissional/${profileId}?resposta=curta`);
+  if (!check.allowed) redirect(`/profissional/${profileId}?resposta=${check.reason === "offensive" ? "ofensiva" : "contato"}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: review } = await supabase.from("Review").select("professionalProfileId").eq("id", reviewId).maybeSingle();
+  const { data: profile } = review ? await supabase.from("ProfessionalProfile").select("id").eq("id", review.professionalProfileId).eq("userId", user.id).maybeSingle() : { data: null };
+  if (!profile) redirect(`/profissional/${profileId}`);
+  const { error } = await supabase.from("ReviewReply").insert({ reviewId, consultantUserId: user.id, body });
+  revalidatePath(`/profissional/${profileId}`);
+  redirect(`/profissional/${profileId}?resposta=${error ? "repetida" : "ok"}`);
+}
+
+export async function acceptTermsAction(formData: FormData) {
+  const user = await requireUser(undefined, { allowIncomplete: true, allowWithoutMfa: true });
+  if (formData.get("accept") !== "on") redirect("/aceitar-termos");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
+  redirect(safeInternalPath(String(formData.get("next") || ""), "/continuar"));
 }

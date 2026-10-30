@@ -5,6 +5,8 @@ import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, Shie
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
+import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
+import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
 import { dateTimeInBrazil, initials, money, publicName, shortDate } from "@/lib/format";
 import { getFavoriteState, getProfessional, recordProfileView } from "@/lib/queries";
@@ -14,7 +16,7 @@ import { getAuthenticatedUser } from "@/lib/session";
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profile = await getProfessional((await params).id); return { title: profile ? "Perfil de " + publicName(profile) : "Perfil profissional" }; }
 
-export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string }> }) {
+export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string; avaliacao?: string; resposta?: string }> }) {
   const { id } = await params;
   const { denuncia } = await searchParams;
   const viewerPromise = getAuthenticatedUser();
@@ -29,6 +31,10 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   after(() => recordProfileView(profile.id, { userId: viewer?.id, fingerprint }).catch(() => {}));
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
+  const isOwner = await viewerOwnsProfile(viewer?.id, profile.id);
+  const replies = await getReviewReplies(reviews.map((review) => review.id));
+  const query = await searchParams;
+  const feedback = reviewFeedback(query.avaliacao, query.resposta);
   const availability = profile.availability ?? [];
   const now = new Date();
   const immediateCutoff = now.getTime() + 15 * 60_000;
@@ -60,7 +66,14 @@ export default async function ProfessionalPage({ params, searchParams }: { param
           <article className="profile-main"><span className="eyebrow">Sobre a experiência</span><h2>Contexto que posso compartilhar</h2><p>{profile.bio}</p><div className="card-meta">{profile.topics.map(topic => <span className="badge" key={topic}>{topic}</span>)}</div></article>
           <article className="profile-main"><span className="eyebrow">Trajetória</span><h2>Experiência declarada</h2><ul className="detail-list">{profile.experiences.map((exp, index) => <li key={exp.id}><div><strong>{exp.title}</strong><br/><span className="muted">{exp.profession.name} · {exp.company.name}</span><br/>{/* The proof sent covers the main (first) experience; the others stay as declared. */}{index === 0 && profile.verificationStatus === "VERIFIED" ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo com {exp.company.name} verificado</span> : <span className="experience-proof">{index === 0 ? "Vínculo não verificado pela Insidely" : "Declarada pelo consultor"}</span>}</div><BriefcaseBusiness/></li>)}</ul><p className="muted">Datas exatas e histórico completo respeitam as escolhas de privacidade do consultor.</p></article>
           <article className="profile-main"><span className="eyebrow">Limites claros</span><h2>O que não entra na conversa</h2><ul>{profile.boundaries.map(item => <li key={item}>{item}</li>)}</ul></article>
-          <article className="profile-main"><span className="eyebrow">{reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</span><h2>Depois das conversas</h2>{reviews.length ? <div className="list">{reviews.map(review => <div className="list-row review-row" key={review.id}><div><strong>{review.user.name && review.user.name.toLowerCase() !== "user" ? review.user.name : "Cliente da Insidely"}</strong><p className="review-comment">{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>)}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
+          <article className="profile-main"><span className="eyebrow">{reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</span><h2>Depois das conversas</h2>
+            {feedback && <p className={feedback.ok ? "form-feedback" : "form-error"} role={feedback.ok ? "status" : "alert"}>{feedback.text}</p>}
+            {reviews.length ? <div className="list">{reviews.map(review => { const reply = replies.get(review.id); return <div className="review-block" key={review.id}>
+              <div className="list-row review-row"><div><strong>{review.user.name && review.user.name.toLowerCase() !== "user" ? review.user.name : "Cliente da Insidely"}</strong><p className="review-comment">{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>
+              {reply && <div className="review-reply"><strong>Resposta de {name}</strong><p>{reply}</p></div>}
+              {isOwner && !reply && <details className="review-action"><summary>Responder publicamente</summary><form action={replyToReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={1000} required placeholder="Agradeça ou esclareça algo, com educação. A resposta fica pública."/><button className="button button-dark button-sm">Publicar resposta</button></form></details>}
+              {viewer && !isOwner && <details className="review-action"><summary>Denunciar avaliação</summary><form action={reportReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="reason" minLength={10} maxLength={1000} required placeholder="Por que esta avaliação não deveria estar publicada?"/><button className="button button-ghost button-sm">Enviar denúncia</button></form></details>}
+            </div>; })}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
         </div>
 
         <aside className="booking-box">

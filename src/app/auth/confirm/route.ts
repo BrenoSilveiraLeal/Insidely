@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { provisionAppUser } from "@/lib/provision-user";
+import { recordAccess } from "@/lib/access-log";
 import { safeInternalPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -16,5 +17,6 @@ export async function GET(request: NextRequest) {
   if (type === "recovery") return NextResponse.redirect(new URL("/redefinir-senha", request.url));
   const result = await provisionAppUser(data.user);
   if (result.status !== "ok") return NextResponse.redirect(new URL("/entrar?cadastro=link_invalido", request.url));
+  await recordAccess(data.user.id, "email_link");
   return NextResponse.redirect(new URL(result.profile.onboardingCompleted ? nextPath : "/onboarding", request.url));
 }
