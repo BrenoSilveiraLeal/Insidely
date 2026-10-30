@@ -978,8 +978,6 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .review-block .review-row { border-bottom: 0; }
 .review-reply { margin-left: 18px; padding: 10px 14px; border-left: 3px solid var(--mineral); border-radius: 0 12px 12px 0; background: var(--paper); }
 .review-reply p { margin: 4px 0 0; }
-.review-action > summary { cursor: pointer; font-size: .78rem; color: var(--muted); }
-.review-action[open] > summary { margin-bottom: 8px; }
 .terms-changes { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
 
 /* Cookie choice */
@@ -1101,3 +1099,13 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 html { scroll-padding-top: 120px; }
 
 .security-note { margin-top: 36px; }
+
+/* Review actions: a small pill aligned right; opens into a soft card with the form */
+.review-action { justify-self: end; width: fit-content; }
+.review-action[open] { justify-self: stretch; width: auto; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.review-action > summary { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; list-style: none; font-size: .76rem; font-weight: 700; color: var(--muted); transition: color .15s, border-color .15s, background .15s; }
+.review-action > summary::-webkit-details-marker { display: none; }
+.review-action-report > summary:hover, .review-action-report[open] > summary { color: var(--red); border-color: rgba(179,64,58,.45); background: rgba(179,64,58,.06); }
+.review-action-reply > summary:hover, .review-action-reply[open] > summary { color: var(--ink); border-color: var(--ink); }
+.review-action[open] > summary { margin-bottom: 12px; }
+.review-action-buttons { display: flex; justify-content: flex-end; }

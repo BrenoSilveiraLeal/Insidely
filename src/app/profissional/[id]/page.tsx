@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star, MessageSquareReply } from "lucide-react";
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
@@ -79,8 +79,8 @@ export default async function ProfessionalPage({ params, searchParams }: { param
             {reviews.length ? <div className="list">{reviews.map(review => { const reply = replies.get(review.id); return <div className="review-block" key={review.id}>
               <div className="list-row review-row"><div><strong>{review.user.name && review.user.name.toLowerCase() !== "user" ? review.user.name : "Cliente da Insidely"}</strong><p className="review-comment">{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>
               {reply && <div className="review-reply"><strong>Resposta de {name}</strong><p>{reply}</p></div>}
-              {isOwner && !reply && <details className="review-action"><summary>Responder publicamente</summary><form action={replyToReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={1000} required placeholder="Agradeça ou esclareça algo, com educação. A resposta fica pública."/><button className="button button-dark button-sm">Publicar resposta</button></form></details>}
-              {viewer && !isOwner && <details className="review-action"><summary>Denunciar avaliação</summary><form action={reportReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="reason" minLength={10} maxLength={1000} required placeholder="Por que esta avaliação não deveria estar publicada?"/><button className="button button-ghost button-sm">Enviar denúncia</button></form></details>}
+              {isOwner && !reply && <details className="review-action review-action-reply"><summary><MessageSquareReply size={14} aria-hidden="true"/> Responder publicamente</summary><form action={replyToReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={1000} required placeholder="Agradeça ou esclareça algo, com educação. A resposta fica pública."/><button className="button button-dark button-sm">Publicar resposta</button></form></details>}
+              {viewer && !isOwner && <details className="review-action review-action-report"><summary><Flag size={13} aria-hidden="true"/> Denunciar</summary><form action={reportReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="reason" minLength={10} maxLength={1000} required placeholder="Por que esta avaliação não deveria estar publicada? Ex.: tem ofensa, mentira ou dado pessoal."/><div className="review-action-buttons"><button className="button button-danger button-sm">Enviar denúncia</button></div></form></details>}
             </div>; })}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
         </div>
 
