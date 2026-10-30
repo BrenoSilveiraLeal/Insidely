@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import QRCode from "qrcode";
+import { OtpInput } from "@/components/otp-input";
 import { logoutAction } from "@/app/actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -82,7 +83,7 @@ export function MfaSettings({ challenge = false, continueTo = "/continuar" }: { 
   };
 
   const codeForm = (submitLabel: string) => <form className="form-stack" onSubmit={verify}>
-    <label htmlFor="totp-code">Código de seis dígitos<input id="totp-code" className="input totp-input" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} autoFocus value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} /></label>
+    <div className="otp-field"><label id="totp-code-label" htmlFor="totp-code">Código de seis dígitos</label><OtpInput id="totp-code" value={code} onChange={setCode} autoFocus/></div>
     <button type="submit" className="button button-accent" disabled={busy || code.length !== 6}>{busy ? "Verificando…" : submitLabel}</button>
   </form>;
 

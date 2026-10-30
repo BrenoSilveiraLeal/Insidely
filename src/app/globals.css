@@ -1173,3 +1173,12 @@ html { scroll-padding-top: 120px; }
   .two-columns { display: flex; flex-direction: column; }
   .two-columns-col { display: contents; }
 }
+
+/* Six-box verification code */
+.otp-field { display: grid; gap: 10px; }
+.otp-field label { font-weight: 800; }
+.otp-input { display: flex; gap: 10px; }
+.otp-box { width: 52px; height: 60px; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--ink); text-align: center; font: 800 1.6rem/1 var(--font-mono); transition: border-color .15s, box-shadow .15s; }
+.otp-box:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(255,118,87,.35); }
+.otp-input .otp-box:nth-child(3) { margin-right: 12px; }
+@media (max-width: 420px) { .otp-input { gap: 6px; } .otp-box { width: 42px; height: 52px; font-size: 1.35rem; } .otp-input .otp-box:nth-child(3) { margin-right: 6px; } }
