@@ -27,6 +27,7 @@ Variáveis:
 - `PIX_RECEIVER_KEY`: legado e opcional; o checkout demonstrativo não usa chave Pix real.
 - `OPENAI_API_KEY`: opcional, somente para moderação avançada de avatar. A validação local continua funcionando sem ela.
 - `GOOGLE_MEET_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN`: criação das salas do Google Meet (veja [`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)).
+- `GOOGLE_LOGIN_CLIENT_ID` e `GOOGLE_LOGIN_CLIENT_SECRET` (opcionais): login com Google feito pelo próprio site, para a tela do Google mostrar "Prosseguir para insidely.vercel.app" em vez do endereço do Supabase. O cliente OAuth precisa ter o redirect `<APP_URL>/auth/google/callback`, e o Client ID precisa estar em Supabase → Authentication → Providers → Google → Client IDs. Sem elas, o login usa o OAuth do Supabase.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM`: envio de e-mails (Gmail com senha de app); `RESEND_API_KEY`/`RESEND_FROM_EMAIL` são a alternativa (veja [`docs/EMAIL-SETUP.md`](docs/EMAIL-SETUP.md)).
 
 Nunca exponha uma chave secret/service-role em `NEXT_PUBLIC_*`.

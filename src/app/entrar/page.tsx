@@ -12,6 +12,7 @@ const socialMessages: Record<string, string> = {
 	conta_existente: "Já existe outra conta Insidely com este e-mail. Entre com e-mail e senha ou fale com o suporte para unificar as contas.",
 	vinculacao: "Encontramos um cadastro antigo com este e-mail. Entre com e-mail e senha ou recupere sua senha para acessá-lo.",
 	desativado: "Este método de login não está disponível. Use e-mail e senha ou o Google.",
+	cancelado: "O login com Google foi cancelado. Tente de novo quando quiser.",
 };
 const accountMessages: Record<string, string> = {
 	confirmar: "Enviamos um e-mail para você. Abra o link para continuar. Não chegou em alguns minutos? Confira a caixa de spam.",
