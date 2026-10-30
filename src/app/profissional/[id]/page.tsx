@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star } from "lucide-react";
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
+import { isNewProfile } from "@/lib/profile-age";
 import { PublicShell } from "@/components/public-shell";
 import { dateTimeInBrazil, initials, money, publicName, shortDate } from "@/lib/format";
 import { getFavoriteState, getProfessional, recordProfileView } from "@/lib/queries";
@@ -35,20 +36,17 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const cover = profile.privacy?.showPhoto ? profile.coverImage : null;
   const verification = profile.verificationStatus === "VERIFIED"
-    ? { label: "Experiência verificada", detail: "A Insidely conferiu a comprovação profissional enviada para este perfil." }
+    ? { label: "Vínculo verificado pela Insidely", detail: "A Insidely conferiu o comprovante enviado por esta pessoa e confirmou o vínculo com a empresa indicada." }
     : profile.verificationStatus === "PENDING"
-      ? { label: "Comprovação em análise", detail: "A experiência e o vínculo com a empresa foram informados pela própria pessoa e ainda estão em análise pela Insidely." }
-      : profile.verificationStatus === "MORE_INFO_REQUIRED"
-        ? { label: "Comprovação incompleta", detail: "A Insidely pediu informações adicionais. Até a conclusão da análise, a experiência e o vínculo com a empresa não estão comprovados." }
-        : profile.verificationStatus === "REJECTED"
-          ? { label: "Experiência não comprovada", detail: "A comprovação não foi aprovada. A experiência e o vínculo com a empresa permanecem sem validação da Insidely." }
-          : { label: "Experiência não comprovada", detail: "A experiência e o vínculo com a empresa foram declarados pela própria pessoa e ainda não foram comprovados à Insidely." };
+      ? { label: "Verificação em análise", detail: "Esta pessoa enviou um comprovante, que ainda está em análise. Até a conclusão, a Insidely não confirma que ela trabalha ou trabalhou na empresa indicada." }
+      : { label: "Perfil não verificado", detail: "Esta pessoa não comprovou à Insidely que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de agendar." };
+  const isNew = await isNewProfile(profile.id);
 
   return <PublicShell>
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
       <div className="container">
         <div className={`avatar${photo ? " avatar-photo" : ""}`} style={{ width: 120, fontSize: "2.4rem", ...(photo ? { backgroundImage: `url(${photo})` } : {}) }}>{photo ? null : initials(name)}</div>
-        <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" && <ShieldCheck size={13}/>} {verification.label}</span><span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
+        <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" && <ShieldCheck size={13}/>} {verification.label}</span>{isNew && <span className="badge badge-new">Novo na Insidely</span>}<span className="badge">{profile.privacyMode === "PUBLIC" ? "Perfil público" : "Identidade protegida"}</span></div>
         <p className="verification-disclosure" role="note">{verification.detail}</p>
         <h1 className="profile-title">{name}</h1>
         <p className="section-copy">{profile.headline}</p>
@@ -60,7 +58,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
       <div className="container profile-layout">
         <div className="grid">
           <article className="profile-main"><span className="eyebrow">Sobre a experiência</span><h2>Contexto que posso compartilhar</h2><p>{profile.bio}</p><div className="card-meta">{profile.topics.map(topic => <span className="badge" key={topic}>{topic}</span>)}</div></article>
-          <article className="profile-main"><span className="eyebrow">Trajetória</span><h2>Experiência declarada</h2><ul className="detail-list">{profile.experiences.map(exp => <li key={exp.id}><div><strong>{exp.title}</strong><br/><span className="muted">{exp.profession.name} · {exp.company.name}</span></div><BriefcaseBusiness/></li>)}</ul><p className="muted">Datas exatas e histórico completo respeitam as escolhas de privacidade do consultor.</p></article>
+          <article className="profile-main"><span className="eyebrow">Trajetória</span><h2>Experiência declarada</h2><ul className="detail-list">{profile.experiences.map((exp, index) => <li key={exp.id}><div><strong>{exp.title}</strong><br/><span className="muted">{exp.profession.name} · {exp.company.name}</span><br/>{/* The proof sent covers the main (first) experience; the others stay as declared. */}{index === 0 && profile.verificationStatus === "VERIFIED" ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo com {exp.company.name} verificado</span> : <span className="experience-proof">{index === 0 ? "Vínculo não verificado pela Insidely" : "Declarada pelo consultor"}</span>}</div><BriefcaseBusiness/></li>)}</ul><p className="muted">Datas exatas e histórico completo respeitam as escolhas de privacidade do consultor.</p></article>
           <article className="profile-main"><span className="eyebrow">Limites claros</span><h2>O que não entra na conversa</h2><ul>{profile.boundaries.map(item => <li key={item}>{item}</li>)}</ul></article>
           <article className="profile-main"><span className="eyebrow">{reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</span><h2>Depois das conversas</h2>{reviews.length ? <div className="list">{reviews.map(review => <div className="list-row review-row" key={review.id}><div><strong>{review.user.name && review.user.name.toLowerCase() !== "user" ? review.user.name : "Cliente da Insidely"}</strong><p className="review-comment">{review.comment}</p></div><span className="rating"><Star size={14} fill="currentColor"/> {review.rating}</span></div>)}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
         </div>
@@ -68,7 +66,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         <aside className="booking-box">
           <span className="eyebrow">Conversa individual</span>
           <h2>{money(profile.price30Cents)} <small>/ 30 min</small></h2>
-          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Novo"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>em até {profile.responseHours}h</strong></li><li><span><CalendarDays size={15}/> Próximo horário</span><strong>{availability[0] ? shortDate(availability[0].startsAt) : "A definir"}</strong></li></ul>
+          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Sem avaliações"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>em até {profile.responseHours}h</strong></li><li><span><CalendarDays size={15}/> Próximo horário</span><strong>{availability[0] ? shortDate(availability[0].startsAt) : "A definir"}</strong></li></ul>
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>

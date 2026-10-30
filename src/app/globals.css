@@ -907,7 +907,9 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .message-system .message-system-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 
 /* Consultant booking card: who and when, what the customer wants, main actions, the rest folded. */
-.booking-card { display: grid; gap: 16px; align-content: start; }
+.booking-card { display: grid; gap: 16px; align-content: start; align-self: start; }
+.booking-card-more[open] { animation: booking-more-in .18s ease-out; }
+@keyframes booking-more-in { from { opacity: .4; } to { opacity: 1; } }
 .booking-card-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .booking-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; background: var(--paper-2); color: var(--ink); font: 800 .72rem/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; }
 .booking-chip-confirmed { background: rgba(127,185,204,.35); }
@@ -941,3 +943,8 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .booking-card-option .button { justify-self: start; }
 .booking-card .customer-info { margin: 0; }
 .booking-reputation-neutral { color: var(--muted); }
+
+/* "Novo" during a profile's first two weeks; per-experience proof line on the public profile */
+.badge-new { background: var(--amber); color: var(--ink); border-color: transparent; font-weight: 800; }
+.experience-proof { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: .78rem; font-weight: 700; color: var(--red); }
+.experience-proof-ok { color: #2f7d4f; }
