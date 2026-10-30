@@ -1,3 +1,4 @@
+import { getProfileStories } from "@/lib/decision-stories";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
@@ -12,7 +13,7 @@ import { ProfessionalCard } from "@/components/cards";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
 import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
-import { dateTimeInBrazil, initials, money, publicName, shortDate, reviewerName } from "@/lib/format";
+import { dateTimeInBrazil, initials, money, parseDbDate, publicName, shortDate, reviewerName } from "@/lib/format";
 import { getFavoriteState, getProfessional, recordProfileView } from "@/lib/queries";
 import { headers } from "next/headers";
 import { getAuthenticatedUser } from "@/lib/session";
@@ -35,6 +36,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   after(() => recordProfileView(profile.id, { userId: viewer?.id, fingerprint }).catch(() => {}));
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
+  const stories = await getProfileStories(profile.id).catch(() => []);
   const isOwner = await viewerOwnsProfile(viewer?.id, profile.id);
   const replies = await getReviewReplies(reviews.map((review) => review.id));
   const query = await searchParams;
@@ -84,6 +86,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
               {isOwner && !reply && <details className="review-action review-action-reply"><summary><MessageSquareReply size={14} aria-hidden="true"/> Responder publicamente</summary><form action={replyToReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="body" minLength={2} maxLength={1000} required placeholder="Agradeça ou esclareça algo, com educação. A resposta fica pública."/><button className="button button-dark button-sm">Publicar resposta</button></form></details>}
               {viewer && !isOwner && <details className="review-action review-action-report"><summary><Flag size={13} aria-hidden="true"/> Denunciar</summary><form action={reportReviewAction.bind(null, review.id, profile.id)} className="form-stack"><textarea className="textarea" name="reason" minLength={10} maxLength={1000} required placeholder="Por que esta avaliação não deveria estar publicada? Ex.: tem ofensa, mentira ou dado pessoal."/><div className="review-action-buttons"><button className="button button-danger button-sm">Enviar denúncia</button></div></form></details>}
             </div>; })}</div> : <p className="muted">Este perfil ainda não recebeu uma avaliação.</p>}</article>
+          {stories.length > 0 && <article className="profile-main profile-stories"><h2>O que decidiram depois da conversa</h2><p className="muted">Relatos de clientes, publicados com autorização e sem o nome completo.</p><div className="profile-stories-list">{stories.map((item) => <figure key={item.bookingId}><blockquote>“{item.story}”</blockquote><figcaption>Cliente da Insidely · {shortDate(parseDbDate(item.createdAt)).split(" às ")[0]}</figcaption></figure>)}</div></article>}
         </div>
 
         <aside className="booking-box">

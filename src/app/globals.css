@@ -1412,3 +1412,25 @@ html { scroll-padding-top: 120px; }
 .role-mini-option input { margin-top: 3px; accent-color: #ff7657; }
 .role-mini-option span { display: grid; gap: 2px; }
 .role-mini-option small { color: #b9bdc6; font-size: .8rem; }
+/* Home: a slim band with customers' stories in a small carousel. */
+.stories-strip { padding: clamp(48px, 6vw, 72px) 0; background: var(--blue); }
+.stories-strip-inner { display: grid; gap: 18px; justify-items: center; text-align: center; }
+.story-carousel { display: grid; gap: 18px; width: min(760px, 100%); }
+.story-carousel-track { display: grid; }
+.story-slide { grid-area: 1 / 1; margin: 0; opacity: 0; transform: translateY(8px); transition: opacity .5s ease, transform .5s ease; pointer-events: none; }
+.story-slide.is-active { opacity: 1; transform: none; pointer-events: auto; }
+.story-slide blockquote { margin: 0; font: 700 clamp(1.15rem, 2vw, 1.5rem)/1.4 var(--display); letter-spacing: -.02em; color: var(--ink); }
+.story-slide figcaption { margin-top: 10px; color: rgba(23,32,51,.7); font-size: .82rem; font-weight: 700; }
+.story-carousel-controls { display: flex; gap: 12px; align-items: center; justify-content: center; }
+.story-carousel-controls > button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid rgba(23,32,51,.25); border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer; }
+.story-carousel-controls > button:hover { background: rgba(23,32,51,.08); }
+.story-carousel-dots { display: flex; gap: 6px; }
+.story-carousel-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: rgba(23,32,51,.25); cursor: pointer; transition: width .3s, background .3s; }
+.story-carousel-dots button.is-active { width: 22px; background: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .story-slide { transition: none; } }
+/* Profile: customers' stories after a conversation with this consultant. */
+.profile-stories h2 { margin-bottom: 4px; }
+.profile-stories-list { display: grid; gap: 12px; margin-top: 14px; }
+.profile-stories-list figure { margin: 0; padding: 14px 16px; border-radius: 14px; background: var(--paper); }
+.profile-stories-list blockquote { margin: 0; line-height: 1.55; }
+.profile-stories-list figcaption { margin-top: 8px; color: var(--muted); font-size: .8rem; font-weight: 700; }

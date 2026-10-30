@@ -18,9 +18,16 @@ export async function promptDecisionStories(supabase: any, now = new Date()) {
   return prompted;
 }
 
-// Approved stories for the home page (text only, never the customer's name).
-export async function getPublishedStories(limit = 3) {
+// Approved stories for the home page carousel (text only, never the customer's name).
+export async function getPublishedStories(limit = 8) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (createSupabaseServiceClient() as any).from("DecisionStory").select("bookingId, story").eq("allowPublish", true).eq("status", "APPROVED").order("createdAt", { ascending: false }).limit(limit);
   return (data ?? []) as { bookingId: string; story: string }[];
+}
+
+// Approved stories from conversations with one consultant, shown on that consultant's profile.
+export async function getProfileStories(profileId: string, limit = 6) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (createSupabaseServiceClient() as any).from("DecisionStory").select("bookingId, story, createdAt, booking:Booking!inner(professionalProfileId)").eq("allowPublish", true).eq("status", "APPROVED").eq("booking.professionalProfileId", profileId).order("createdAt", { ascending: false }).limit(limit);
+  return ((data ?? []) as { bookingId: string; story: string; createdAt: string }[]).map(({ bookingId, story, createdAt }) => ({ bookingId, story, createdAt }));
 }

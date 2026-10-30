@@ -1186,7 +1186,7 @@ export async function saveDecisionStoryAction(bookingId: string, _: FormState, f
     const { data: admins } = await found.supabase.from("User").select("id").eq("role", "ADMIN");
     if (admins?.length) await found.supabase.from("Notification").insert(admins.map((admin: { id: string }) => ({ id: crypto.randomUUID(), userId: admin.id, title: "Nova história para aprovar", body: story.slice(0, 120), href: "/admin/historias", createdAt: new Date().toISOString() })));
   }
-  return { status: "success", message: allowPublish ? "Obrigado! Sua história vai para análise e pode aparecer na página inicial, sem o seu nome completo." : "Obrigado por contar! Sua história fica só com a equipe da Insidely." };
+  return { status: "success", message: allowPublish ? "Obrigado! Sua história vai para análise e pode aparecer no perfil do consultor e na página inicial, sem o seu nome completo." : "Obrigado por contar! Sua história fica só com a equipe da Insidely." };
 }
 
 export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED") {

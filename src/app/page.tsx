@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Eye, Fingerprint, IdCard, LockKeyhole, MessageCircleMore, Quote, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Building2, Eye, Fingerprint, IdCard, LockKeyhole, MessageCircleMore, ShieldCheck, Sparkles } from "lucide-react";
 import { CompanyCard, ProfessionalCard, ProfessionCard } from "@/components/cards";
 import { InsideHero } from "@/components/inside-hero";
 import { PublicShell } from "@/components/public-shell";
@@ -7,6 +7,7 @@ import { StoryMotion } from "@/components/story-motion";
 import { ScrollReveals } from "@/components/scroll-reveals";
 import { getHomeData } from "@/lib/queries";
 import { getPublishedStories } from "@/lib/decision-stories";
+import { StoryCarousel } from "@/components/story-carousel";
 
 // Public data only: served static and refreshed every 5 minutes, so links open instantly.
 export const revalidate = 300;
@@ -14,8 +15,8 @@ export const revalidate = 300;
 const hiddenQuestions = [["01", "Como é uma terça-feira comum, não o dia da entrevista?"], ["02", "A liderança dá contexto ou só cobra a entrega?"], ["03", "O crescimento acontece ou fica apenas no discurso?"], ["04", "O que você gostaria de saber antes de entrar?"]];
 
 export default async function Home() {
-  // "Decidi!" stories approved by the team replace the sample quote (text only, no names).
-  const stories = await getPublishedStories(3).catch(() => []);
+  // "Decidi!" stories approved by the team, in a small carousel (text only, no names).
+  const stories = await getPublishedStories(8).catch(() => []);
   const data = await getHomeData().catch(() => ({ professionalCount: 0, companyCount: 0, completedCount: 0, rating: 0, professionals: [], companies: [], professions: [] }));
   return <PublicShell><ScrollReveals><InsideHero/><section className="stat-strip" aria-label="Números da comunidade"><div className="container stats"><div className="stat"><strong>{data.professionalCount}</strong><span>profissionais ativos</span></div><div className="stat"><strong>{data.companyCount}</strong><span>empresas representadas</span></div><div className="stat"><strong>{data.completedCount}</strong><span>conversas concluídas</span></div><div className="stat"><strong>{data.rating.toFixed(1)}</strong><span>avaliação média real</span></div></div></section>
     <section className="problem-section"><div className="container problem-grid"><div className="problem-heading"><span className="eyebrow">O que a vaga esconde</span><h2>Decisões grandes ainda são tomadas com informação pequena.</h2><p>A descrição mostra requisitos. A marca mostra cultura. Só quem vive a rotina consegue ligar os pontos.</p></div><div className="question-list"><span className="question-list-line" aria-hidden="true" />{hiddenQuestions.map(([number, question]) => <article key={number}><span>{number}</span><p>{question}</p></article>)}</div></div></section><StoryMotion/>
@@ -24,6 +25,6 @@ export default async function Home() {
     <section className="section company-section"><div className="container"><div className="section-head"><div><span className="eyebrow"><Building2 size={14}/> Por dentro das empresas</span><h2 className="section-title">A mesma marca.<br/>Muitas realidades.</h2></div><Link className="text-link" href="/empresas">Todas as empresas <ArrowRight size={16}/></Link></div><div className="grid grid-4">{data.companies.slice(0,8).map(company=><CompanyCard key={company.id} company={company}/>)}</div></div></section>
     <section className="section profession-section"><div className="container"><div className="section-head"><div><span className="eyebrow"><Eye size={14}/> Reality Check</span><h2 className="section-title">A profissão imaginada encontra o trabalho prático.</h2></div><Link className="text-link" href="/profissoes">Ver todas <ArrowRight size={16}/></Link></div><div className="grid grid-3">{data.professions.slice(0,6).map(profession=><ProfessionCard key={profession.id} profession={profession}/>)}</div></div></section>
     <section className="trust-section"><div className="container trust-grid"><div><span className="eyebrow"><ShieldCheck size={14}/> Confiança desde o desenho</span><h2>Privacidade não entra depois. Ela começa junto.</h2><p>Quem compartilha experiência controla o que fica público. Verificações são privadas; o perfil exibe apenas o selo.</p><Link className="button button-light" href="/cadastro">Participar com segurança <ArrowRight size={17}/></Link></div><div className="trust-cards"><article className="trust-card trust-card-blue"><Fingerprint size={44}/><div><span>Identidade</span><h3>Pública, protegida ou pseudônima.</h3></div></article><article className="trust-card trust-card-yellow"><ShieldCheck size={44}/><div><span>Verificação</span><h3>Documento nunca aparece no perfil.</h3></div></article><article className="trust-card trust-card-pink"><LockKeyhole size={44}/><div><span>Limites</span><h3>Sem segredos, dados internos ou de terceiros.</h3></div></article></div></div></section>
-    <section className="reviews-section"><div className="container reviews-grid"><Quote className="quote-mark" size={72}/><div><span className="eyebrow">Depois da conversa</span><blockquote>{stories[0]?.story ?? "A conversa trouxe clareza para transformar uma dúvida em uma decisão melhor."}</blockquote><p>{stories[0] ? "Cliente da Insidely, depois da conversa" : "Pessoa da comunidade"} · avaliação média de {data.rating.toFixed(1)}</p>{stories.length > 1 && <div className="home-stories">{stories.slice(1).map((item) => <figure key={item.bookingId}><blockquote>“{item.story}”</blockquote><figcaption>Cliente da Insidely</figcaption></figure>)}</div>}</div></div></section>
+    {stories.length > 0 && <section className="stories-strip"><div className="container stories-strip-inner"><span className="eyebrow">Depois da conversa</span><StoryCarousel stories={stories}/></div></section>}
     <section className="final-cta"><div className="container final-cta-inner"><div className="final-copy"><span className="eyebrow">Antes da próxima decisão</span><h2>Não escolha<br/>no escuro.</h2><p>Uma conversa pode não decidir por você. Mas pode fazer você decidir melhor.</p><div><Link className="button button-accent" href="/buscar">Encontrar uma experiência <ArrowRight size={17}/></Link><Link className="button button-ghost" href="/cadastro"><MessageCircleMore size={17}/> Compartilhar a minha</Link></div></div><div className="final-symbol"><Sparkles size={120}/><IdCard size={42}/></div></div></section></ScrollReveals></PublicShell>;
 }
