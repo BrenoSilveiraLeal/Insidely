@@ -1190,13 +1190,13 @@ export async function saveDecisionStoryAction(bookingId: string, _: FormState, f
   return { status: "success", message: allowPublish ? "Obrigado! Sua história vai para análise e pode aparecer no perfil do consultor e na página inicial, sem o seu nome completo." : "Obrigado por contar! Sua história fica só com a equipe da Insidely." };
 }
 
-export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED") {
+export async function reviewDecisionStoryAction(bookingId: string, decision: "APPROVED" | "REJECTED" | "PENDING") {
   const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "review_story", null, `${decision} ${bookingId}`));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   await supabase.from("DecisionStory").update({ status: decision }).eq("bookingId", bookingId);
-  // A story taken off the air also leaves the home page.
-  if (decision === "REJECTED") await supabase.from("DecisionStory").update({ featuredAt: null }).eq("bookingId", bookingId).then(() => undefined, () => undefined);
+  // A rejected (or reconsidered) story is no longer on the home page.
+  if (decision !== "APPROVED") await supabase.from("DecisionStory").update({ featuredAt: null }).eq("bookingId", bookingId).then(() => undefined, () => undefined);
   revalidatePath("/admin/historias"); revalidatePath("/"); revalidatePath("/profissional/[id]", "page");
 }
 

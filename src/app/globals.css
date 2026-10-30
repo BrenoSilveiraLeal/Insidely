@@ -1440,3 +1440,6 @@ html { scroll-padding-top: 120px; }
 .story-admin-row p { margin: 0 0 10px; }
 .story-admin-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .support-case-state.is-featured { background: rgba(255,118,87,.18); color: #8a2c1d; }
+.stories-limit { margin: 0 0 18px; animation: flash-in .3s ease both; }
+.story-reconsider { padding: 0; border: 0; background: none; color: var(--muted); font-size: .8rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.story-reconsider:hover { color: var(--ink); }
