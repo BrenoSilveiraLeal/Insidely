@@ -7,7 +7,7 @@ import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
 import { StartsIn } from "@/components/starts-in";
 import { PrepChecklist } from "@/components/prep-checklist";
-import { canSendBookingMessage } from "@/lib/booking-policy";
+import { canSendBookingMessage, chatClosedReason } from "@/lib/booking-policy";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { getConversationForParticipant, markConversationRead } from "@/lib/conversations";
 import { Role } from "@/lib/domain";
@@ -46,11 +46,11 @@ export default async function ConversationPage({ params, searchParams }: { param
       <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>
       <section className="panel conversation-panel">
         <RealtimeMessageThread bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages}/>
-        {canSendBookingMessage(conversation.status)
+        {canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes)
           ? <form action={sendMessageAction.bind(null, conversation.conversationId)} className="message-form"><input type="hidden" name="returnTo" value={here}/><input className="input" name="body" aria-label={`Mensagem para ${conversation.otherName}`} placeholder="Escreva uma mensagem" maxLength={2000} autoComplete="off" required/><button className="button button-dark">Enviar</button></form>
-          : <p className="muted">O envio de mensagens está encerrado para esta conversa. O histórico continua disponível.</p>}
+          : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}
       </section>
-      {REPORTABLE.includes(conversation.status) && conversation.customerId !== conversation.consultantId && <div className="conversation-safety-row"><ConversationReportForm bookingId={id} otherName={conversation.otherName} returnTo={here}/><BlockUserForm bookingId={id} otherName={conversation.otherName} returnTo={here}/></div>}
+      {REPORTABLE.includes(conversation.status) && conversation.customerId !== conversation.consultantId && <div className="conversation-safety-row"><span className="conversation-safety-label">Algum problema com {conversation.otherName.split(" ")[0]}?</span><ConversationReportForm bookingId={id} otherName={conversation.otherName} returnTo={here}/><BlockUserForm bookingId={id} otherName={conversation.otherName} returnTo={here}/></div>}
     </div>
   </DashboardShell>;
 }

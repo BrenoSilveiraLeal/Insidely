@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { Ban, Flag } from "lucide-react";
 import { blockUserAction, rateCustomerAction, reportConversationAction } from "@/app/actions";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 
@@ -6,7 +7,7 @@ import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 // the booking attached, so the team sees the chat, the attendance and both identities.
 export function ConversationReportForm({ bookingId, otherName, returnTo }: { bookingId: string; otherName: string; returnTo: string }) {
   return <details className="cancel-booking-details conversation-report">
-    <summary><span>Denunciar {otherName}</span></summary>
+    <summary><Flag size={14} aria-hidden="true"/><span>Denunciar</span><span className="sr-only"> {otherName}</span></summary>
     <form action={reportConversationAction.bind(null, bookingId)} className="form-stack">
       <input type="hidden" name="returnTo" value={returnTo}/>
       <p className="muted">A denúncia vai para a equipe da Insidely, que analisa a conversa e pode suspender a conta. Em caso de crime, a plataforma tem a identificação das duas pessoas para entregar às autoridades.</p>
@@ -46,7 +47,7 @@ export function customerFeedbackText(code: string) {
 // Blocking: neither person can book a conversation with the other afterwards (undo in Minha conta).
 export function BlockUserForm({ bookingId, otherName, returnTo }: { bookingId: string; otherName: string; returnTo: string }) {
   return <details className="cancel-booking-details conversation-report">
-    <summary><span>Bloquear {otherName}</span></summary>
+    <summary><Ban size={14} aria-hidden="true"/><span>Bloquear</span><span className="sr-only"> {otherName}</span></summary>
     <form action={blockUserAction.bind(null, bookingId)} className="form-stack">
       <input type="hidden" name="returnTo" value={returnTo}/>
       <p className="muted">Depois de bloquear, vocês não conseguem mais agendar conversas um com o outro. As conversas já marcadas continuam valendo; para cancelar, use o cartão da conversa. Você pode desbloquear em Minha conta.</p>

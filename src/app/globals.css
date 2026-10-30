@@ -984,7 +984,8 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .cookie-banner { position: fixed; z-index: 90; left: 16px; right: 16px; bottom: 16px; max-width: 760px; margin-inline: auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); font-size: .88rem; }
 .cookie-banner p { flex: 1 1 320px; margin: 0; }
 .cookie-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.conversation-safety-row { display: grid; gap: 10px; }
+.conversation-safety-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.conversation-safety-label { margin-right: 4px; color: var(--muted); font-size: .85rem; }
 
 /* Consultant agenda: pause, week grid, recurring slots */
 .agenda-page { display: grid; gap: 20px; }
@@ -1250,3 +1251,15 @@ html { scroll-padding-top: 120px; }
 .become-consultant { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; justify-content: space-between; }
 .become-consultant > div { flex: 1 1 360px; }
 .become-consultant p { margin-bottom: 0; }
+
+/* Report / block: small quiet pills side by side; the form opens below on its own row. */
+.cancel-booking-details.conversation-report { margin-top: 0; }
+.cancel-booking-details.conversation-report > summary { min-height: 34px; padding: 0 13px; gap: 6px; border-color: var(--line); background: transparent; color: var(--muted); font-size: .8rem; font-weight: 700; }
+.cancel-booking-details.conversation-report > summary:hover, .cancel-booking-details.conversation-report[open] > summary { border-color: var(--red); background: rgba(179,64,58,.06); color: var(--red); transform: none; }
+.conversation-report[open] { flex-basis: 100%; order: 2; }
+.conversation-report[open] > form { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+/* Shown where the message box was once the chat is closed. */
+.chat-closed { display: grid; justify-items: center; gap: 6px; padding: 18px 12px 4px; text-align: center; }
+.chat-closed > span { display: flex; align-items: center; gap: 12px; width: 100%; color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.chat-closed > span::before, .chat-closed > span::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.chat-closed p { margin: 0; color: var(--muted); font-size: .85rem; }

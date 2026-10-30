@@ -1,8 +1,15 @@
-const MESSAGEABLE_BOOKING_STATUSES = new Set(["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED"]);
+
 const RETRYABLE_PAYMENT_STATUSES = new Set(["HELD", "PAID_HELD", "TRANSFER_FAILED"]);
 
-export function canSendBookingMessage(status: string) {
-  return MESSAGEABLE_BOOKING_STATUSES.has(status);
+// The chat is for arranging the conversation: open from payment until the booked time ends.
+// Afterwards (done, cancelled, expired or simply past) it is read-only for both people.
+export function canSendBookingMessage(status: string, startsAt: Date, durationMinutes: number, now = new Date()) {
+  return status === "CONFIRMED" && now.getTime() <= startsAt.getTime() + durationMinutes * 60_000;
+}
+
+export function chatClosedReason(status: string) {
+  return status === "CANCELLED" ? "Conversa cancelada" : status === "EXPIRED" ? "Prazo de pagamento expirado" : status === "NO_SHOW" ? "Conversa não aconteceu"
+    : status === "DISPUTED" ? "Conversa em contestação" : status === "PENDING_PAYMENT" ? "Aguardando pagamento" : ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(status) ? "Conversa finalizada" : "Horário da conversa encerrado";
 }
 
 export function canRetryTransfer(bookingStatus: string, paymentStatus: string) {

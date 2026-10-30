@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import { canRetryTransfer, canReviewBooking, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
 
 describe("booking policy", () => {
-  it("does not allow messages before payment confirmation", () => {
-    expect(canSendBookingMessage("PENDING_PAYMENT")).toBe(false);
-    expect(canSendBookingMessage("CONFIRMED")).toBe(true);
-    expect(canSendBookingMessage("COMPLETED")).toBe(true);
+  it("allows messages only while a confirmed conversation has not ended", () => {
+    const now = new Date("2026-10-30T12:00:00Z");
+    const later = new Date("2026-10-30T15:00:00Z"), earlier = new Date("2026-10-30T11:00:00Z");
+    expect(canSendBookingMessage("PENDING_PAYMENT", later, 30, now)).toBe(false);
+    expect(canSendBookingMessage("CONFIRMED", later, 30, now)).toBe(true);
+    expect(canSendBookingMessage("CONFIRMED", new Date("2026-10-30T11:45:00Z"), 30, now)).toBe(true);
+    expect(canSendBookingMessage("CONFIRMED", earlier, 30, now)).toBe(false);
+    expect(canSendBookingMessage("COMPLETED", earlier, 30, now)).toBe(false);
+    expect(canSendBookingMessage("CANCELLED", later, 30, now)).toBe(false);
   });
 
   it("allows transfer retries only for release-eligible states", () => {
