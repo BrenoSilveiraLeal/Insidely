@@ -1175,15 +1175,13 @@ html { scroll-padding-top: 120px; }
 .field-label { font-weight: 800; font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; }
 
 /* Two independent card columns (see TwoColumns) */
-.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
-.two-columns-col { display: grid; gap: 20px; align-content: start; min-width: 0; }
-.two-columns-item { min-width: 0; }
-.two-columns-item > * { height: auto; }
+.two-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.two-columns-item { display: flex; flex-direction: column; min-width: 0; }
+.two-columns-item > * { flex: 1; }
 .consultas-feedback { display: grid; gap: 10px; margin-bottom: 16px; }
 .consultas-feedback:empty { display: none; }
 @media (max-width: 860px) {
-  .two-columns { display: flex; flex-direction: column; }
-  .two-columns-col { display: contents; }
+  .two-columns { grid-template-columns: 1fr; }
 }
 
 /* Six-box verification code */
