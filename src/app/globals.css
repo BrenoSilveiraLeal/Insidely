@@ -901,5 +901,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .catalog-empty p { max-width: 460px; margin: 0; }
 .catalog-empty-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(127,185,204,.3); font-size: 1.4rem; font-weight: 900; }
 .message-meta { justify-self: end; font-size: .68rem; opacity: .75; }
-.message-receipt-read { font-weight: 800; color: #1d5f8a; }
-.message-consultant .message-receipt-read { color: var(--ink); }
+.message-seen { margin-top: -4px; font-size: .72rem; color: var(--muted); }
+.message-consultant-seen { justify-self: end; margin-right: 4px; }
+.message-customer-seen { justify-self: start; margin-left: 4px; }
+.message-system .message-system-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
