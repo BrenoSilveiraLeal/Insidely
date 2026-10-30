@@ -28,6 +28,13 @@ export function publicName(profile: { privacyMode: string; pseudonym: string | n
   return profile.user.name || profile.pseudonym || "Pessoa da comunidade";
 }
 
+// Reviewer shown on public profiles: first name and last-name initial ("Breno L."), never the full name.
+export function reviewerName(name: string | null | undefined) {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || parts[0].toLowerCase() === "user") return "Cliente da Insidely";
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
+}
+
 export function initials(value: string) {
   return value.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
