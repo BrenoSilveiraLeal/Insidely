@@ -1,0 +1,40 @@
+name: Daily database backup
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only --file roles.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --file schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --file data.sql
+          tar -czf "insidely-backup-$(date -u +%Y-%m-%d).tar.gz" roles.sql schema.sql data.sql
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: insidely-backup-${{ github.run_id }}
+          path: insidely-backup-*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove temporary dump files
+        if: always()
+        run: rm -f roles.sql schema.sql data.sql insidely-backup-*.tar.gz
