@@ -18,7 +18,7 @@ import { headers } from "next/headers";
 import { getAuthenticatedUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profile = await getProfessional((await params).id); return { title: profile ? "Perfil de " + publicName(profile) : "Perfil profissional" }; }
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) { const profileId = (await params).id; const profile = await getProfessional(profileId); return { alternates: { canonical: `/profissional/${profileId}` }, title: profile ? "Perfil de " + publicName(profile) : "Perfil profissional" }; }
 
 export default async function ProfessionalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ denuncia?: string; avaliacao?: string; resposta?: string }> }) {
   const { id } = await params;

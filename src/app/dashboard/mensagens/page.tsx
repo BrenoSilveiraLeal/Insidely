@@ -61,7 +61,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         {paid && <details className="booking-card-more">
           <summary>Mais opções</summary>
           <div className="booking-card-more-body">
-            <div className="booking-card-option"><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely; abre o Google Meet só no horário marcado.</p><a className="text-link" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">insidely.vercel.app/sala/{booking.id.slice(0, 8)}…</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/dashboard/mensagens"/></div>
+            <div className="booking-card-option"><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely; abre o Google Meet só no horário marcado.</p><a className="text-link" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">insidely.vercel.app/sala/{booking.id.slice(0, 8)}…</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/dashboard/mensagens"/></div><div className="booking-card-option"><strong>Comprovante</strong><p className="muted">Recibo do pagamento para imprimir ou salvar em PDF.</p><Link className="text-link" href={`/recibo/${booking.id}`} target="_blank">Ver comprovante</Link></div>
             {booking.professional.id !== ownProfileId && <><ConversationReportForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/><BlockUserForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/></>}
           </div>
         </details>}
