@@ -26,7 +26,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const query = (columns: string) => supabase.from("DecisionStory").select(columns).eq("allowPublish", true).order("createdAt", { ascending: false }).limit(100);
-  // featuredAt arrives with migration 20261101098000; until then the home page shows the latest four.
+  // featuredAt arrives with migration 20261101098000; until then the home page shows the latest three.
   let result = await query("bookingId, story, status, createdAt, featuredAt");
   const canFeature = !result.error;
   if (!canFeature) result = await query("bookingId, story, status, createdAt");
