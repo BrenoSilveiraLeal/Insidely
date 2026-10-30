@@ -30,30 +30,60 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     group.count++;
     groups.set(id, group);
   }
+  const pendingCompanies = [...groups.values()].filter((group) => group.kind === "COMPANY").length;
+  const pendingProfessions = groups.size - pendingCompanies;
   return <DashboardShell mode="admin" title="Empresas e áreas">
     {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Pedido aprovado. Os perfis que aguardavam já foram atualizados e os consultores, avisados." : "Pedido recusado. Os consultores foram avisados."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
-    <p className="muted">Empresas e áreas digitadas como “Outra” no cadastro de consultores. Enquanto o pedido não é analisado, o perfil mostra “Empresa não cadastrada” ou “Área não cadastrada” e funciona normalmente.</p>
-    <div className="list">{[...groups.values()].map((group) => {
-      const company = group.kind === "COMPANY";
-      const options = company ? companies : professions;
-      return <article className="panel catalog-request" key={`${group.kind}:${group.key}`}>
-        <span className="eyebrow">{company ? "Empresa" : "Área de atuação"} · {group.count} {group.count === 1 ? "pedido" : "pedidos"} · desde {shortDate(parseDbDate(group.since))}</span>
-        <h2>{group.names[0]}</h2>
-        {group.names.length > 1 && <p className="muted">Também escrito como: {group.names.slice(1).join(", ")}</p>}
-        <form action={resolveCatalogRequestAction} className="profile-form-grid">
-          <input type="hidden" name="kind" value={group.kind}/><input type="hidden" name="key" value={group.key}/><input type="hidden" name="decision" value="new"/>
-          <label>Nome no catálogo<input className="input" name="name" defaultValue={group.names[0]} required minLength={2} maxLength={80}/></label>
-          <label>{company ? "Setor" : "Categoria"}<input className="input" name="group" placeholder={company ? "Ex.: Tecnologia" : "Ex.: Engenharia"}/></label>
-          <button className="button button-accent button-sm" type="submit">Adicionar ao catálogo</button>
-        </form>
-        <form action={resolveCatalogRequestAction} className="profile-form-grid">
-          <input type="hidden" name="kind" value={group.kind}/><input type="hidden" name="key" value={group.key}/><input type="hidden" name="decision" value="existing"/>
-          <label>Já existe com outro nome?<select className="select" name="existingId" required defaultValue=""><option value="" disabled>Selecione</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
-          <button className="button button-dark button-sm" type="submit">Vincular à existente</button>
-        </form>
-        <form action={resolveCatalogRequestAction}><input type="hidden" name="kind" value={group.kind}/><input type="hidden" name="key" value={group.key}/><input type="hidden" name="decision" value="reject"/><button className="button button-ghost button-sm" type="submit">Recusar</button></form>
-      </article>;
-    })}{!groups.size && <div className="panel"><h2>Fila vazia</h2><p className="muted">Nenhuma empresa ou área aguardando análise.</p></div>}</div>
+    <div className="catalog-admin">
+      <section className="panel catalog-intro">
+        <div>
+          <span className="eyebrow">Como funciona</span>
+          <p>Quando um consultor não encontra a empresa ou a área dele na lista, ele escolhe “Outra” e digita o nome. O perfil já funciona mostrando “Empresa não cadastrada” ou “Área não cadastrada” até você decidir aqui.</p>
+          <ol className="catalog-steps">
+            <li><strong>Adicionar</strong> cria o item no catálogo e atualiza todos os perfis que esperavam por ele.</li>
+            <li><strong>Vincular</strong> serve para erros de digitação: o pedido passa a apontar para um item que já existe.</li>
+            <li><strong>Recusar</strong> mantém o perfil como “não cadastrada” e avisa o consultor.</li>
+          </ol>
+        </div>
+        <div className="catalog-counters">
+          <div className="metric"><span>Empresas aguardando</span><strong>{pendingCompanies}</strong></div>
+          <div className="metric"><span>Áreas aguardando</span><strong>{pendingProfessions}</strong></div>
+        </div>
+      </section>
+      {[...groups.values()].map((group) => {
+        const company = group.kind === "COMPANY";
+        const options = company ? companies : professions;
+        const hidden = <><input type="hidden" name="kind" value={group.kind}/><input type="hidden" name="key" value={group.key}/></>;
+        return <article className="panel catalog-request" key={`${group.kind}:${group.key}`}>
+          <header className="catalog-request-head">
+            <div><span className="eyebrow">{company ? "Empresa" : "Área de atuação"}</span><h2>{group.names[0]}</h2>{group.names.length > 1 && <p className="muted">Também escrito como: {group.names.slice(1).join(", ")}</p>}</div>
+            <span className="status">{group.count} {group.count === 1 ? "pedido" : "pedidos"} · desde {shortDate(parseDbDate(group.since))}</span>
+          </header>
+          <div className="catalog-actions">
+            <form action={resolveCatalogRequestAction} className="catalog-action">
+              {hidden}<input type="hidden" name="decision" value="new"/>
+              <strong>Adicionar como novo item</strong>
+              <label className="field"><span>Nome no catálogo</span><input className="input" name="name" defaultValue={group.names[0]} required minLength={2} maxLength={80}/></label>
+              <label className="field"><span>{company ? "Setor" : "Categoria"}</span><input className="input" name="group" placeholder={company ? "Ex.: Tecnologia" : "Ex.: Engenharia"}/></label>
+              <button className="button button-accent button-sm" type="submit">Adicionar ao catálogo</button>
+            </form>
+            <form action={resolveCatalogRequestAction} className="catalog-action">
+              {hidden}<input type="hidden" name="decision" value="existing"/>
+              <strong>Já existe com outro nome?</strong>
+              <label className="field"><span>{company ? "Empresa" : "Área"} existente</span><select className="select" name="existingId" required defaultValue=""><option value="" disabled>Selecione</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
+              <button className="button button-dark button-sm" type="submit">Vincular à existente</button>
+            </form>
+            <form action={resolveCatalogRequestAction} className="catalog-action catalog-action-reject">
+              {hidden}<input type="hidden" name="decision" value="reject"/>
+              <strong>Não faz sentido adicionar?</strong>
+              <p className="muted">O perfil continua como “{company ? "Empresa" : "Área"} não cadastrada” e o consultor é avisado.</p>
+              <button className="button button-ghost button-sm" type="submit">Recusar pedido</button>
+            </form>
+          </div>
+        </article>;
+      })}
+      {!groups.size && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Fila vazia</h2><p className="muted">Nenhuma empresa ou área aguardando análise. Novos pedidos aparecem aqui e chegam como notificação.</p></section>}
+    </div>
   </DashboardShell>;
 }
