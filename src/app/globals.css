@@ -1064,11 +1064,6 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
   .receipt-page { padding: 0; background: white; }
   .receipt { box-shadow: none; padding: 0; }
 }
-.help-sections { display: grid; gap: 28px; max-width: 860px; }
-.help-section h2 { margin: 0 0 10px; }
-.help-item { padding: 14px 0; border-bottom: 1px solid var(--line); }
-.help-item summary { cursor: pointer; font-weight: 800; }
-.help-item p { margin: 8px 0 0; color: var(--muted); }
 
 /* First-visit tour */
 .tour-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: rgba(23,32,51,.55); }
@@ -1128,3 +1123,21 @@ html { scroll-padding-top: 120px; }
 .review-avatar { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: var(--paper); font-weight: 800; font-size: .85rem; }
 .review-stars { display: inline-flex; gap: 2px; color: #b98200; }
 .review-card .review-comment { margin: 0; color: var(--ink); line-height: 1.5; }
+
+/* Help center: one card per topic, questions with a +/− toggle */
+.help-sections { display: grid; gap: 20px; max-width: 880px; }
+.help-section { display: grid; gap: 6px; padding: 24px 26px; }
+.help-section-head { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; }
+.help-section-head h2 { margin: 0; font: 900 1.35rem/1.15 var(--display); }
+.help-section-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,118,87,.16); color: #a8402a; }
+.help-items { display: grid; }
+.help-item { border-top: 1px solid var(--line); }
+.help-item > summary { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 16px 0; cursor: pointer; list-style: none; font-weight: 800; }
+.help-item > summary::-webkit-details-marker { display: none; }
+.help-item > summary:hover { color: #a8402a; }
+.help-toggle { position: relative; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; transition: background .15s, border-color .15s; }
+.help-toggle::before, .help-toggle::after { content: ""; position: absolute; top: 50%; left: 50%; width: 11px; height: 2px; margin: -1px 0 0 -5.5px; border-radius: 2px; background: currentColor; transition: transform .2s; }
+.help-toggle::after { transform: rotate(90deg); }
+.help-item[open] .help-toggle { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.help-item[open] .help-toggle::after { transform: rotate(0deg); }
+.help-item p { margin: 0 0 16px; padding-right: 44px; color: var(--muted); line-height: 1.6; }
