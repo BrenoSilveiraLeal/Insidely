@@ -14,7 +14,7 @@ export async function ProfessionalCard({ profile, index = 0 }: { profile: Profil
   const identityVerified = (await getIdentityVerifiedProfileIds()).has(profile.id);
   const name = publicName(profile); const rating = profile.reviews.length ? profile.reviews.reduce((sum, item) => sum + item.rating, 0) / profile.reviews.length : null; const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const accents = ["var(--blue)", "var(--amber)", "var(--pink)", "var(--mineral)"];
-  const verificationLabel = profile.verificationStatus === "VERIFIED" ? "Vínculo verificado" : profile.verificationStatus === "PENDING" ? "Verificação em análise" : "Não verificado";
+  const verificationLabel = profile.verificationStatus === "VERIFIED" ? "Vínculo verificado" : profile.verificationStatus === "PENDING" ? "Verificação em análise" : profile.verificationStatus === "REJECTED" ? "Comprovante não aprovado" : "Sem comprovante";
   return <Link href={`/profissional/${profile.id}`} className="card professional-card" style={{ "--card-accent": accents[index % accents.length] } as React.CSSProperties}>
     <div className="avatar-zone"><span className={`avatar${photo ? " avatar-photo" : ""}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{photo ? null : initials(name)}</span></div>
     <div className="card-body" style={{ display: "flex", flexDirection: "column", flex: 1 }}>

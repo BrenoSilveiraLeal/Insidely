@@ -49,7 +49,9 @@ export default async function ProfessionalPage({ params, searchParams }: { param
     ? { label: "Vínculo verificado pela Insidely", detail: "A Insidely conferiu o comprovante enviado por esta pessoa e confirmou o vínculo com a empresa indicada." }
     : profile.verificationStatus === "PENDING"
       ? { label: "Verificação em análise", detail: "Esta pessoa enviou um comprovante, que ainda está em análise. Até a conclusão, a Insidely não confirma que ela trabalha ou trabalhou na empresa indicada." }
-      : { label: "Perfil não verificado", detail: "Esta pessoa não comprovou à Insidely que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de agendar." };
+      : profile.verificationStatus === "REJECTED"
+        ? { label: "Comprovante não aprovado", detail: "O comprovante enviado por esta pessoa não foi aprovado pela Insidely. Por isso, não há confirmação de que ela trabalha ou trabalhou na empresa indicada; as informações foram declaradas por ela e podem não ser verdadeiras." }
+        : { label: "Comprovante não enviado", detail: "Esta pessoa ainda não enviou nenhum comprovante de que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de agendar." };
   const isNew = await isNewProfile(profile.id);
   const [verifiedIdentities, signals] = await Promise.all([getIdentityVerifiedProfileIds(), getProfileSignals(profile.id)]);
   const identityVerified = verifiedIdentities.has(profile.id);
