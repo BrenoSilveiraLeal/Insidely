@@ -36,21 +36,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Pedido aprovado. Os perfis que aguardavam já foram atualizados e os consultores, avisados." : "Pedido recusado. Os consultores foram avisados."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     <div className="catalog-admin">
-      <section className="panel catalog-intro">
-        <div>
-          <span className="eyebrow">Como funciona</span>
-          <p>Quando um consultor não encontra a empresa ou a área dele na lista, ele escolhe “Outra” e digita o nome. O perfil já funciona mostrando “Empresa não cadastrada” ou “Área não cadastrada” até você decidir aqui.</p>
-          <ol className="catalog-steps">
-            <li><strong>Adicionar</strong> cria o item no catálogo e atualiza todos os perfis que esperavam por ele.</li>
-            <li><strong>Vincular</strong> serve para erros de digitação: o pedido passa a apontar para um item que já existe.</li>
-            <li><strong>Recusar</strong> mantém o perfil como “não cadastrada” e avisa o consultor.</li>
-          </ol>
-        </div>
-        <div className="catalog-counters">
-          <div className="metric"><span>Empresas aguardando</span><strong>{pendingCompanies}</strong></div>
-          <div className="metric"><span>Áreas aguardando</span><strong>{pendingProfessions}</strong></div>
-        </div>
-      </section>
+      <div className="catalog-counters">
+        <div className="metric"><span>Empresas aguardando</span><strong>{pendingCompanies}</strong></div>
+        <div className="metric"><span>Áreas aguardando</span><strong>{pendingProfessions}</strong></div>
+      </div>
       {[...groups.values()].map((group) => {
         const company = group.kind === "COMPANY";
         const options = company ? companies : professions;
