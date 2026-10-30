@@ -44,13 +44,20 @@ export default async function Page() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { error: dbError, ms: dbMs } = await measureDatabase(supabase);
-  const [meet, { data: runs }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
+  // The 5-minute job writes ~300 rows a day, so the daily run is fetched on its own: a shared
+  // "latest 60" list would push it out within five hours and the page would call it missing.
+  const [meet, { data: runs }, { data: dailyRuns }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
     checkGoogleMeet(),
     supabase.from("CronRun").select("job, ok, detail, createdAt").order("createdAt", { ascending: false }).limit(60),
+    supabase.from("CronRun").select("job, ok, detail, createdAt").eq("job", "daily").order("createdAt", { ascending: false }).limit(5),
     supabase.from("Booking").select("id", { count: "exact", head: true }).like("meetingUrl", "https://meet.jit.si%").gte("startsAt", daysAgo(7)),
     supabase.from("ErrorEvent").select("path, routeType, message, createdAt").gte("createdAt", daysAgo(7)).order("createdAt", { ascending: false }).limit(30),
   ]);
-  const runRows = (runs ?? []) as { job: string; ok: boolean; detail: string | null; createdAt: string }[];
+  type Run = { job: string; ok: boolean; detail: string | null; createdAt: string };
+  const seen = new Set<string>();
+  const runRows = [...((runs ?? []) as Run[]), ...((dailyRuns ?? []) as Run[])]
+    .filter((row) => { const key = `${row.job}:${row.createdAt}`; if (seen.has(key)) return false; seen.add(key); return true; })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const notableRuns = runRows.filter((row) => !row.ok || describeRun(row.detail)).slice(0, 15);
   const jobCheck = (job: string, label: string, maxMinutes: number): Check => {
     const last = runRows.find((row) => row.job === job);

@@ -1443,3 +1443,8 @@ html { scroll-padding-top: 120px; }
 .stories-limit { margin: 0 0 18px; animation: flash-in .3s ease both; }
 .story-reconsider { padding: 0; border: 0; background: none; color: var(--muted); font-size: .8rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .story-reconsider:hover { color: var(--ink); }
+/* Admin → Empresas e áreas: the two counters are tabs. */
+.catalog-tab { color: var(--ink); text-decoration: none; border: 1.5px solid var(--line); transition: border-color .2s, background .2s; }
+.catalog-tab:hover { border-color: var(--ink); }
+.catalog-tab.is-active { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.catalog-tab.is-active span { color: rgba(247,242,232,.75); }

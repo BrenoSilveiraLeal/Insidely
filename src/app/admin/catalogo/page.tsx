@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { resolveCatalogRequestAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 type Request = { kind: "COMPANY" | "PROFESSION"; name: string; normalizedName: string; userId: string; createdAt: string };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; tipo?: string }> }) {
   await requireUser([Role.ADMIN]);
   const query = await searchParams;
   // CatalogRequest is added by a migration beyond the generated legacy types.
@@ -32,15 +33,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   }
   const pendingCompanies = [...groups.values()].filter((group) => group.kind === "COMPANY").length;
   const pendingProfessions = groups.size - pendingCompanies;
+  // Two tabs: companies or areas. Without a choice, open the one that has requests (companies first).
+  const tab: Request["kind"] = query.tipo === "areas" ? "PROFESSION" : query.tipo === "empresas" ? "COMPANY" : pendingCompanies || !pendingProfessions ? "COMPANY" : "PROFESSION";
+  const visible = [...groups.values()].filter((group) => group.kind === tab);
   return <DashboardShell mode="admin" title="Empresas e áreas">
     {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Pedido aprovado. Os perfis que aguardavam já foram atualizados e os consultores, avisados." : "Pedido recusado. Os consultores foram avisados."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     <div className="catalog-admin">
-      <div className="catalog-counters">
-        <div className="metric"><span>Empresas aguardando</span><strong>{pendingCompanies}</strong></div>
-        <div className="metric"><span>Áreas aguardando</span><strong>{pendingProfessions}</strong></div>
-      </div>
-      {[...groups.values()].map((group) => {
+      <nav className="catalog-counters catalog-tabs" aria-label="Tipo de pedido">
+        <Link className={`metric catalog-tab${tab === "COMPANY" ? " is-active" : ""}`} href="/admin/catalogo?tipo=empresas" aria-current={tab === "COMPANY" ? "page" : undefined}><span>Empresas aguardando</span><strong>{pendingCompanies}</strong></Link>
+        <Link className={`metric catalog-tab${tab === "PROFESSION" ? " is-active" : ""}`} href="/admin/catalogo?tipo=areas" aria-current={tab === "PROFESSION" ? "page" : undefined}><span>Áreas aguardando</span><strong>{pendingProfessions}</strong></Link>
+      </nav>
+      {visible.map((group) => {
         const company = group.kind === "COMPANY";
         const options = company ? companies : professions;
         const hidden = <><input type="hidden" name="kind" value={group.kind}/><input type="hidden" name="key" value={group.key}/></>;
@@ -72,7 +76,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
           </div>
         </article>;
       })}
-      {!groups.size && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Fila vazia</h2><p className="muted">Nenhuma empresa ou área aguardando análise. Novos pedidos aparecem aqui e chegam como notificação.</p></section>}
+      {!visible.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Fila vazia</h2><p className="muted">Nenhuma {tab === "COMPANY" ? "empresa" : "área"} aguardando análise. Novos pedidos aparecem aqui e chegam como notificação.</p></section>}
     </div>
   </DashboardShell>;
 }

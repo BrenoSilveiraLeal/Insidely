@@ -758,8 +758,10 @@ export async function resolveCatalogRequestAction(formData: FormData) {
   // CatalogRequest and the pending columns are added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
+  // Back to the same tab (companies or areas) after each decision.
+  const tab = kind === "COMPANY" ? "empresas" : "areas";
   const { data: requests } = await supabase.from("CatalogRequest").select("id, userId, name").eq("kind", kind).eq("normalizedName", key).eq("status", "PENDING");
-  if (!requests?.length) redirect("/admin/catalogo");
+  if (!requests?.length) redirect(`/admin/catalogo?tipo=${tab}`);
   const now = new Date().toISOString();
 
   let targetId: string | null = null;
@@ -767,12 +769,12 @@ export async function resolveCatalogRequestAction(formData: FormData) {
   if (decision === "existing") {
     targetId = String(formData.get("existingId") || "");
     const { data: existing } = await supabase.from(table).select("id, name").eq("id", targetId).maybeSingle();
-    if (!existing || UNLISTED_IDS.has(existing.id)) redirect(`/admin/catalogo?erro=${encodeURIComponent("Escolha um item existente do catálogo.")}`);
+    if (!existing || UNLISTED_IDS.has(existing.id)) redirect(`/admin/catalogo?tipo=${tab}&erro=${encodeURIComponent("Escolha um item existente do catálogo.")}`);
     targetName = existing.name;
   } else if (decision === "new") {
     targetName = cleanCatalogName(String(formData.get("name") || ""));
     const group = cleanCatalogName(String(formData.get("group") || "")) || (kind === "COMPANY" ? "Não informado" : "Outras");
-    if (targetName.length < 2) redirect(`/admin/catalogo?erro=${encodeURIComponent("Informe o nome.")}`);
+    if (targetName.length < 2) redirect(`/admin/catalogo?tipo=${tab}&erro=${encodeURIComponent("Informe o nome.")}`);
     let slug = catalogSlug(targetName);
     for (let attempt = 2; (await supabase.from(table).select("id").eq("slug", slug).maybeSingle()).data; attempt++) slug = `${catalogSlug(targetName)}-${attempt}`;
     targetId = crypto.randomUUID();
@@ -780,7 +782,7 @@ export async function resolveCatalogRequestAction(formData: FormData) {
       ? { id: targetId, slug, name: targetName, sector: group, description: `Conheça a rotina de quem trabalha na ${targetName}.`, logoText: targetName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(), color: "#172033", location: "Brasil", createdAt: now, updatedAt: now }
       : { id: targetId, slug, name: targetName, category: group, description: `Converse com quem atua em ${targetName}.`, accent: "#f2c45d", createdAt: now, updatedAt: now };
     const { error } = await supabase.from(table).insert(row);
-    if (error) redirect(`/admin/catalogo?erro=${encodeURIComponent(`Não foi possível criar: ${error.message}`)}`);
+    if (error) redirect(`/admin/catalogo?tipo=${tab}&erro=${encodeURIComponent(`Não foi possível criar: ${error.message}`)}`);
   } else if (decision !== "reject") {
     redirect("/admin/catalogo");
   }
@@ -790,7 +792,7 @@ export async function resolveCatalogRequestAction(formData: FormData) {
   if (waiting.length) {
     const update = targetId ? { [idColumn]: targetId, [pendingColumn]: null } : { [pendingColumn]: null };
     const { error } = await supabase.from("EmploymentExperience").update(update).in("id", waiting);
-    if (error) redirect(`/admin/catalogo?erro=${encodeURIComponent(`Não foi possível atualizar os perfis: ${error.message}`)}`);
+    if (error) redirect(`/admin/catalogo?tipo=${tab}&erro=${encodeURIComponent(`Não foi possível atualizar os perfis: ${error.message}`)}`);
   }
   await supabase.from("CatalogRequest").update({ status: targetId ? "APPROVED" : "REJECTED", resolvedId: targetId, reviewedAt: now }).in("id", requests.map((item: { id: string }) => item.id));
 
@@ -804,7 +806,7 @@ export async function resolveCatalogRequestAction(formData: FormData) {
   })));
   for (const path of ["/admin/catalogo", "/empresas", "/profissoes", "/buscar", "/consultor/perfil"]) revalidatePath(path);
   revalidatePath("/profissional/[id]", "page");
-  redirect(`/admin/catalogo?ok=${targetId ? "aprovado" : "recusado"}`);
+  redirect(`/admin/catalogo?tipo=${tab}&ok=${targetId ? "aprovado" : "recusado"}`);
 }
 
 // Suspension, audited CPF access and the per-user admin view (/admin/usuarios/[id]).
