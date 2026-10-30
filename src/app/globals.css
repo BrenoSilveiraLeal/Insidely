@@ -1477,14 +1477,14 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .error-when { flex: none; color: var(--muted); font-size: .8rem; font-weight: 700; text-align: right; }
 /* Reality Check: the day as one proportional bar plus a legend, instead of five number cards. */
 .routine-panel { display: grid; gap: 18px; }
-.routine-panel h2 { margin: 0; }
+.routine-panel h2 { margin: 0; font: 850 clamp(1.5rem, 2.4vw, 2rem)/1.05 var(--display); letter-spacing: -.035em; }
 .routine-bar { display: flex; gap: 4px; height: 54px; }
 .routine-seg { display: flex; flex-basis: 0; align-items: center; justify-content: center; min-width: 10px; border-radius: 12px; color: var(--ink); font-size: .9rem; animation: routine-grow .8s cubic-bezier(.16,1,.3,1) both; transform-origin: left; }
 .routine-seg b { font-weight: 850; }
 .routine-c0 { background: var(--coral, #ff7657); }
 .routine-c1 { background: var(--amber); }
 .routine-c2 { background: var(--blue); }
-.routine-c3 { background: var(--mineral); }
+.routine-c3 { background: var(--lilac, #b9a7e6); }
 .routine-c4 { background: var(--pink, #e9a0b4); }
 .routine-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 22px; margin: 0; padding: 0; list-style: none; }
 .routine-legend li { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
