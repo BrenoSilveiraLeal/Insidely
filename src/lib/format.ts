@@ -30,7 +30,7 @@ export function publicName(profile: { privacyMode: string; pseudonym: string | n
 
 // Reviewer shown on public profiles: first name and last-name initial ("Breno L."), never the full name.
 export function reviewerName(name: string | null | undefined) {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  const parts = (name ?? "").replace(/[^\p{L}\s]/gu, "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length || parts[0].toLowerCase() === "user") return "Cliente da Insidely";
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
 }
