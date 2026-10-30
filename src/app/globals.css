@@ -969,3 +969,6 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .verification-decision p { margin: 0; }
 .verification-reject { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 260px; }
 .verification-reject .input { flex: 1; min-width: 200px; }
+
+/* Reality check: room between the big heading and the first item of each column */
+.reality-compare .section-title + .detail-list { margin-top: 26px; }
