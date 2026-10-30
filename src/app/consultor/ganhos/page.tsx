@@ -28,10 +28,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       <div className="metric"><span>Retido até a confirmação</span><strong>{money(gains.heldTotalCents)}</strong></div>
       <div className="metric"><span>A receber (conversas futuras)</span><strong>{money(upcomingCents)}</strong></div>
     </div>
-    <section className="panel wallet-help">
-      <p className="muted">Como funciona: o cliente paga ao agendar e o valor fica <strong>retido</strong> pela Insidely. Depois da conversa, quando os dois confirmam (ou 24 horas depois do fim, sem contestação), ele é <strong>liberado</strong> para você, já sem a taxa da plataforma. Nesta versão demonstrativa, os valores são simulados.</p>
-      <a className="button button-ghost button-sm" href="/api/ganhos">Baixar planilha</a>
-    </section>
     <div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Seu valor</th><th>Situação</th></tr></thead><tbody>{gains.items.map((booking) => <tr key={booking.id}><td>{shortDate(booking.startsAt)}</td><td>{booking.customer.name}</td><td>{money(booking.totalCents - booking.feeCents)}</td><td><span className="status">{STATUS_LABEL[booking.payment?.status ?? ""] ?? "Retido"}</span></td></tr>)}</tbody></table>{!gains.items.length && <p className="muted">Nenhuma conversa paga ainda.</p>}</div>
     <PaginationControls page={gains.page} total={gains.total} pageSize={gains.pageSize} basePath="/consultor/ganhos"/>
   </DashboardShell>;

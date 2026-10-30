@@ -80,6 +80,11 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   const stored = await getAuthenticatedUser();
   const nextPath = options?.nextPath ?? await currentPath();
   if (!stored) redirect(nextPath ? "/entrar?next=" + encodeURIComponent(nextPath) : "/entrar");
+  // The account checks below each need a database round trip; start them together instead of one
+  // after the other (results are cached per request, so the awaits further down reuse them).
+  const accountState = getAccountState(stored.id).catch(() => null);
+  const identity = stored.role === Role.ADMIN || options?.allowIncomplete ? null : hasCustomerIdentity().catch(() => true);
+  void accountState; void identity;
   // Accounts with 2FA must complete the code before any protected page, whatever path led here.
   // Read from the already verified session cookie, so no extra request to Supabase Auth.
   const { data: assurance } = await (await getRequestSupabase()).auth.mfa.getAuthenticatorAssuranceLevel();
