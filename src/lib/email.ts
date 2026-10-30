@@ -25,7 +25,7 @@ function smtpTransport() {
 }
 
 // Branded layout shared by every e-mail: table-based with inline styles, the only thing every mail client renders.
-const emailButton = (href: string, label: string) => `<a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 26px;border-radius:999px;background:#ff7657;color:#172033;font-weight:800;text-decoration:none">${label}</a>`;
+export const emailButton = (href: string, label: string) => `<a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 26px;border-radius:999px;background:#ff7657;color:#172033;font-weight:800;text-decoration:none">${label}</a>`;
 export function renderEmailLayout(content: string) {
   const appUrl = getAppUrl();
   const body = content

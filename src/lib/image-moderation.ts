@@ -1,17 +1,18 @@
 import "server-only";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Profile photos and covers are checked before upload with OpenAI's free moderation model
-// (omni-moderation-latest, which reads images). Stricter than its default "flagged": a photo
-// is refused already at moderate scores for sexual content, nudity involving minors, graphic
-// violence or self-harm. Without OPENAI_API_KEY the check is off and /admin/status shows it.
+// (omni-moderation-latest, which reads images). Only what clearly does not belong on a profile is
+// refused: sexual content, anything sexual involving minors, graphic violence (gore) and self-harm.
+// Plain "violence" is ignored on purpose: game screenshots, sports and action scenes score high
+// there and are fine. OpenAI's own "flagged" is not used for the same reason.
 const LIMITS: Record<string, number> = {
-  sexual: 0.2,
-  "sexual/minors": 0.01,
-  violence: 0.6,
-  "violence/graphic": 0.3,
-  "self-harm": 0.3,
-  "self-harm/intent": 0.3,
-  "self-harm/instructions": 0.3,
+  sexual: 0.4,
+  "sexual/minors": 0.05,
+  "violence/graphic": 0.7,
+  "self-harm": 0.6,
+  "self-harm/intent": 0.6,
+  "self-harm/instructions": 0.6,
 };
 
 export function imageModerationConfigured() {
@@ -31,14 +32,17 @@ export async function moderateImage(file: File): Promise<{ allowed: boolean; rea
   // Unknown is not approved: the person just tries again in a moment.
   if (!response?.ok) return { allowed: false, reason: "unavailable" };
   const result = await response.json() as { results?: Array<{ flagged?: boolean; category_scores?: Record<string, number> }> };
-  const first = result.results?.[0];
-  const scores = first?.category_scores ?? {};
-  const tooHigh = Object.entries(LIMITS).some(([category, limit]) => (scores[category] ?? 0) >= limit);
-  return first?.flagged || tooHigh ? { allowed: false, reason: "inappropriate" } : { allowed: true, reason: "ok" };
+  const scores = result.results?.[0]?.category_scores ?? {};
+  const hit = Object.entries(LIMITS).find(([category, limit]) => (scores[category] ?? 0) >= limit);
+  if (!hit) return { allowed: true, reason: "ok" };
+  // The category and score (never the image) go to /admin/status, to tune the limits if needed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (createSupabaseServiceClient() as any).from("ErrorEvent").insert({ path: "/consultor/perfil", routeType: "image-moderation", message: `Foto recusada: ${hit[0]} ${(scores[hit[0]] ?? 0).toFixed(2)}` }).then(() => undefined, () => undefined);
+  return { allowed: false, reason: "inappropriate" };
 }
 
 export function imageModerationMessage(reason: "inappropriate" | "unavailable" | "ok", kind: "foto de perfil" | "capa") {
   return reason === "unavailable"
     ? "Não conseguimos verificar a imagem agora. Tente de novo em alguns instantes."
-    : `Esta imagem não pode ser usada como ${kind}. Fotos com nudez, conteúdo sexual, violência ou automutilação são bloqueadas automaticamente. Escolha outra imagem.`;
+    : `Esta imagem não pode ser usada como ${kind}. Fotos com nudez, conteúdo sexual, violência explícita ou automutilação são bloqueadas automaticamente. Escolha outra imagem.`;
 }

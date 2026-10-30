@@ -29,7 +29,7 @@ import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-e
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
+import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { imageModerationMessage, moderateImage } from "@/lib/image-moderation";
@@ -1331,7 +1331,7 @@ export async function answerReportAction(reportId: string, formData: FormData) {
       const { data: person } = await supabase.from("User").select("email, name").eq("id", report.reporterId).maybeSingle();
       if (!person?.email) return;
       const safe = (value: string) => value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[c] ?? c);
-      await sendTransactionalEmail({ to: person.email, subject: title, html: `<p>Olá${person.name ? `, ${safe(person.name.split(" ")[0])}` : ""}!</p><p>O suporte da Insidely respondeu ao seu caso <strong>${safe(report.category)}</strong>:</p><blockquote style="margin:0;padding:12px 16px;border-left:3px solid #ff7657;background:#f6f1e8">${safe(reply).replaceAll("\n", "<br>")}</blockquote><p>${decision === "REPLY" ? "Você pode responder ou marcar o caso como resolvido no aplicativo." : "Se ainda precisar de ajuda, abra um novo pedido no suporte."}</p><p><a href="${getAppUrl()}${href}">Ver o caso na Insidely</a></p>` }).catch((error) => console.error("support_reply_email_failed", { error }));
+      await sendTransactionalEmail({ to: person.email, subject: title, html: `<p>Olá${person.name ? `, ${safe(person.name.split(" ")[0])}` : ""}!</p><p>O suporte da Insidely respondeu ao seu caso <strong>${safe(report.category)}</strong>:</p><blockquote style="margin:0;padding:12px 16px;border-left:3px solid #ff7657;background:#f6f1e8">${safe(reply).replaceAll("\n", "<br>")}</blockquote><p>${decision === "REPLY" ? "No aplicativo, você pode responder ou marcar o caso como resolvido." : "Se ainda precisar de ajuda, abra um novo pedido no suporte."}</p><p>${emailButton(`${getAppUrl()}${href}`, decision === "REPLY" ? "Ver resposta e responder" : "Ver o caso")}</p>` }).catch((error) => console.error("support_reply_email_failed", { error }));
     });
   }
   after(() => logAdminAction(admin.id, decision === "REPLY" ? "reply_report" : "resolve_report", null, reportId));
