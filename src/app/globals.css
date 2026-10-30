@@ -1286,3 +1286,4 @@ html { scroll-padding-top: 120px; }
 .earnings-split strong { font: 800 1.5rem/1 var(--display); letter-spacing: -.04em; }
 .consultant-home-card > p { margin: 0; font-size: .88rem; }
 @media (max-width: 760px) { .consultant-home-columns { grid-template-columns: 1fr; } .next-conversation { border-left-width: 3px; } }
+.wallet-metrics { margin-bottom: 24px; }
