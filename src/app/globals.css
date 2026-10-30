@@ -1494,3 +1494,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .routine-note { margin: 0; font-size: .86rem; }
 @keyframes routine-grow { from { transform: scaleX(0); opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .routine-seg { animation: none; } }
+/* A link inside a sentence: same size and weight as the text, marked by colour and a thin underline. */
+.inline-link { color: inherit; font: inherit; text-decoration: underline; text-decoration-color: var(--coral, #ff7657); text-decoration-thickness: 2px; text-underline-offset: 4px; transition: color .2s; }
+.inline-link:hover { color: var(--coral, #ff7657); }
