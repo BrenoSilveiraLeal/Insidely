@@ -2,6 +2,7 @@ import { canReviewBooking } from "@/lib/booking-policy";
 import { sendBookingReminderEmails } from "@/lib/email";
 import { closeEndedMeetings } from "@/lib/google-meet";
 import { checkNoShows } from "@/lib/attendance";
+import { consumeQuota } from "@/lib/auth-email-throttle";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -15,6 +16,9 @@ const WINDOW_MS = 65 * 60_000;
 // customer to rate each conversation once it ends (claimed through "reviewPromptSentAt") and locks
 // the Google Meet room of every conversation whose time is over, warning when only one side came.
 export async function GET() {
+  // The endpoint has no secret (pg_cron calls it plainly), so repeated calls from outside are cut to
+  // one real run per minute; the job itself runs every 5 minutes.
+  if (!await consumeQuota("cron:reminders", 1, 55)) return Response.json({ ok: true, skipped: "rate_limited" }, { status: 429 });
   // reminderSentAt is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;

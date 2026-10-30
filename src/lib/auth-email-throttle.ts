@@ -48,3 +48,16 @@ export async function allowIdentityAttempt(userId: string) {
     return true;
   }
 }
+
+// Generic per-key quota on the same table, for anything a signed-in user or a public endpoint could
+// repeat in a loop (reports, moderation logs, the public reminders cron). Fails open like the rest.
+export async function consumeQuota(key: string, limit: number, windowSeconds: number) {
+  try {
+    const { data, error } = await createSupabaseServiceClient().rpc("consume_auth_email_quota", { p_key: hash(key), p_limit: limit, p_window_seconds: windowSeconds });
+    if (error) { console.error("quota_unavailable", error.message); return true; }
+    return data === true;
+  } catch (error) {
+    console.error("quota_unavailable", error);
+    return true;
+  }
+}

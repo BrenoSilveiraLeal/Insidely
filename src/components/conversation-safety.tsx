@@ -18,7 +18,7 @@ export function ConversationReportForm({ bookingId, otherName, returnTo }: { boo
 }
 
 export function reportFeedbackText(code: string) {
-  return code === "ok" ? "Denúncia enviada. A equipe da Insidely vai analisar o caso." : code === "curta" ? "Escolha o tipo de problema e descreva com pelo menos 20 caracteres." : "Não foi possível enviar a denúncia. Tente novamente ou fale com o suporte.";
+  return code === "ok" ? "Denúncia enviada. A equipe da Insidely vai analisar o caso." : code === "limite" ? "Você enviou muitas denúncias em pouco tempo. Aguarde uma hora ou fale com o suporte." : code === "curta" ? "Escolha o tipo de problema e descreva com pelo menos 20 caracteres." : "Não foi possível enviar a denúncia. Tente novamente ou fale com o suporte.";
 }
 
 // The consultant rates the customer after the conversation (1 to 5 stars). The average and the

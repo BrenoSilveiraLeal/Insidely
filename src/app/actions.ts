@@ -21,7 +21,7 @@ import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTE
 import { getAppUrl } from "@/lib/app-url";
 import { suggestEmail } from "@/lib/email-typo";
 import { createEmailChangeToken } from "@/lib/email-change-token";
-import { allowAuthEmail, allowIdentityAttempt } from "@/lib/auth-email-throttle";
+import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-email-throttle";
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
@@ -585,7 +585,8 @@ export async function sendMessageAction(id: string, formData: FormData) {
   const moderation = moderateChatMessage(body);
   if (!moderation.allowed) {
     // Kept for the admin moderation queue; repeated attempts are a reason to review the account.
-    const { error } = await createSupabaseServiceClient().from("ChatModerationEvent" as never).insert({ userId: user.id, conversationId: id, reason: moderation.reason, excerpt: body.slice(0, 500) } as never);
+    // Capped per hour so a script cannot fill the table; the message is refused either way.
+    const { error } = !await consumeQuota(`moderation-log:${user.id}`, 30, 3600) ? { error: null } : await createSupabaseServiceClient().from("ChatModerationEvent" as never).insert({ userId: user.id, conversationId: id, reason: moderation.reason, excerpt: body.slice(0, 500) } as never);
     if (error) console.error("chat_moderation_log_failed", { error });
     redirect(`${returnTo}?mensagem=${moderation.reason === "offensive" ? "ofensiva" : "bloqueada"}`);
   }
@@ -838,6 +839,7 @@ export async function reportConversationAction(bookingId: string, formData: Form
   const category = String(formData.get("category") || "");
   const description = String(formData.get("description") || "").trim().slice(0, 2000);
   if (!CONVERSATION_REPORT_CATEGORIES.includes(category) || description.length < 20) redirect(`${returnTo}?denuncia=curta`);
+  if (!await consumeQuota(`conversation-report:${user.id}`, 5, 3600)) redirect(`${returnTo}?denuncia=limite`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const parties = await bookingParticipants(supabase, bookingId);
