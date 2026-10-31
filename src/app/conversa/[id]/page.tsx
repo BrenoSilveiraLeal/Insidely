@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { disputeBookingAction, finishMessageBookingAction, finishMessageByConsultantAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
+import { disputeBookingAction, finishMessageBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
 import { ChatMessageForm } from "@/components/chat-message-form";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -8,7 +8,7 @@ import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
 import { StartsIn } from "@/components/starts-in";
 import { PrepChecklist } from "@/components/prep-checklist";
-import { canSendBookingMessage, chatClosedReason, chatOpensAt } from "@/lib/booking-policy";
+import { canSendBookingMessage, chatClosedReason, chatOpensAt, isMessageClosing } from "@/lib/booking-policy";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getBlockedBookingIds } from "@/lib/blocks";
 import { chatFeedbackText } from "@/lib/chat-moderation";
@@ -57,9 +57,10 @@ export default async function ConversationPage({ params, searchParams }: { param
   const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false;
   const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes) && !questionsUsedUp;
   const notOpenYet = conversation.status === "CONFIRMED" && chatNotOpenYet(startsAt);
-  // The consultant can finish only after answering the last question (a reply of their own after the
-  // last question the system sent). Then the amount stays held 24 hours for the customer to contest.
-  const lastQuestionAt = Math.max(0, ...conversation.messages.filter((message) => message.senderId === conversation.customerId).map((message) => parseDbDate(message.createdAt).getTime()));
+  // After answering the last question (a reply of their own after it) the consultant concludes, which
+  // posts Insidely's thank-you, and then finishes. Then the amount stays held 24 hours for the customer to contest.
+  const concluded = conversation.messages.some((message) => message.senderId === conversation.customerId && isMessageClosing(message));
+  const lastQuestionAt = Math.max(0, ...conversation.messages.filter((message) => message.senderId === conversation.customerId && !isMessageClosing(message)).map((message) => parseDbDate(message.createdAt).getTime()));
   const answeredLast = conversation.messages.some((message) => message.senderId === conversation.consultantId && !message.automatic && parseDbDate(message.createdAt).getTime() > lastQuestionAt);
   const allAnswered = isMessage && conversation.questionsSent >= conversation.questionsTotal && answeredLast;
   const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : null;
@@ -79,7 +80,11 @@ export default async function ConversationPage({ params, searchParams }: { param
         {consultantMode && conversation.questionsSent < conversation.questionsTotal && (answeredLast
           ? <form action={sendNextQuestionAction.bind(null, id)}><button className="button button-dark button-sm">Enviar próxima pergunta</button></form>
           : <small className="muted">Responda a pergunta atual para liberar a próxima.</small>)}
-        {consultantMode && conversation.questionsSent >= conversation.questionsTotal && (allAnswered ? <form action={finishMessageByConsultantAction.bind(null, id)}><button className="button button-dark button-sm">Finalizar atendimento</button></form> : <small className="muted">“Finalizar atendimento” aparece depois que você responder a última pergunta.</small>)}
+        {consultantMode && conversation.questionsSent >= conversation.questionsTotal && (concluded
+          ? <form action={finishMessageByConsultantAction.bind(null, id)}><button className="button button-dark button-sm">Finalizar atendimento</button></form>
+          : allAnswered
+            ? <form action={concludeMessageAnswersAction.bind(null, id)}><button className="button button-dark button-sm">Concluir respostas</button></form>
+            : <small className="muted">Responda a última pergunta para concluir.</small>)}
       </section>}
       {canContest && contestUntil && <section className="panel form-stack message-contest">
         <div><strong>O consultor finalizou o atendimento.</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Se as respostas não responderam às suas perguntas, conteste até lá: o suporte analisa a conversa e, se você tiver razão, o valor volta para você.</p></div>
@@ -91,7 +96,7 @@ export default async function ConversationPage({ params, searchParams }: { param
       </section>}
       {isMessage && query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação enviada. O suporte vai analisar a conversa e você recebe o resultado por notificação.</p>}
       <section className="panel conversation-panel">
-        <RealtimeMessageThread blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages} systemNotice={isMessage ? (consultantMode ? `Este é um pedido de “Perguntas por mensagem”, pago para ser respondido aqui no chat, não por vídeo. O cliente já escreveu ${conversation.questionsTotal > 1 ? `${conversation.questionsTotal} perguntas` : "a pergunta"}${conversation.questionsTotal > 1 ? ", e a Insidely envia uma de cada vez: responda à vontade e, quando terminar, clique em “Enviar próxima pergunta”" : ""}. O cliente não envia outras mensagens. Responda até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; depois da última resposta, finalize o atendimento. Sem nenhuma resposta no prazo, o valor volta para o cliente.` : `Este é um pedido de “Perguntas por mensagem”. A Insidely envia ${conversation.questionsTotal > 1 ? "suas perguntas ao consultor uma de cada vez: a próxima vai quando ele terminar de responder a anterior" : "sua pergunta ao consultor"}. Você só acompanha por aqui; as respostas chegam até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`) : undefined} closingNotice={allAnswered && conversation.status === "CONFIRMED" ? (consultantMode ? `Todas as perguntas foram respondidas. Se não tiver mais nada a acrescentar, finalize o atendimento: o chat é encerrado e o valor fica retido por 24 horas antes do repasse.` : `O consultor respondeu todas as suas perguntas. Quando ele finalizar o atendimento, você terá 24 horas para contestar se alguma resposta não tratou do que você perguntou.`) : undefined}/>
+        <RealtimeMessageThread blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages} systemNotice={isMessage ? (consultantMode ? `Este é um pedido de “Perguntas por mensagem”, pago para ser respondido aqui no chat, não por vídeo. O cliente já escreveu ${conversation.questionsTotal > 1 ? `${conversation.questionsTotal} perguntas` : "a pergunta"}${conversation.questionsTotal > 1 ? ", e a Insidely envia uma de cada vez: responda à vontade e, quando terminar, clique em “Enviar próxima pergunta”" : ""}. O cliente não envia outras mensagens. Responda até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; depois da última resposta, clique em “Concluir respostas” e finalize o atendimento. Sem nenhuma resposta no prazo, o valor volta para o cliente.` : `Este é um pedido de “Perguntas por mensagem”. A Insidely envia ${conversation.questionsTotal > 1 ? "suas perguntas ao consultor uma de cada vez: a próxima vai quando ele terminar de responder a anterior" : "sua pergunta ao consultor"}. Você só acompanha por aqui; as respostas chegam até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`) : conversation.goals ? `${consultantMode ? "O que o cliente quer conversar" : "O que você quer conversar"}: “${conversation.goals}”` : undefined} closingNotice={isMessage && conversation.status === "CONFIRMED" ? (consultantMode ? `Todas as perguntas foram respondidas. Se não tiver mais nada a acrescentar, clique em “Finalizar atendimento”: o chat é encerrado e o valor fica retido por 24 horas antes do repasse.` : `O consultor respondeu todas as suas perguntas. Quando ele finalizar o atendimento, você terá 24 horas para contestar se alguma resposta não tratou do que você perguntou.`) : undefined}/>
         {query.mensagem && <p className={`${query.mensagem === "encerrada" || query.mensagem === "finalizada" ? "form-feedback" : "form-error"} chat-feedback`} role="alert">{chatFeedbackText(query.mensagem)}</p>}
         {canSend
           ? <ChatMessageForm action={sendMessageAction.bind(null, conversation.conversationId)} returnTo={here} label={`Mensagem para ${conversation.otherName}`}/>

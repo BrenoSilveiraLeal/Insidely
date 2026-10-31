@@ -76,6 +76,12 @@ export function rescheduleDifferenceCents(newPriceCents: number, paidSubtotalCen
 // questions written in the request (up to 5, posted when paid); unanswered requests are refunded.
 export const MESSAGE_WINDOW_MINUTES = 48 * 60;
 export const MESSAGE_QUESTION_LIMIT = 5;
+// Once the consultant concludes the last answer ("Concluir respostas"), Insidely posts this thank-you
+// on the customer's behalf (an automatic message); after it the consultant can finish the service.
+export const MESSAGE_CLOSING_TEXT = "Obrigado pelos esclarecimentos! Essas eram todas as minhas perguntas.";
+export function isMessageClosing(message: { body: string; automatic?: boolean | null }) {
+  return Boolean(message.automatic) && message.body === MESSAGE_CLOSING_TEXT;
+}
 // Suggested price for the message format: 60% of the 30-minute video price.
 export function suggestedMessagePriceCents(price30Cents: number) {
   return Math.max(1000, Math.round(price30Cents * 0.6 / 100) * 100);

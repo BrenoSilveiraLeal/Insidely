@@ -63,7 +63,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <span className="booking-card-when">{booking.format === "MESSAGE" ? <><span className="format-chip">Por mensagem</span> respostas até {shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}</> : <>{shortDate(booking.startsAt)} · {booking.durationMinutes} min</>}</span>{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
         </header>
         <div className="booking-card-person"><h2>{booking.professional.user.name}</h2><span className="booking-reputation booking-reputation-neutral">{money(booking.totalCents)}</span></div>
-        {booking.goals && booking.format !== "MESSAGE" && <blockquote className="booking-card-goals"><span>O que você quer conversar</span><p>{booking.goals}</p></blockquote>}
         {note && <p className="booking-card-note">{note}</p>}
         <div className="booking-card-actions">
           {booking.status === "PENDING_PAYMENT" && <Link className="button button-accent" href={`/checkout/${booking.id}`}>Continuar pagamento</Link>}

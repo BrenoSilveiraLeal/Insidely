@@ -65,7 +65,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
           <span className="booking-card-chips">{booking.format === "MESSAGE" && <span className="format-chip">Por mensagem</span>}<span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span></span>
         </header>
         <div className="booking-card-meta"><CalendarDays size={15} aria-hidden="true"/><span>{booking.format === "MESSAGE" ? `Responder até ${shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}` : `${shortDate(booking.startsAt)} · ${booking.durationMinutes} min`}</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}</div>
-        {booking.format === "MESSAGE" ? <p className="muted booking-card-goals-note">As perguntas do cliente chegam no chat, uma de cada vez: depois de responder, clique em “Enviar próxima pergunta”.</p> : <blockquote className="booking-card-goals"><span>O que o cliente quer conversar</span><p>{booking.goals}</p></blockquote>}
+        {booking.format === "MESSAGE" ? <p className="muted booking-card-goals-note">As perguntas do cliente chegam no chat, uma de cada vez: depois de responder, clique em “Enviar próxima pergunta”.</p> : null}
 
         <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes))}. A conversa e a sala são liberadas depois da confirmação.`
           : booking.status === "EXPIRED" ? "Pagamento não concluído a tempo. O horário foi liberado."

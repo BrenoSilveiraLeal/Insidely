@@ -19,7 +19,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
-import { canReviewBooking, canSendBookingMessage } from "@/lib/booking-policy";
+import { canReviewBooking, canSendBookingMessage, isMessageClosing, MESSAGE_CLOSING_TEXT } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
 import { getAppUrl } from "@/lib/app-url";
@@ -1565,25 +1565,47 @@ export async function sendNextQuestionAction(bookingId: string) {
   redirect(back);
 }
 
-// The consultant finishes a message booking once the last question is answered: the chat closes,
+// Where a message booking stands for its consultant: every question sent and the last one answered
+// (a reply of theirs after it), and whether they already concluded (the automatic thank-you is posted).
+async function messageBookingProgress(bookingId: string, userId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: booking } = await supabase.from("Booking").select("id, startsAt, status, format, customerId, questions, questionsSent, professionalProfile:ProfessionalProfile(userId), conversation:Conversation(id)").eq("id", bookingId).maybeSingle();
+  const one = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
+  const consultantId = (one(booking?.professionalProfile) as { userId?: string } | null)?.userId;
+  if (!booking || consultantId !== userId || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") return null;
+  const total = Array.isArray(booking.questions) ? booking.questions.length : 0;
+  const conversationId = (one(booking.conversation) as { id?: string } | null)?.id ?? null;
+  const { data: messages } = conversationId ? await supabase.from("Message").select("senderId, body, createdAt, automatic").eq("conversationId", conversationId) : { data: [] };
+  const rows = (messages ?? []) as { senderId: string; body: string; createdAt: string; automatic: boolean }[];
+  const concluded = rows.some((row) => row.senderId === booking.customerId && isMessageClosing(row));
+  const lastQuestionAt = Math.max(0, ...rows.filter((row) => row.senderId === booking.customerId && !isMessageClosing(row)).map((row) => parseDbDate(row.createdAt).getTime()));
+  const answeredLast = rows.some((row) => row.senderId === userId && !row.automatic && parseDbDate(row.createdAt).getTime() > lastQuestionAt);
+  return { supabase, booking, conversationId, allAnswered: Number(booking.questionsSent ?? 0) >= total && answeredLast, concluded };
+}
+
+// After answering the last question the consultant presses "Concluir respostas": Insidely thanks them
+// on the customer's behalf, which tells both that the questions are over and the service can be finished.
+export async function concludeMessageAnswersAction(bookingId: string) {
+  const user = await requireUser([Role.CONSULTANT]);
+  const back = `/conversa/${bookingId}`;
+  const progress = await messageBookingProgress(bookingId, user.id);
+  if (!progress || !progress.conversationId || progress.concluded) redirect(back);
+  if (!progress.allAnswered) redirect(`${back}?mensagem=responda-antes`);
+  await progress.supabase.from("Message").insert({ id: crypto.randomUUID(), conversationId: progress.conversationId, senderId: progress.booking.customerId, body: MESSAGE_CLOSING_TEXT, automatic: true, createdAt: new Date().toISOString() });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// The consultant finishes a message booking once they concluded the answers: the chat closes,
 // the consultant's confirmation is recorded and the amount stays held 24 hours, during which the
 // customer can contest; with no contest it is released (autoReleaseAt).
 export async function finishMessageByConsultantAction(bookingId: string) {
   const user = await requireUser([Role.CONSULTANT]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
   const back = `/conversa/${bookingId}`;
-  const { data: booking } = await supabase.from("Booking").select("id, startsAt, status, format, customerId, questions, questionsSent, professionalProfile:ProfessionalProfile(userId), conversation:Conversation(id)").eq("id", bookingId).maybeSingle();
-  const one = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
-  const consultantId = (one(booking?.professionalProfile) as { userId?: string } | null)?.userId;
-  if (!booking || consultantId !== user.id || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") redirect(back);
-  const total = Array.isArray(booking.questions) ? booking.questions.length : 0;
-  const conversationId = (one(booking.conversation) as { id?: string } | null)?.id;
-  const { data: messages } = conversationId ? await supabase.from("Message").select("senderId, createdAt, automatic").eq("conversationId", conversationId) : { data: [] };
-  const rows = (messages ?? []) as { senderId: string; createdAt: string; automatic: boolean }[];
-  const lastQuestionAt = Math.max(0, ...rows.filter((row) => row.senderId === booking.customerId).map((row) => parseDbDate(row.createdAt).getTime()));
-  const answeredLast = rows.some((row) => row.senderId === user.id && !row.automatic && parseDbDate(row.createdAt).getTime() > lastQuestionAt);
-  if (Number(booking.questionsSent ?? 0) < total || !answeredLast) redirect(back);
+  const progress = await messageBookingProgress(bookingId, user.id);
+  if (!progress || !progress.concluded) redirect(back);
+  const { supabase, booking } = progress;
   const now = new Date();
   const elapsed = Math.max(1, Math.ceil((now.getTime() - parseDbDate(booking.startsAt).getTime()) / 60_000));
   const releaseAt = new Date(now.getTime() + 24 * 60 * 60_000);
