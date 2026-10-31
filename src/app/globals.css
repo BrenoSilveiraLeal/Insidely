@@ -1734,3 +1734,10 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .privacy-group legend { margin-bottom: 12px; padding-top: 10px; }
 /* Photo / cover: the format hint sits a little below the buttons, in smaller type. */
 .profile-photo-panel .upload-row + p.muted, .profile-photo-panel .upload-row ~ p.muted, .profile-cover-panel .upload-row ~ p.muted { margin: 12px 0 0; font-size: .78rem; }
+/* Booking: topic ideas as small chips under the text box. */
+.topic-ideas { display: grid; gap: 8px; margin-top: 10px; }
+.topic-ideas-label { color: var(--muted); font-size: .8rem; font-weight: 700; }
+.topic-ideas-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.topic-idea { padding: 6px 12px; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--ink); font-size: .8rem; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s; }
+.topic-idea:hover { border-color: var(--ink); }
+.topic-idea.is-picked { border-style: solid; border-color: var(--ink); background: var(--paper-2); }

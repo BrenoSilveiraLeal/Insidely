@@ -1,3 +1,4 @@
+import { TopicIdeas } from "@/components/topic-ideas";
 import { isSlotStillBookable } from "@/lib/booking-policy";
 import { notFound } from "next/navigation";
 import { BookingSlotFields } from "@/components/booking-slot-fields";
@@ -27,8 +28,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Agendamento · horários de Brasília</span><h1>Prepare uma conversa útil.</h1><p>Com {publicName(profile)} · escolha um horário ainda disponível.</p></div></section><section className="section"><div className="container profile-layout">
     <BookingRequestForm profileId={profile.id}>
       <BookingSlotFields slots={slots} defaultSlot={selectedSlot} price30={money(profile.price30Cents)} price60={money(profile.price60Cents)} />
-      <fieldset className="topic-select-group"><legend className="eyebrow">Temas</legend>{["Rotina real", "Cultura da equipe", "Processo seletivo", "Crescimento", "Carga de trabalho"].map(t => <label key={t}><input type="checkbox" name="topics" value={t} /> <span>{t}</span></label>)}</fieldset>
-      <div className="field"><label htmlFor="goals">O que você precisa decidir?</label><textarea className="textarea" id="goals" name="goals" required minLength={12} maxLength={2000} placeholder="Conte o contexto e o que faria esta conversa ser útil." /></div>
+      <div className="field"><label htmlFor="goals">O que você precisa decidir?</label><textarea className="textarea" id="goals" name="goals" required minLength={12} maxLength={2000} rows={5} placeholder="Conte o contexto e o que faria esta conversa ser útil." /><TopicIdeas targetId="goals" topics={profile.topics.length ? profile.topics : ["Rotina real", "Cultura da equipe", "Processo seletivo", "Crescimento", "Carga de trabalho"]}/></div>
     </BookingRequestForm>
     <aside className="booking-box"><span className="eyebrow">Acordo da conversa</span><h2>Experiência, não garantia.</h2><p>O consultor fala da própria vivência. Não representa a empresa, não promete contratação e não compartilha informação confidencial.</p><p className="muted">Se nenhum horário aparecer, este perfil não tem disponibilidade futura no momento.</p></aside>
   </div></section></PublicShell>;
