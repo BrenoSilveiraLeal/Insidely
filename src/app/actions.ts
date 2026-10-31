@@ -516,7 +516,7 @@ export async function createStripeCheckoutAction(id: string) {
 export async function simulateBookingPaymentAction(id: string, formData: FormData) {
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
   const method = String(formData.get("method") || "");
-  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO"].includes(method)) {
+  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD"].includes(method)) {
     redirect(`/checkout/${id}?erro=${encodeURIComponent("Selecione uma forma de pagamento.")}`);
   }
 
@@ -798,7 +798,7 @@ export async function requestRescheduleAction(bookingId: string, _previousState:
 export async function payRescheduleAction(bookingId: string, rescheduleId: string, formData: FormData) {
   const user = await requireUser();
   const method = String(formData.get("method") || "");
-  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO"].includes(method)) redirect(`/reagendar/${bookingId}?erro=metodo`);
+  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD"].includes(method)) redirect(`/reagendar/${bookingId}?erro=metodo`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: pending } = await supabase.from("BookingReschedule").select("id").eq("id", rescheduleId).eq("bookingId", bookingId).eq("customerId", user.id).eq("status", "PENDING_PAYMENT").maybeSingle();

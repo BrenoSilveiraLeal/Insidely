@@ -117,7 +117,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
           {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
           {profile.messagePriceCents ? <div className="message-offer">
             <div><strong><MessageSquareText size={16} aria-hidden="true"/> Prefere por mensagem?</strong><p className="muted">{money(profile.messagePriceCents)} · até 5 perguntas, respostas em até 48h, sem horário marcado.</p></div>
-            {!isOwner && <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>}
+            <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>
           </div> : null}
           {!isOwner && <FavoriteButton profileId={profile.id} initialSaved={isFavorite}/>}
           <p className="muted" style={{fontSize:12}}>A plataforma protege dados privados e libera a conversa somente após a confirmação do pagamento.</p>
