@@ -1936,3 +1936,13 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .conversation-thread::-webkit-scrollbar { width: 6px; }
 .conversation-thread::-webkit-scrollbar-track { background: transparent; }
 .conversation-thread::-webkit-scrollbar-thumb { background: rgba(23,32,51,.22); border-radius: 999px; }
+/* Reviews waiting to be written: compact cards, two per row on wide screens. */
+.reviews-pending { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
+.reviews-pending .review-form { max-width: none; padding: 20px; }
+.reviews-pending .review-form h2 { margin: 8px 0 10px; font-size: clamp(1.15rem, 1.6vw, 1.4rem); line-height: 1.1; letter-spacing: -.03em; }
+.reviews-pending .review-form .form-stack { gap: 12px; }
+.rating-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.rating-row .rating-note { margin: 0; }
+.reviews-pending .rating-note { font-size: .82rem; }
+.reviews-pending .review-form .textarea { min-height: 0; }
+.reviews-pending .review-form .button-dark { justify-self: start; }

@@ -32,8 +32,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     <div className="profile-management-stack"><p className="muted reviews-intro">Depois que o horário da conversa termina, você dá uma nota de 0 a 5 e, se quiser, deixa um comentário. Toda avaliação vem de uma conversa que aconteceu pela Insidely.</p>
       {survey.map((booking) => <section className="panel survey-card" key={`survey-${booking.id}`}><div><span className="eyebrow">{booking.professional.user.name} · {shortDate(booking.startsAt)}</span><strong>A conversa ajudou na sua decisão?</strong></div><div className="verification-row-actions">{([["YES", "Sim"], ["PARTLY", "Em parte"], ["NO", "Não"]] as const).map(([value, label]) => <form key={value} action={answerSurveyAction.bind(null, booking.id, value)}><button className="button button-ghost button-sm">{label}</button></form>)}</div></section>)}
       {pending.length > 0 && <h2 className="reviews-list-title">Para avaliar</h2>}
-      {pending.map((booking) => <ReviewForm key={booking.id} bookingId={booking.id} professionalName={booking.professional.user.name} date={shortDate(booking.startsAt)} />)}
-      
+
+      {/* Waiting reviews side by side (two per row on wide screens); once published they join the compact list below. */}
+      {pending.length > 0 && <div className="reviews-pending">{pending.map((booking) => <ReviewForm key={booking.id} bookingId={booking.id} professionalName={booking.professional.user.name} date={shortDate(booking.startsAt)} />)}</div>}
       {published.length > 0 && <section className="panel"><h2 className="reviews-list-title">Suas avaliações</h2><div className="list reviews-mine">{shownReviews.items.map((booking) => <div className="list-row review-mine" key={booking.id}>
         <div><strong>{booking.professional.user.name}</strong><span className="muted review-mine-date">Conversa de {shortDate(booking.startsAt).split(" às ")[0]}</span>{booking.review?.comment && <p>{booking.review.comment}</p>}
           <div className="review-mine-tags"><span className="review-tag">Conversa realizada</span>{booking.professional.verificationStatus === "VERIFIED" && <span className="review-tag is-verified">Vínculo verificado</span>}</div></div>
