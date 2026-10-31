@@ -1508,7 +1508,7 @@ export async function requestMessageBookingAction(profileId: string, _: string |
   if (!questions.length) return "Escreva pelo menos uma pergunta.";
   if (questions.some((question) => question.length < 5)) return "Cada pergunta precisa ter pelo menos 5 caracteres. Se não for usar uma delas, marque “Não vou usar esta pergunta”.";
   // One question per field: a field with several questions would turn 5 questions into many.
-  const crowded = questions.findIndex((question) => question.length > 150 || (question.match(/\?/g) ?? []).length > 1);
+  const crowded = questions.findIndex((question) => question.length > 150 || /[\r\n]/.test(question) || (question.match(/\?/g) ?? []).length > 1);
   if (crowded >= 0) return `Pergunta ${crowded + 1}: escreva uma pergunta por campo (até 150 caracteres). Use os outros campos para as demais.`;
   for (const [index, question] of questions.entries()) {
     const moderation = moderateChatMessage(question, { countScatteredDigits: false });

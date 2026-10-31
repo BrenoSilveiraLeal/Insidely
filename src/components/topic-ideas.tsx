@@ -17,7 +17,7 @@ const STARTERS: Record<string, string> = {
 export function TopicIdeas({ topics, targetId, targetIds }: { topics: string[]; targetId?: string; targetIds?: string[] }) {
   const [picked, setPicked] = useState<string[]>([]);
   const starterOf = (topic: string) => STARTERS[topic.toLocaleLowerCase("pt-BR")] ?? `Quero entender melhor: ${topic.toLocaleLowerCase("pt-BR")}.`;
-  const boxes = () => (targetIds ?? (targetId ? [targetId] : [])).map((id) => document.getElementById(id) as HTMLTextAreaElement | null).filter((box): box is HTMLTextAreaElement => Boolean(box));
+  const boxes = () => (targetIds ?? (targetId ? [targetId] : [])).map((id) => document.getElementById(id) as HTMLTextAreaElement | HTMLInputElement | null).filter((box): box is HTMLTextAreaElement | HTMLInputElement => Boolean(box));
   const toggle = (topic: string) => {
     const on = !picked.includes(topic);
     const starter = starterOf(topic);

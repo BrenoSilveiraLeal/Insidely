@@ -1302,7 +1302,6 @@ html { scroll-padding-top: 120px; }
 .message-system strong { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
 .message-question { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
 .message-question.is-skipped { opacity: .6; }
-.message-question.is-skipped .textarea { min-height: 0; height: 52px; resize: none; }
 .message-question-skip { font-size: .85rem; }
 .message-questions-count { margin: 0; font-size: .85rem; }
 .account-head { display: grid; gap: 14px; }

@@ -22,7 +22,7 @@ export function MessageRequestForm({ profileId, price, topics }: { profileId: st
     <div className="message-questions">
       {skipped.map((isSkipped, index) => <div className={`message-question${isSkipped ? " is-skipped" : ""}`} key={index}>
         <label className="field-label" htmlFor={`question-${index + 1}`}>Pergunta {index + 1}</label>
-        <textarea className="textarea" id={`question-${index + 1}`} name="question" rows={2} required={!isSkipped} disabled={isSkipped} minLength={5} maxLength={150} placeholder={index === 0 ? "Ex.: Recebi uma proposta para o time de dados. Como é a rotina por aí?" : isSkipped ? "Esta pergunta não será enviada." : "Escreva outra pergunta."} onInput={(event) => event.currentTarget.setCustomValidity((event.currentTarget.value.match(/\?/g) ?? []).length > 1 ? "Escreva uma pergunta por campo. Use os outros campos para as demais." : "")}/>
+        <input className="input" id={`question-${index + 1}`} name="question" autoComplete="off" required={!isSkipped} disabled={isSkipped} minLength={5} maxLength={150} placeholder={index === 0 ? "Ex.: Recebi uma proposta para o time de dados. Como é a rotina por aí?" : isSkipped ? "Esta pergunta não será enviada." : "Escreva outra pergunta."} onInput={(event) => event.currentTarget.setCustomValidity((event.currentTarget.value.match(/\?/g) ?? []).length > 1 ? "Escreva uma pergunta por campo. Use os outros campos para as demais." : "")}/>
         {index > 0 && <label className="check-row message-question-skip"><input type="checkbox" checked={isSkipped} onChange={(event) => setSkipped((current) => current.map((value, i) => i === index ? event.target.checked : value))}/><span>Não vou usar esta pergunta</span></label>}
       </div>)}
     </div>
