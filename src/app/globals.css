@@ -1658,3 +1658,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
    appears. :where() keeps this weak, so places with their own spacing still win. */
 :where(.form-feedback, .form-success, .success-box, .form-error) { margin-block: 14px; }
 :where(.form-stack, .auth-form, .form-stack *) > :where(.form-feedback, .form-success, .success-box, .form-error) { margin-block: 4px; }
+/* "O que a vaga esconde" on every desktop width (it ran to seven lines from 1700px up as well):
+   headline sized to its column, questions centred beside it, no empty band under the list. */
+@media (min-width: 951px) {
+  .problem-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: center; gap: clamp(40px, 6vw, 110px); }
+  .problem-heading { position: static; }
+  .problem-heading h2 { font-size: clamp(2.7rem, 4.1vw, 5.6rem); line-height: .92; margin-bottom: 26px; }
+  .question-list article { min-height: clamp(110px, 8vw, 150px); }
+  .question-list p { font-size: clamp(1.3rem, 1.9vw, 2.3rem); }
+}
