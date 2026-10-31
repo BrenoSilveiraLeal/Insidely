@@ -1,4 +1,5 @@
 import { TwoColumns } from "@/components/two-columns";
+import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
@@ -28,6 +29,8 @@ function requestStatus(status: string) {
 export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string; bloqueio?: string; page?: string }> }) {
   const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  // Opening the page counts its notifications as seen (the menu count goes away).
+  await markPageNotificationsRead(user.id, "/dashboard/mensagens");
   const dashboard = await getViewerDashboard(user.id);
   const requests = dashboard?.customerBookings ?? [];
   // A consultant test-booking their own profile has nobody to report.

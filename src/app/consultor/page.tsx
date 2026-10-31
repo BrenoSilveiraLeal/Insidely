@@ -20,12 +20,11 @@ export default async function ConsultantDashboard() {
   const upcoming = profile.bookings.filter((booking) => booking.status === BookingStatus.CONFIRMED && meetingRoomState(booking.startsAt, booking.durationMinutes) !== "ended");
   const requests = profile.bookings.filter((booking) => booking.status === BookingStatus.PENDING_PAYMENT || booking.payment?.status === "PAYMENT_REPORTED");
   const performance = await getConsultantPerformance(profile.id);
-  const notifications = profile.notifications.map(({ id, title, body, href, readAt }) => ({ id, title, body, href, readAt: readAt?.toISOString() ?? null }));
 
   const next = [...upcoming].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
   const later = upcoming.filter((booking) => booking !== next).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
-  return <DashboardShell mode="consultant" title={`Olá, ${profile.user.name.split(" ")[0]}.`} notifications={notifications}><WelcomeTour kind="consultant"/>
+  return <DashboardShell mode="consultant" title={`Olá, ${profile.user.name.split(" ")[0]}.`}><WelcomeTour kind="consultant"/>
     <div className="consultant-home">
       {!profile.pixKey?.trim() && <section className="panel pix-missing"><div><strong>Falta a sua chave Pix</strong><p className="muted">É para onde vai o valor das suas conversas. Cadastre em Editar perfil.</p></div><Link className="button button-dark button-sm" href="/consultor/perfil">Cadastrar chave Pix</Link></section>}
       {next ? <section className="panel next-conversation">

@@ -1,4 +1,5 @@
 import { TwoColumns } from "@/components/two-columns";
+import { markPageNotificationsRead } from "@/lib/nav-badges";
 import Link from "next/link";
 import { CalendarClock, CalendarX2, ChevronDown } from "lucide-react";
 import { confirmConversationAction, customerCancelBookingAction, disputeBookingAction } from "@/app/actions";
@@ -21,6 +22,8 @@ export const dynamic = "force-dynamic";
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<{ cancelamento?: string; contestacao?: string; calendar?: string; reagendamento?: string; page?: string }> }) {
   const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  // Opening the page counts its notifications as seen (the menu count goes away).
+  await markPageNotificationsRead(user.id, "/dashboard/agendamentos");
   const dashboard = await getViewerDashboard(user.id);
   const shown = paginate(dashboard?.customerBookings ?? [], query.page, 12);
   // Self-bookings (a consultant testing their own profile) cannot be reviewed.

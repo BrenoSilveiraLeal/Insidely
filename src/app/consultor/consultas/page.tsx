@@ -1,4 +1,5 @@
 import { CalendarDays, ShieldCheck, Video } from "lucide-react";
+import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { TwoColumns } from "@/components/two-columns";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
@@ -24,6 +25,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string; denuncia?: string; avaliacao?: string; bloqueio?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
+  // Opening the page counts its notifications as seen (the menu count goes away).
+  await markPageNotificationsRead(user.id, "/consultor/consultas");
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
   const [bookings, messages] = await Promise.all([getConsultantBookings(user.id, page, 10), getConsultantMessages(user.id, 1, 100)]);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions";
 import { DashboardNavToggle } from "@/components/dashboard-nav-toggle";
+import { getNavState } from "@/lib/nav-badges";
 import { RememberDashboardMode } from "@/components/dashboard-mode";
 import { NotificationPopover } from "@/components/notification-popover";
 import { AdminNotifications } from "@/components/admin-notifications";
@@ -12,20 +13,21 @@ const menus = {
   support: [["/admin/casos", "Casos"], ["/dashboard/configuracoes", "Conta e segurança"]],
 } as const;
 
-type Notification = { id: string; title: string; body: string; href: string | null; readAt: string | null };
-
-export function DashboardShell({ mode, title, children, profileId, notifications = [], canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; notifications?: Notification[]; canClient?: boolean; canConsultant?: boolean }) {
+// The bell and the menu counts are read here, so every page of the panel shows the same ones.
+export async function DashboardShell({ mode, title, children, profileId, canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; canClient?: boolean; canConsultant?: boolean }) {
+  const nav = mode === "user" || mode === "consultant" ? await getNavState(mode) : null;
+  const item = (href: string, label: string) => { const count = nav?.badges[href.split("?")[0]] ?? 0; return <Link key={href} href={href}>{label}{count > 0 && <span className="nav-badge" aria-label={`${count} novidade${count === 1 ? "" : "s"}`}>{count > 99 ? "99+" : count}</span>}</Link>; };
   const profileHref = profileId ? `/profissional/${profileId}` : "/profissional/me";
   return <main className="dash"><RememberDashboardMode mode={mode}/><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
-      <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
+      <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => item(href, label))}</div>
       <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Meu perfil</span><Link href="/consultor/perfil">Editar perfil</Link><Link href="/consultor/privacidade">Privacidade do perfil</Link><Link href={profileHref}>Ver meu perfil público</Link></div>
       <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span><Link href="/dashboard/configuracoes?context=consultant">Conta e segurança</Link><Link href="/dashboard/favoritos?context=consultant">Meus favoritos</Link><Link href="/dashboard/suporte">Suporte</Link></div>
       <div className="side-nav-footer"><Link href="/dashboard">Modo cliente</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form></div>
     </> : <>
-      {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
+      {menus[mode].map(([href, label]) => item(href, label))}
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}{!canConsultant && mode === "user" && <Link href="/dashboard/virar-consultor">Virar consultor</Link>}
       {mode !== "admin" && mode !== "support" && <Link href="/dashboard/suporte">Suporte</Link>}<Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
     </>}
-  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : mode === "support" ? "do suporte" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" || mode === "support" ? <AdminNotifications/> : <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
+  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : mode === "support" ? "do suporte" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" || mode === "support" ? <AdminNotifications/> : <NotificationPopover notifications={nav?.notifications ?? []} />}</div>{children}</section></div></main>;
 }
