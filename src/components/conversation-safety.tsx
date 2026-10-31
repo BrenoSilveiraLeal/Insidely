@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { Ban, Flag } from "lucide-react";
-import { blockUserAction, rateCustomerAction, reportConversationAction } from "@/app/actions";
+import { blockUserAction, rateCustomerAction, reportConversationAction, unblockFromConversationAction } from "@/app/actions";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 
 // "Denunciar" inside a conversation, for either participant. Goes to the admin reports queue with
@@ -45,7 +45,12 @@ export function customerFeedbackText(code: string) {
 }
 
 // Blocking: neither person can book a conversation with the other afterwards (undo in Minha conta).
-export function BlockUserForm({ bookingId, otherName, returnTo }: { bookingId: string; otherName: string; returnTo: string }) {
+export function BlockUserForm({ bookingId, otherName, returnTo, blocked = false }: { bookingId: string; otherName: string; returnTo: string; blocked?: boolean }) {
+  // Already blocked: one click undoes it, from the same conversation.
+  if (blocked) return <form action={unblockFromConversationAction.bind(null, bookingId)} className="unblock-form">
+    <input type="hidden" name="returnTo" value={returnTo}/>
+    <button className="unblock-button" type="submit"><Ban size={14} aria-hidden="true"/><span>Desbloquear</span><span className="sr-only"> {otherName}</span></button>
+  </form>;
   return <details className="cancel-booking-details conversation-report">
     <summary><Ban size={14} aria-hidden="true"/><span>Bloquear</span><span className="sr-only"> {otherName}</span></summary>
     <form action={blockUserAction.bind(null, bookingId)} className="form-stack">

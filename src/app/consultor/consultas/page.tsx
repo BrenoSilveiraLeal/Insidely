@@ -6,6 +6,7 @@ import { BlockUserForm, ConversationReportForm, CustomerFeedbackForm, customerFe
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, updateConsultantRecordingConsentAction } from "@/app/actions";
+import { getBlockedBookingIds } from "@/lib/blocks";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
 import { StartsIn } from "@/components/starts-in";
@@ -21,7 +22,7 @@ import { getCustomersForConsultant, type ConsultantCustomerInfo } from "@/lib/cu
 export const metadata = { title: "Consultas e mensagens" };
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string; denuncia?: string; avaliacao?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string; denuncia?: string; avaliacao?: string; bloqueio?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
@@ -30,6 +31,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   for (const message of messages.items) { const list = byConversation.get(message.conversationId) ?? []; list.push(message); byConversation.set(message.conversationId, list); }
   // The RPC returns newest first (for pagination); show each chat oldest to newest.
   for (const list of byConversation.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const blockedBookings = await getBlockedBookingIds(user.id, bookings.items.map((booking) => booking.id));
   const roomStates = new Map(bookings.items.map((booking) => [booking.id, meetingRoomState(booking.startsAt, booking.durationMinutes)]));
   // CustomerFeedback is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +42,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="consultas-feedback">
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
+    {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
     {query.avaliacao && <p className={query.avaliacao === "ok" ? "form-feedback" : "form-error"} role={query.avaliacao === "ok" ? "status" : "alert"}>{customerFeedbackText(query.avaliacao)}</p>}
     {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres para abrir a contestação.</p>}{query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente novamente ou fale com o suporte.</p>}{query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação registrada. O suporte vai analisar o caso.</p>}
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
@@ -84,7 +87,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
             {paid && <div className="booking-card-option"><div><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely: abre o Google Meet só no horário marcado.</p></div><div className="booking-option-actions"><a className="button button-ghost button-sm" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer"><Video size={15} aria-hidden="true"/> Abrir sala</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/consultor/consultas" className="button button-ghost button-sm"/></div></div>}
             {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="booking-card-option"><div><strong>Gravação</strong><label className="check-row"><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o cliente também aceitar.</span></label></div><div className="booking-option-actions"><button className="button button-ghost button-sm">Salvar</button></div></form>}
             {booking.status === "AWAITING_CONFIRMATION" && <form className="booking-card-option" action={disputeBookingAction.bind(null, booking.id)}><strong>Problema com o pagamento ou a conversa?</strong><input type="hidden" name="returnTo" value="/consultor/consultas"/><textarea className="textarea" name="description" aria-label="Descreva o problema" minLength={20} maxLength={2000} required placeholder="Explique para o suporte o que aconteceu."/><button className="button button-ghost button-sm">Abrir contestação</button></form>}
-            {paid && customers.has(booking.id) && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/><BlockUserForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/></div>}
+            {paid && customers.has(booking.id) && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/><BlockUserForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas" blocked={blockedBookings.has(booking.id)}/></div>}
             {upcoming && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Cancelar conversa</span></summary><div className="cancel-booking-confirmation"><h3>Precisa cancelar esta conversa?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo do cancelamento</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo do cancelamento."/></label><button className="button button-danger button-sm" type="submit">Confirmar cancelamento</button></form></div></details>}
           </div>
         </details>}

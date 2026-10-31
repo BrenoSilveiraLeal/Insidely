@@ -1026,6 +1026,20 @@ export async function blockUserAction(bookingId: string, formData: FormData) {
   redirect(`${returnTo}?bloqueio=ok`);
 }
 
+// "Desbloquear" from a conversation: removes the block on the other person and stays on that page.
+export async function unblockFromConversationAction(bookingId: string, formData: FormData) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/mensagens");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const parties = await bookingParticipants(supabase, bookingId);
+  if (!parties || ![parties.customerId, parties.consultantId].includes(user.id)) redirect(returnTo);
+  const blockedId = user.id === parties.customerId ? parties.consultantId : parties.customerId;
+  await supabase.from("UserBlock").delete().eq("blockerId", user.id).eq("blockedId", blockedId);
+  revalidatePath("/dashboard/configuracoes");
+  redirect(`${returnTo}?bloqueio=removido`);
+}
+
 export async function unblockUserAction(blockedId: string, consultantContext = false) {
   const user = await requireUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

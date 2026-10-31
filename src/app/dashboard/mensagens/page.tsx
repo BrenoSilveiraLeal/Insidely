@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import Link from "next/link";
 import { Role } from "@/lib/domain";
+import { getBlockedBookingIds } from "@/lib/blocks";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
 import { StartsIn } from "@/components/starts-in";
@@ -22,7 +23,7 @@ function requestStatus(status: string) {
   return ({ PENDING_PAYMENT: "Pedido aguardando pagamento", CONFIRMED: "Agendamento confirmado", AWAITING_CONFIRMATION: "Conversa realizada", COMPLETED: "Conversa concluída", CANCELLED: "Conversa cancelada", EXPIRED: "Pedido expirado", DISPUTED: "Pedido em análise" } as Record<string, string>)[status] ?? "Pedido de agendamento";
 }
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string; bloqueio?: string }> }) {
   const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const dashboard = await getViewerDashboard(user.id);
@@ -30,12 +31,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   // A consultant test-booking their own profile has nobody to report.
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const ownProfileId = ownProfile?.id;
+  const blockedBookings = await getBlockedBookingIds(user.id, requests.map((booking) => booking.id));
   const unread = await getUnreadCounts(user.id, requests.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
 
   return <DashboardShell mode="user" title="Mensagens" canConsultant={user.role === Role.CONSULTANT}><GoogleCalendarFeedback code={query.calendar}/>
     <div className="section-head"><p className="muted">Seus pedidos e conversas. A conversa é liberada depois que o pagamento é confirmado.</p><Link className="button button-dark" href="/dashboard/agendamentos">Ver agenda</Link></div>
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
+    {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
     <TwoColumns>{requests.map((booking) => {
       const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
@@ -63,7 +66,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
           <summary>Mais opções</summary>
           <div className="booking-card-more-body">
             <div className="booking-card-option"><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely; abre o Google Meet só no horário marcado.</p><a className="text-link" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">insidely.vercel.app/sala/{booking.id.slice(0, 8)}…</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/dashboard/mensagens"/></div><div className="booking-card-option"><strong>Comprovante</strong><p className="muted">Recibo do pagamento para imprimir ou salvar em PDF.</p><Link className="text-link" href={`/recibo/${booking.id}`} target="_blank">Ver comprovante</Link></div>
-            {booking.professional.id !== ownProfileId && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/><BlockUserForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/></div>}
+            {booking.professional.id !== ownProfileId && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens"/><BlockUserForm bookingId={booking.id} otherName={booking.professional.user.name} returnTo="/dashboard/mensagens" blocked={blockedBookings.has(booking.id)}/></div>}
           </div>
         </details>}
       </article>;
