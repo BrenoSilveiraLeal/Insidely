@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { disputeBookingAction, finishMessageBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
+import { disputeBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
 import { ChatMessageForm } from "@/components/chat-message-form";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -67,7 +67,7 @@ export default async function ConversationPage({ params, searchParams }: { param
   const allAnswered = isMessage && conversation.questionsSent >= conversation.questionsTotal && answeredLast;
   const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : null;
   const canContest = isMessage && !consultantMode && conversation.status === "AWAITING_CONFIRMATION" && isFuture(contestUntil);
-  return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} canConsultant={user.role === Role.CONSULTANT}>
+  return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} activeHref={backHref} canConsultant={user.role === Role.CONSULTANT}>
     <div className="conversation-page">
       <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {isMessage ? `Perguntas por mensagem · respostas até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}` : `${shortDate(startsAt)} · ${conversation.durationMinutes} min`}</span>{!isMessage && conversation.status === "CONFIRMED" && <StartsIn key={id} startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
       {query.bloqueio === "ok" && <p className="form-feedback" role="status">Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro.</p>}
@@ -75,9 +75,10 @@ export default async function ConversationPage({ params, searchParams }: { param
       {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
       {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
       {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
-      {isMessage && conversation.status === "CONFIRMED" && <section className="panel message-booking-bar">
+      {/* The customer only follows the answers (the consultant finishes; afterwards the customer can contest),
+          so their bar goes away once the consultant concluded: the closing notice in the chat says what comes next. */}
+      {isMessage && conversation.status === "CONFIRMED" && (consultantMode || !concluded) && <section className="panel message-booking-bar">
         <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.${conversation.questionsTotal > 1 ? ` Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal}: ${conversation.questionsSent < conversation.questionsTotal ? "quando terminar de responder, clique em “Enviar próxima pergunta”." : "todas as perguntas já foram enviadas."}` : ""}` : `${conversation.questionsTotal > 1 ? `Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal} enviada${conversation.questionsSent < conversation.questionsTotal ? "; a próxima vai quando o consultor terminar de responder" : ""}` : "Sua pergunta foi enviada"}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
-        {!consultantMode && allAnswered && <form action={finishMessageBookingAction.bind(null, id)}><button className="button button-ghost button-sm">Minhas dúvidas foram respondidas</button></form>}
         {/* The consultant releases the next question once they finished answering (a greeting alone does not). */}
         {consultantMode && conversation.questionsSent < conversation.questionsTotal && (answeredLast
           ? <form action={sendNextQuestionAction.bind(null, id)}><button className="button button-dark button-sm">Enviar próxima pergunta</button></form>
@@ -103,7 +104,7 @@ export default async function ConversationPage({ params, searchParams }: { param
         {canSend
           ? <ChatMessageForm action={sendMessageAction.bind(null, conversation.conversationId)} returnTo={here} label={`Mensagem para ${conversation.otherName}`}/>
           : questionsUsedUp && conversation.status === "CONFIRMED"
-            ? <div className="chat-closed" role="status"><span>Suas perguntas foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Quando suas dúvidas forem respondidas, encerre o pedido.</p></div>
+            ? <div className="chat-closed" role="status"><span>Suas perguntas foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Depois que ele finalizar o atendimento, se alguma pergunta ficou sem resposta, você pode contestar.</p></div>
           : notOpenYet
             ? <div className="chat-closed" role="status"><span>Chat abre em {shortDate(chatOpensAt(startsAt))}</span><p>Para manter a conversa na Insidely, o chat abre 24 horas antes do horário marcado e fecha quando a conversa termina.</p></div>
             : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}

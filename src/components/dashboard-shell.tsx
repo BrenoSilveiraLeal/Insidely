@@ -5,6 +5,7 @@ import { getNavState } from "@/lib/nav-badges";
 import { RememberDashboardMode } from "@/components/dashboard-mode";
 import { NotificationPopover } from "@/components/notification-popover";
 import { AdminNotifications } from "@/components/admin-notifications";
+import { RefreshStalePage } from "@/components/refresh-stale-page";
 
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
@@ -14,11 +15,12 @@ const menus = {
 } as const;
 
 // The bell and the menu counts are read here, so every page of the panel shows the same ones.
-export async function DashboardShell({ mode, title, children, profileId, canClient = false, canConsultant = false }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; canClient?: boolean; canConsultant?: boolean }) {
+// activeHref: the menu item to mark when the page lives outside it (a conversation under "Consultas e mensagens").
+export async function DashboardShell({ mode, title, children, profileId, canClient = false, canConsultant = false, activeHref }: { mode: keyof typeof menus; title: string; children: React.ReactNode; profileId?: string | null; canClient?: boolean; canConsultant?: boolean; activeHref?: string }) {
   const nav = mode === "user" || mode === "consultant" ? await getNavState(mode) : null;
   const item = (href: string, label: string) => { const count = nav?.badges[href.split("?")[0]] ?? 0; return <Link key={href} href={href}>{label}{count > 0 && <span className="nav-badge" aria-label={`${count} novidade${count === 1 ? "" : "s"}`}>{count > 99 ? "99+" : count}</span>}</Link>; };
   const profileHref = profileId ? `/profissional/${profileId}` : "/profissional/me";
-  return <main className="dash"><RememberDashboardMode mode={mode}/><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle><nav className={`side-nav side-nav-${mode}`}>
+  return <main className="dash"><RememberDashboardMode mode={mode}/><RefreshStalePage renderId={crypto.randomUUID()}/><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle activeHref={activeHref}><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
       <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => item(href, label))}</div>
       <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Meu perfil</span><Link href="/consultor/perfil">Editar perfil</Link><Link href="/consultor/privacidade">Privacidade do perfil</Link><Link href={profileHref}>Ver meu perfil público</Link></div>

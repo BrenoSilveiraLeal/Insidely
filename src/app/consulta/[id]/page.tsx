@@ -28,7 +28,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
   if ((booking as typeof booking & { format?: string }).format === "MESSAGE") redirect(`/conversa/${id}`);
   const mode = await preferredDashboardMode(user.role);
   const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
-  return <DashboardShell mode={mode} title="Sua consulta">
+  return <DashboardShell mode={mode} title="Sua consulta" activeHref={mode === "consultant" ? "/consultor/consultas" : "/dashboard/agendamentos"}>
     <div className="profile-layout">
       <section className="panel consulta-card">
         <span className="eyebrow">Consulta confirmada</span>

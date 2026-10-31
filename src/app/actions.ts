@@ -1428,15 +1428,17 @@ export async function answerReportAction(reportId: string, formData: FormData) {
   const decision = String(formData.get("decision") || "");
   const reply = String(formData.get("reply") || "").trim();
   const back = `/admin/casos/relato/${reportId}`;
-  if (!["REPLY", "RESOLVED", "DISMISSED"].includes(decision)) redirect(`${back}?erro=1`);
-  if (reply.length < 10 || reply.length > 4000) redirect(`${back}?erro=resposta`);
+  // Keeps the list the case was opened from, so the page's "Voltar" still returns there.
+  const from = ["denuncias", "suporte"].includes(String(formData.get("de"))) ? `de=${formData.get("de")}&` : "";
+  if (!["REPLY", "RESOLVED", "DISMISSED"].includes(decision)) redirect(`${back}?${from}erro=1`);
+  if (reply.length < 10 || reply.length > 4000) redirect(`${back}?${from}erro=resposta`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const { data: owner } = await supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", `report:${reportId}`).maybeSingle();
-  if (owner?.adminUserId !== admin.id) redirect(`${back}?erro=responsavel`);
+  if (owner?.adminUserId !== admin.id) redirect(`${back}?${from}erro=responsavel`);
   const now = new Date().toISOString();
   const { data: report } = await supabase.from("Report").update({ status: decision === "REPLY" ? "IN_REVIEW" : decision, ...(decision === "REPLY" ? {} : { resolution: reply }), updatedAt: now }).eq("id", reportId).in("status", ["OPEN", "IN_REVIEW"]).select("reporterId, category").maybeSingle();
-  if (!report) redirect(`${back}?erro=fechado`);
+  if (!report) redirect(`${back}?${from}erro=fechado`);
   await supabase.from("ReportMessage").insert({ reportId, authorId: admin.id, fromStaff: true, body: reply, createdAt: now });
   if (report.reporterId) {
     const href = `/dashboard/suporte/${reportId}`;
@@ -1451,7 +1453,7 @@ export async function answerReportAction(reportId: string, formData: FormData) {
   }
   after(() => logAdminAction(admin.id, decision === "REPLY" ? "reply_report" : "resolve_report", null, reportId));
   revalidatePath("/admin/casos"); revalidatePath(back); revalidatePath("/admin/suporte"); revalidatePath("/admin/denuncias"); revalidatePath("/admin");
-  redirect(decision === "REPLY" ? `${back}?ok=enviada` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
+  redirect(decision === "REPLY" ? `${back}?${from}ok=enviada` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
 }
 
 // The person who opened a case answers the team on the same thread (never a new case), or closes it.
@@ -1543,35 +1545,6 @@ export async function requestMessageBookingAction(profileId: string, _: string |
   }
   revalidatePath("/dashboard/mensagens");
   redirect(`/checkout/${bookingId}`);
-}
-
-// The customer ends a message booking early ("minhas dúvidas foram respondidas"): the window closes
-// now, so the usual end-of-conversation steps (confirmation, release, review) follow.
-export async function finishMessageBookingAction(bookingId: string) {
-  const user = await requireUser();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
-  const { data: booking } = await supabase.from("Booking").select("startsAt, status, format, customerId, professionalProfileId, questions, questionsSent").eq("id", bookingId).maybeSingle();
-  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") redirect(`/conversa/${bookingId}`);
-  const [{ data: profile }, { data: conversation }] = await Promise.all([
-    supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
-    supabase.from("Conversation").select("id").eq("bookingId", bookingId).maybeSingle(),
-  ]);
-  if (!profile || !conversation) redirect(`/conversa/${bookingId}`);
-  const { data: messages } = await supabase.from("Message").select("senderId, createdAt, automatic, body").eq("conversationId", conversation.id);
-  const rows = (messages ?? []) as { senderId: string; createdAt: string; automatic: boolean; body: string }[];
-  const lastQuestionAt = Math.max(0, ...rows.filter((row) => row.senderId === user.id && !isMessageClosing(row)).map((row) => parseDbDate(row.createdAt).getTime()));
-  const answeredLast = rows.some((row) => row.senderId === profile.userId && !row.automatic && parseDbDate(row.createdAt).getTime() > lastQuestionAt);
-  const questionsTotal = Array.isArray(booking.questions) ? booking.questions.length : 0;
-  if (Number(booking.questionsSent ?? 0) < questionsTotal || !answeredLast) redirect(`/conversa/${bookingId}?mensagem=aguarde-resposta`);
-  const now = new Date();
-  const elapsed = Math.max(1, Math.floor((now.getTime() - parseDbDate(booking.startsAt).getTime()) / 60_000));
-  const { data: updated, error } = await supabase.from("Booking").update({ durationMinutes: elapsed, status: "AWAITING_CONFIRMATION", customerConfirmedAt: now.toISOString(), updatedAt: now.toISOString() }).eq("id", bookingId).eq("status", "CONFIRMED").select("id").maybeSingle();
-  if (error || !updated) redirect(`/conversa/${bookingId}?mensagem=erro`);
-  revalidatePath(`/conversa/${bookingId}`);
-  revalidatePath("/dashboard/agendamentos");
-  revalidatePath("/consultor/consultas");
-  redirect(`/conversa/${bookingId}?mensagem=encerrada`);
 }
 
 // The consultant releases the next question once they finished answering the current one (migration

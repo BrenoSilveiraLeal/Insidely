@@ -22,9 +22,12 @@ const ERRORS: Record<string, string> = {
   "1": "Não foi possível salvar. Tente de novo.",
 };
 
+// The list a case was opened from ("?de="), where "Voltar" returns; Casos otherwise.
+const ORIGINS = { denuncias: { href: "/admin/denuncias", label: "Denúncias" }, suporte: { href: "/admin/suporte", label: "Chamados de suporte" } } as const;
+
 // One support request or report, handled as a conversation with the person who opened it.
 // Left: the thread and the reply box. Right: who is involved, the booking and who owns the case.
-export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string; de?: string }> }) {
   const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
   // Support staff answer the case; account pages, warnings and suspensions stay with admins.
   const isAdmin = admin.role === Role.ADMIN;
@@ -54,17 +57,20 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const waitingOnTeam = report.status === "OPEN";
   const role = (value: string) => value === "CONSULTANT" ? "Consultor" : value === "ADMIN" ? "Admin" : value === "SUPPORT" ? "Suporte" : "Cliente";
   const personCard = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <>{isAdmin ? <Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link> : <strong>{person.name || "Sem nome"}</strong>}<small className="muted">{role(person.role)} · {visibleEmail(person.email) ?? "conta excluída"}</small></> : <small className="muted">Conta removida</small>}</div>;
+  const origin = isAdmin && (query.de === "denuncias" || query.de === "suporte") ? query.de : null;
+  const back = origin ? ORIGINS[origin] : { href: "/admin/casos", label: "Casos" };
   const stateLabel = waitingOnTeam ? "Aguardando a equipe" : report.status === "IN_REVIEW" ? "Aguardando a pessoa" : report.status === "RESOLVED" ? "Resolvido" : "Arquivado";
 
-  return <DashboardShell mode={isAdmin ? "admin" : "support"} title={report.category}>
+  return <DashboardShell mode={isAdmin ? "admin" : "support"} title={report.category} activeHref={back.href}>
     {query.ok === "enviada" && <FlashMessage>Resposta enviada. A pessoa recebe um aviso no app e por e-mail.</FlashMessage>}
     {query.erro && <p className="form-error">{ERRORS[query.erro] ?? ERRORS["1"]}</p>}
-    <p className="case-back"><Link className="text-link" href="/admin/casos">← Voltar para Casos</Link></p>
+    <p className="case-back"><Link className="text-link" href={back.href}>← Voltar para {back.label}</Link></p>
     <div className="case-layout">
       <section className="panel case-conversation">
         <header className="support-case-top"><div><span className="status">{isSupport ? "Suporte" : "Denúncia"}</span> <span className={`support-case-state${waitingOnTeam ? " is-urgent" : open ? " is-answered" : " is-closed"}`}>{stateLabel}</span></div><small className="muted">Aberto em {shortDate(parseDbDate(report.createdAt))}</small></header>
         <SupportThread opening={{ body: report.description, createdAt: report.createdAt }} messages={messages} viewer="staff" personName={reporter?.name?.split(" ")[0] ?? "Pessoa"} closedLabel={open ? null : report.status === "RESOLVED" ? "Caso resolvido" : "Caso arquivado"}/>
         {open && mine && <form className="support-reply" action={answerReportAction.bind(null, report.id)}>
+          {origin && <input type="hidden" name="de" value={origin}/>}
           <label className="sr-only" htmlFor="reply">Resposta</label>
           <textarea className="textarea" id="reply" name="reply" rows={4} maxLength={4000} placeholder={isSupport ? "Ex.: Já ajustamos sua conta. Entre de novo e configure o autenticador em Configurações." : "Ex.: Analisamos a conversa e advertimos a pessoa. Obrigado por avisar."}/>
           <div className="support-reply-actions">
@@ -74,7 +80,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
           <small className="muted">“Enviar resposta” deixa o caso aberto; “Encerrar” fecha o caso com esta mensagem.</small>
         </form>}
-        {open && !mine && <div className="case-not-mine"><p className="muted">Este caso é de <strong>{ownerName}</strong>. Você pode acompanhar, mas só o responsável responde.</p>{isAdmin && <form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</div>}
+        {open && !mine && <div className="case-not-mine"><p className="muted">Este caso é de <strong>{ownerName}</strong>. Você pode acompanhar, mas só o responsável responde.</p>{isAdmin && <form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}${origin ? `?de=${origin}` : ""}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</div>}
       </section>
       <aside className="case-aside">
         <div className="case-fact"><span>Responsável</span><strong>{mine ? "Você" : ownerName}</strong></div>
