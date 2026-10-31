@@ -36,18 +36,23 @@ export async function getConsultantPerformance(profileId: string) {
   const supabase = service();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"];
-  const [{ count: views }, { data: bookings }, { data: reviews }] = await Promise.all([
+  const [{ count: views }, { data: bookings }, { data: reviews }, { data: owner }] = await Promise.all([
     supabase.from("ProfileView").select("id", { count: "exact", head: true }).eq("professionalProfileId", profileId).gte("viewedAt", since),
-    supabase.from("Booking").select("totalCents, feeCents, status").eq("professionalProfileId", profileId).gte("createdAt", since).in("status", paid),
+    supabase.from("Booking").select("totalCents, feeCents, status, customerId").eq("professionalProfileId", profileId).gte("createdAt", since).in("status", paid),
     supabase.from("Review").select("rating").eq("professionalProfileId", profileId),
+    supabase.from("ProfessionalProfile").select("userId").eq("id", profileId).maybeSingle(),
   ]);
-  const booked = (bookings ?? []).length;
-  const earnings = (bookings ?? []).reduce((sum: number, row: { totalCents: number; feeCents: number }) => sum + row.totalCents - row.feeCents, 0);
+  // A consultant booking their own profile (testing as a customer) is not a conversion.
+  const fromOthers = ((bookings ?? []) as { customerId: string; totalCents: number; feeCents: number }[]).filter((row) => row.customerId !== owner?.userId);
+  const booked = fromOthers.length;
+  const earnings = fromOthers.reduce((sum: number, row: { totalCents: number; feeCents: number }) => sum + row.totalCents - row.feeCents, 0);
   const ratings = (reviews ?? []) as { rating: number }[];
   return {
     views: views ?? 0,
     booked,
-    conversion: views ? Math.round(booked / views * 1000) / 10 : null,
+    // Share of profile visits that became a conversation. Someone can book through a direct link
+    // without a counted visit, so the ratio is capped at 100%.
+    conversion: views ? Math.min(100, Math.round(booked / views * 1000) / 10) : null,
     rating: ratings.length ? ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length : null,
     earnings,
   };
