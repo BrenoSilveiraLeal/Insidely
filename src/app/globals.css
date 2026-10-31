@@ -1654,3 +1654,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .suggest-input .input { padding-left: 16px; }
 .verification-form > .button { justify-self: end; align-self: flex-end; margin-left: auto; }
 .support-points span span { display: inline; }
+/* Every confirmation / error box keeps some room from what is above and below it, wherever it
+   appears. :where() keeps this weak, so places with their own spacing still win. */
+:where(.form-feedback, .form-success, .success-box, .form-error) { margin-block: 14px; }
+:where(.form-stack, .auth-form, .form-stack *) > :where(.form-feedback, .form-success, .success-box, .form-error) { margin-block: 4px; }
