@@ -1957,3 +1957,7 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .room-bar-actions .button { white-space: nowrap; }
 @media (max-width: 520px) { .room-bar-actions { flex: 1 1 100%; flex-wrap: wrap; } }
 .room-bar-actions .button:disabled { opacity: .45; cursor: not-allowed; }
+/* Message request: the exact questions that will be sent, right above the payment button. */
+.message-questions-area { display: grid; gap: 17px; }
+.message-questions-summary { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.55); font-size: .85rem; }
+.message-questions-summary ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; }

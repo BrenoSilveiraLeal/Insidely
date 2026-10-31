@@ -26,10 +26,12 @@ export function TopicIdeas({ topics, targetId, targetIds }: { topics: string[]; 
         const empty = boxes().find((box) => !box.disabled && !box.value.trim());
         if (!empty) return;
         empty.value = starter;
+        // A native input event, so the form's summary of what will be sent updates too.
+        empty.dispatchEvent(new Event("input", { bubbles: true }));
         empty.focus();
       } else {
         const filled = boxes().find((box) => box.value.trim() === starter);
-        if (filled) filled.value = "";
+        if (filled) { filled.value = ""; filled.dispatchEvent(new Event("input", { bubbles: true })); }
       }
     } else {
       const box = boxes()[0];
