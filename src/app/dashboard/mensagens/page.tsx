@@ -13,6 +13,8 @@ import { StartsIn } from "@/components/starts-in";
 import { meetingRoomState } from "@/lib/booking-policy";
 import { getViewerDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
+import { paginate } from "@/lib/paginate";
+import { PaginationControls } from "@/components/pagination-controls";
 import { meetingRoomOpeningText, money, shortDate } from "@/lib/format";
 import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
 
@@ -23,7 +25,7 @@ function requestStatus(status: string) {
   return ({ PENDING_PAYMENT: "Pedido aguardando pagamento", CONFIRMED: "Agendamento confirmado", AWAITING_CONFIRMATION: "Conversa realizada", COMPLETED: "Conversa concluída", CANCELLED: "Conversa cancelada", EXPIRED: "Pedido expirado", DISPUTED: "Pedido em análise" } as Record<string, string>)[status] ?? "Pedido de agendamento";
 }
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string; bloqueio?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ mensagem?: string; calendar?: string; denuncia?: string; bloqueio?: string; page?: string }> }) {
   const query = await searchParams;
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const dashboard = await getViewerDashboard(user.id);
@@ -31,6 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   // A consultant test-booking their own profile has nobody to report.
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const ownProfileId = ownProfile?.id;
+  const shown = paginate(requests, query.page, 12);
   const blockedBookings = await getBlockedBookingIds(user.id, requests.map((booking) => booking.id));
   const unread = await getUnreadCounts(user.id, requests.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
 
@@ -39,7 +42,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
     {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
-    <TwoColumns layout="masonry">{requests.map((booking) => {
+    <TwoColumns layout="masonry">{shown.items.map((booking) => {
       const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
       const note = booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento."
@@ -72,6 +75,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         </details>}
       </article>;
     })}</TwoColumns>
+    <PaginationControls page={shown.page} total={shown.total} pageSize={shown.pageSize} basePath="/dashboard/mensagens"/>
     {!requests.length && <section className="panel empty-state"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}
   </DashboardShell>;
 }

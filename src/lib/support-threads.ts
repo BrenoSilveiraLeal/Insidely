@@ -27,7 +27,7 @@ export async function getSupportCase(reportId: string) {
 // Cases the person opened (support requests and reports), newest activity first.
 export async function getMySupportCases(userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (createSupabaseServiceClient() as any).from("Report").select("id, category, description, status, bookingId, targetUserId, createdAt, updatedAt").eq("reporterId", userId).order("updatedAt", { ascending: false }).limit(50);
+  const { data } = await (createSupabaseServiceClient() as any).from("Report").select("id, category, description, status, bookingId, targetUserId, createdAt, updatedAt").eq("reporterId", userId).order("updatedAt", { ascending: false }).limit(500);
   return (data ?? []) as SupportCase[];
 }
 

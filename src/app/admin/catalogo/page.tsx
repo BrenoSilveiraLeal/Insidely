@@ -5,6 +5,8 @@ import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { getPublicCompanies, getPublicProfessions } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
+import { paginate } from "@/lib/paginate";
+import { PaginationControls } from "@/components/pagination-controls";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const metadata = { title: "Empresas e áreas" };
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type Request = { kind: "COMPANY" | "PROFESSION"; name: string; normalizedName: string; userId: string; createdAt: string };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; tipo?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; tipo?: string; page?: string }> }) {
   await requireUser([Role.ADMIN]);
   const query = await searchParams;
   // CatalogRequest is added by a migration beyond the generated legacy types.
@@ -35,7 +37,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const pendingProfessions = groups.size - pendingCompanies;
   // Two tabs: companies or areas. Without a choice, open the one that has requests (companies first).
   const tab: Request["kind"] = query.tipo === "areas" ? "PROFESSION" : query.tipo === "empresas" ? "COMPANY" : pendingCompanies || !pendingProfessions ? "COMPANY" : "PROFESSION";
-  const visible = [...groups.values()].filter((group) => group.kind === tab);
+  const shown = paginate([...groups.values()].filter((group) => group.kind === tab), query.page, 20);
+  const visible = shown.items;
   return <DashboardShell mode="admin" title="Empresas e áreas">
     {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Pedido aprovado. Os perfis que aguardavam já foram atualizados e os consultores, avisados." : "Pedido recusado. Os consultores foram avisados."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
@@ -76,6 +79,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
           </div>
         </article>;
       })}
+      <PaginationControls page={shown.page} total={shown.total} pageSize={shown.pageSize} basePath={`/admin/catalogo?tipo=${tab === "COMPANY" ? "empresas" : "areas"}`}/>
       {!visible.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Fila vazia</h2><p className="muted">Nenhuma {tab === "COMPANY" ? "empresa" : "área"} aguardando análise. Novos pedidos aparecem aqui e chegam como notificação.</p></section>}
     </div>
   </DashboardShell>;
