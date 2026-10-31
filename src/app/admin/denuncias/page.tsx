@@ -4,7 +4,7 @@ import { CaseOpenButton } from "@/components/case-open-button";
 import { getReportCaseOwners } from "@/lib/support-threads";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getAdminData, getReportPeople } from "@/lib/queries";
-import { parseDbDate, reportStatusLabel, shortDate } from "@/lib/format";
+import { parseDbDate, reportStatusLabel, shortDate, visibleEmail } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAttendanceSummaries } from "@/lib/attendance";
@@ -48,6 +48,6 @@ async function getRecentModeration() {
     byUser.set(event.userId, entry);
   }
   const { data: users } = await supabase.from("User").select("id, name, email").in("id", [...byUser.keys()]);
-  for (const user of users ?? []) { const entry = byUser.get(user.id); if (entry) entry.name = `${user.name} (${user.email})`; }
+  for (const user of users ?? []) { const entry = byUser.get(user.id); if (entry) entry.name = visibleEmail(user.email) ? `${user.name} (${user.email})` : `${user.name} (conta excluída)`; }
   return [...byUser.values()].sort((a, b) => (b.contact + b.offensive) - (a.contact + a.offensive)).slice(0, 50);
 }

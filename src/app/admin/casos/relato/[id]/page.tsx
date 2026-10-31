@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { FlashMessage } from "@/components/flash-message";
 import { SupportThread } from "@/components/support-thread";
 import { Role } from "@/lib/domain";
-import { bookingStatusLabel, money, parseDbDate, shortDate } from "@/lib/format";
+import { bookingStatusLabel, money, parseDbDate, shortDate, visibleEmail } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getSupportCase, OPEN_REPORT_STATUSES } from "@/lib/support-threads";
@@ -50,7 +50,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const open = OPEN_REPORT_STATUSES.includes(report.status);
   const waitingOnTeam = report.status === "OPEN";
   const role = (value: string) => value === "CONSULTANT" ? "Consultor" : value === "ADMIN" ? "Admin" : value === "SUPPORT" ? "Suporte" : "Cliente";
-  const personCard = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <>{isAdmin ? <Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link> : <strong>{person.name || "Sem nome"}</strong>}<small className="muted">{role(person.role)} · {person.email}</small></> : <small className="muted">Conta removida</small>}</div>;
+  const personCard = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <>{isAdmin ? <Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link> : <strong>{person.name || "Sem nome"}</strong>}<small className="muted">{role(person.role)} · {visibleEmail(person.email) ?? "conta excluída"}</small></> : <small className="muted">Conta removida</small>}</div>;
   const stateLabel = waitingOnTeam ? "Aguardando a equipe" : report.status === "IN_REVIEW" ? "Aguardando a pessoa" : report.status === "RESOLVED" ? "Resolvido" : "Arquivado";
 
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title={report.category}>

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { addAdminNoteAction, adminDeleteAccountAction, liftSuspensionAction, revealIdentityAction, suspendUserAction, warnUserAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
-import { parseDbDate, shortDate } from "@/lib/format";
+import { parseDbDate, shortDate, visibleEmail } from "@/lib/format";
 import { ageOn, formatCpf, maskCpf } from "@/lib/identity";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -69,7 +69,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <p className="case-back"><Link className="text-link" href="/admin/usuarios">← Usuários</Link></p>
       <section className="panel account-head">
         <div className="account-head-top">
-          <div><h2>{user.name}</h2><p className="muted">{user.email}</p></div>
+          <div><h2>{user.name}</h2><p className="muted">{visibleEmail(user.email) ?? "E-mail removido com a exclusão da conta"}</p></div>
           <div className="account-head-tags"><span className="status">{ROLE_LABELS[user.role] ?? user.role}</span>{!user.auth_user_id && <span className="status">Conta excluída</span>}</div>
         </div>
         <small className="muted">Conta criada em {new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }).format(parseDbDate(user.createdAt))}</small>

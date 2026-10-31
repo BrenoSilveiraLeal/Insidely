@@ -78,3 +78,9 @@ export function parseDbDate(value: string | Date) {
 export function reportStatusLabel(status: string) {
   return ({ OPEN: "Aberto", IN_REVIEW: "Em análise", RESOLVED: "Resolvido", DISMISSED: "Arquivado" } as Record<string, string>)[status] ?? status;
 }
+
+// Deleted or merged accounts keep an internal placeholder e-mail (deleted+…@invalid.insidely);
+// screens show "Conta excluída" instead of it.
+export function visibleEmail(email: string | null | undefined) {
+  return email && !/^(deleted|merged)\+/.test(email) ? email : null;
+}
