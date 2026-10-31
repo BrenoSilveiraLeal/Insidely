@@ -79,14 +79,8 @@ export async function getUnreadCounts(userId: string, conversationIds: string[])
   const counts = new Map<string, number>();
   if (!conversationIds.length) return counts;
   const supabase = service();
-  const [{ data: reads }, { data: messages }] = await Promise.all([
-    supabase.from("ConversationRead").select("conversationId, lastReadAt").eq("userId", userId).in("conversationId", conversationIds),
-    supabase.from("Message").select("conversationId, createdAt").in("conversationId", conversationIds).neq("senderId", userId).order("createdAt", { ascending: false }).limit(2000),
-  ]);
-  const lastRead = new Map<string, string>((reads ?? []).map((row: { conversationId: string; lastReadAt: string }) => [row.conversationId, row.lastReadAt]));
-  for (const message of (messages ?? []) as { conversationId: string; createdAt: string }[]) {
-    const read = lastRead.get(message.conversationId);
-    if (read && message.createdAt <= read) continue;
+  const { data: messages } = await supabase.from("Message").select("conversationId").in("conversationId", conversationIds).neq("senderId", userId).is("readAt", null).limit(2000);
+  for (const message of (messages ?? []) as { conversationId: string }[]) {
     counts.set(message.conversationId, (counts.get(message.conversationId) ?? 0) + 1);
   }
   return counts;

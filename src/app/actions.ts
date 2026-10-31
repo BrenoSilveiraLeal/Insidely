@@ -19,6 +19,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
+import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { canReviewBooking, canSendBookingMessage, isMessageClosing, MESSAGE_CLOSING_TEXT } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
@@ -994,6 +995,11 @@ export async function markConversationReadAction(bookingId: string) {
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const conversationId = await conversationIdForParticipant(bookingId, user.id);
   if (conversationId) await markConversationRead(conversationId, user.id);
+  await markPageNotificationsRead(user.id, `/conversa/${bookingId}`);
+  revalidatePath("/dashboard/mensagens");
+  revalidatePath("/consultor/consultas");
+  revalidatePath("/dashboard");
+  revalidatePath("/consultor");
 }
 
 // Reviews: anyone signed in can report one the filter missed; admins remove it or keep it.
@@ -1545,11 +1551,26 @@ export async function finishMessageBookingAction(bookingId: string) {
   const user = await requireUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: booking } = await supabase.from("Booking").select("startsAt, status, format, customerId").eq("id", bookingId).maybeSingle();
+  const { data: booking } = await supabase.from("Booking").select("startsAt, status, format, customerId, professionalProfileId, questions, questionsSent").eq("id", bookingId).maybeSingle();
   if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") redirect(`/conversa/${bookingId}`);
-  const elapsed = Math.max(1, Math.ceil((Date.now() - parseDbDate(booking.startsAt).getTime()) / 60_000));
-  await supabase.from("Booking").update({ durationMinutes: elapsed, updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "CONFIRMED");
+  const [{ data: profile }, { data: conversation }] = await Promise.all([
+    supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
+    supabase.from("Conversation").select("id").eq("bookingId", bookingId).maybeSingle(),
+  ]);
+  if (!profile || !conversation) redirect(`/conversa/${bookingId}`);
+  const { data: messages } = await supabase.from("Message").select("senderId, createdAt, automatic, body").eq("conversationId", conversation.id);
+  const rows = (messages ?? []) as { senderId: string; createdAt: string; automatic: boolean; body: string }[];
+  const lastQuestionAt = Math.max(0, ...rows.filter((row) => row.senderId === user.id && !isMessageClosing(row)).map((row) => parseDbDate(row.createdAt).getTime()));
+  const answeredLast = rows.some((row) => row.senderId === profile.userId && !row.automatic && parseDbDate(row.createdAt).getTime() > lastQuestionAt);
+  const questionsTotal = Array.isArray(booking.questions) ? booking.questions.length : 0;
+  if (Number(booking.questionsSent ?? 0) < questionsTotal || !answeredLast) redirect(`/conversa/${bookingId}?mensagem=aguarde-resposta`);
+  const now = new Date();
+  const elapsed = Math.max(1, Math.floor((now.getTime() - parseDbDate(booking.startsAt).getTime()) / 60_000));
+  const { data: updated, error } = await supabase.from("Booking").update({ durationMinutes: elapsed, status: "AWAITING_CONFIRMATION", customerConfirmedAt: now.toISOString(), updatedAt: now.toISOString() }).eq("id", bookingId).eq("status", "CONFIRMED").select("id").maybeSingle();
+  if (error || !updated) redirect(`/conversa/${bookingId}?mensagem=erro`);
   revalidatePath(`/conversa/${bookingId}`);
+  revalidatePath("/dashboard/agendamentos");
+  revalidatePath("/consultor/consultas");
   redirect(`/conversa/${bookingId}?mensagem=encerrada`);
 }
 

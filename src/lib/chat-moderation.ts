@@ -141,6 +141,7 @@ export function moderateChatMessage(raw: string, options: { countScatteredDigits
 
 // Feedback shown above the chat after a message was refused (the ?mensagem= code of sendMessageAction).
 export function chatFeedbackText(code: string) {
+  if (code === "aguarde-resposta") return "Aguarde o consultor responder todas as perguntas antes de encerrar o pedido.";
   if (code === "longa") return "A mensagem passou de 2.000 caracteres.";
   if (code === "ofensiva") return "Mensagem bloqueada: palavrões, ofensas e ameaças não são permitidos. Tentativas repetidas são analisadas pela equipe e podem levar ao bloqueio da conta.";
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";

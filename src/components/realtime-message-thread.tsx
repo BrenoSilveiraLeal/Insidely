@@ -49,6 +49,7 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
     const markRead = () => { if (document.visibilityState === "visible") void markConversationReadAction(bookingId).catch(() => undefined); };
+    markRead();
     // Row-level security filters realtime events by the subscriber, so the socket must carry the
     // signed-in user's token before subscribing; otherwise no message is ever delivered.
     void supabase.auth.getSession().then(async ({ data }) => {
