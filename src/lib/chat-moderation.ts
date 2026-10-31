@@ -146,7 +146,7 @@ export function chatFeedbackText(code: string) {
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";
   if (code === "fechado") return "O chat desta conversa não está aberto agora.";
   if (code === "encerrada") return "Pedido encerrado. Obrigado! Agora você pode avaliar a conversa em Avaliações.";
-  if (code === "limite-perguntas") return "Você já usou as 5 mensagens deste pedido. Aguarde as respostas do consultor ou faça um novo pedido.";
+  if (code === "limite-perguntas") return "Suas perguntas já foram enviadas neste pedido. Aguarde as respostas do consultor ou faça um novo pedido.";
   if (code === "erro") return "Não foi possível enviar a mensagem agora. Tente novamente.";
   return "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links, redes sociais ou combinar pagamento por fora. A conversa e o pagamento acontecem pela Insidely, que protege os dois lados.";
 }

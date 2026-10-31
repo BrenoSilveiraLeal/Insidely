@@ -1,4 +1,5 @@
 import { UNLISTED_IDS, UNLISTED_SLUGS } from "@/lib/catalog";
+import { refundUnansweredMessageBookings } from "@/lib/stripe-payments";
 import { cache } from "react";
 import { createHash } from "node:crypto";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -89,7 +90,8 @@ export const getProfessional = cache(async (id:string) => {const s=createSupabas
 export async function getFavoriteState(profileId: string, userId: string) { const { data, error } = await createSupabaseServerClient().then((client) => client.from("Favorite").select("id").eq("professionalProfileId", profileId).eq("userId", userId).maybeSingle()); if (error) throw new Error(error.message); return Boolean(data); }
 // Lazy booking status transitions (expire unpaid, release finished) before any dashboard read.
 // Cached per request: a page that loads several dashboard queries runs them once, not once per query.
-const runBookingMaintenance=cache(async()=>{const s=await createSupabaseServerClient();const [expiry,release]=await Promise.all([s.rpc("expire_past_unpaid_bookings",{}),s.rpc("release_eligible_bookings_for_user",{})]);if(expiry.error)throw new Error(expiry.error.message);if(release.error)throw new Error(release.error.message)});
+// Unanswered message requests are refunded before anything can be released to the consultant.
+const runBookingMaintenance=cache(async()=>{await refundUnansweredMessageBookings().catch((error)=>console.error("message_refund_job_failed",{error}));const s=await createSupabaseServerClient();const [expiry,release]=await Promise.all([s.rpc("expire_past_unpaid_bookings",{}),s.rpc("release_eligible_bookings_for_user",{})]);if(expiry.error)throw new Error(expiry.error.message);if(release.error)throw new Error(release.error.message)});
 export async function getViewerDashboard(userId:string):Promise<ViewerDashboard|null>{const s=await createSupabaseServerClient();await runBookingMaintenance();const{data,error}=await s.rpc("get_viewer_dashboard",{p_user_id:userId});if(error)throw new Error(error.message);return data?parseViewer(data):null}
 export async function getConsultantSummary(userId:string):Promise<ConsultantDashboard|null>{const s=await createSupabaseServerClient();await runBookingMaintenance();const{data,error}=await measureRpc("get_consultant_summary",async()=>s.rpc("get_consultant_summary",{p_user_id:userId}),"consultant");if(error)throw new Error(error.message);if(!data)return null;const profileId=string(object(data).id);const{data:cover,error:coverError}=await s.from("ProfileCover").select("image").eq("professionalProfileId",profileId).maybeSingle();if(coverError)throw new Error(coverError.message);return parseConsultant({...object(data),coverImage:cover?.image??null} as Json)}
 export async function getConsultantDashboard(userId:string):Promise<ConsultantDashboard|null>{const [summary,bookings,notifications]=await Promise.all([getConsultantSummary(userId),getConsultantBookings(userId,1,100),getConsultantNotifications(userId,1,100)]);if(!summary)return null;return {...summary,bookings:bookings.items,notifications:notifications.items}}

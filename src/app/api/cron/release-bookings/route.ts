@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { releaseBookingTransfer } from "@/lib/stripe-payments";
+import { refundUnansweredMessageBookings, releaseBookingTransfer } from "@/lib/stripe-payments";
 import { parseDbDate } from "@/lib/format";
 import { applyRetention } from "@/lib/retention";
 import { flagSuspiciousAccounts } from "@/lib/suspicious";
@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     // The migration adds provider-specific columns beyond the generated legacy type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createSupabaseServiceClient() as any;
+    const messageRefunds = await refundUnansweredMessageBookings().catch((refundError) => { console.error("message_refund_job_failed", { error: refundError }); return null; });
     const { data: expired, error: expiryError } = await supabase.rpc("expire_past_unpaid_bookings");
     if (expiryError) { await recordCronRun(supabase, "daily", false, `expiration_failed: ${expiryError.message}`); return Response.json({ error: "expiration_failed", detail: expiryError.message }, { status: 500 }); }
     const { data: simulationReleased, error: simulationReleaseError } = await supabase.rpc("release_eligible_bookings_system");
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     const decisionPrompts = await promptDecisionStories(supabase).catch((promptError) => { console.error("decision_prompt_failed", { error: promptError }); return null; });
     const emptyAgendas = await remindEmptyAgendas(supabase).catch((agendaError) => { console.error("empty_agenda_failed", { error: agendaError }); return null; });
     const retention = await applyRetention(supabase).catch((retentionError) => { console.error("retention_failed", { error: retentionError }); return null; });
-    const result = { ok: true, released: released + (pixHolds?.released ?? 0), simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas, pixWaiting: pixHolds?.waiting ?? 0 };
+    const result = { ok: true, messageRefunds, released: released + (pixHolds?.released ?? 0), simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas, pixWaiting: pixHolds?.waiting ?? 0 };
     await recordCronRun(supabase, "daily", true, result);
     return Response.json(result);
   } catch (error) {

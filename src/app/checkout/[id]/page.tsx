@@ -35,7 +35,7 @@ export default async function CheckoutPage({ params, searchParams }: { params: P
         <ul className="checkout-facts">
           {isMessage ? <>
             <li><CalendarDays size={18} aria-hidden="true"/><div><strong>Chat aberto</strong><span>Até {dateTimeInBrazil(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}</span></div></li>
-            <li><Bell size={18} aria-hidden="true"/><div><strong>Como funciona</strong><span>Envie até 5 mensagens; as respostas chegam no chat e por notificação.</span></div></li>
+            <li><Bell size={18} aria-hidden="true"/><div><strong>Como funciona</strong><span>Suas perguntas chegam ao consultor numa única mensagem. As respostas chegam no chat em até 48 horas; sem resposta, o valor volta para você.</span></div></li>
           </> : <>
           <li><CalendarDays size={18} aria-hidden="true"/><div><strong>Quando</strong><span>{dateTimeInBrazil(booking.startsAt)} · {booking.durationMinutes} min</span></div></li>
           <li><Video size={18} aria-hidden="true"/><div><strong>Sala</strong><span>{roomState === "ended" ? "O horário da sala já terminou." : roomState === "open" ? "A sala está aberta agora." : "Abre no horário marcado, pelo link da Insidely."}</span>{roomState !== "ended" && <CopyLinkButton href={`/sala/${booking.id}`} label="Copiar link da sala"/>}</div></li>

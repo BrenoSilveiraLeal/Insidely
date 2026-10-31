@@ -218,3 +218,45 @@ export async function refundCustomerCancellation({ bookingId, customerId }: { bo
   }
   return { refundCents, feeCents };
 }
+
+// "Perguntas por mensagem" the consultant did not answer within the window (48 hours from payment):
+// full refund, the booking is cancelled (which closes the chat) and both sides are told. Runs before
+// any release of the payment to the consultant (booking maintenance and the daily job).
+export async function refundUnansweredMessageBookings() {
+  const supabase = admin();
+  const { data: rows, error } = await supabase.from("Booking")
+    .select("id, customerId, startsAt, durationMinutes, professionalProfile:ProfessionalProfile(userId), conversation:Conversation(id), payment:Payment(*)")
+    .eq("format", "MESSAGE").in("status", ["CONFIRMED", "AWAITING_CONFIRMATION"]).is("disputedAt", null)
+    .lte("startsAt", new Date(Date.now() - 2880 * 60_000).toISOString());
+  if (error) throw new Error(error.message);
+  let refunded = 0;
+  for (const booking of (rows ?? []) as StripeRow[]) {
+    if (parseDbDate(booking.startsAt).getTime() + Number(booking.durationMinutes) * 60_000 > Date.now()) continue;
+    const one = (value: StripeRow | StripeRow[] | null) => Array.isArray(value) ? value[0] ?? null : value;
+    const consultantId = one(booking.professionalProfile)?.userId as string | undefined;
+    const conversationId = one(booking.conversation)?.id as string | undefined;
+    if (!consultantId || !conversationId) continue;
+    const { count } = await supabase.from("Message").select("id", { count: "exact", head: true }).eq("conversationId", conversationId).eq("senderId", consultantId);
+    if (count) continue;
+    try {
+      const payment = one(booking.payment);
+      const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));
+      if (paid && payment?.provider === "STRIPE") {
+        if (!payment.stripePaymentIntentId) throw new Error("missing_payment_intent");
+        await getStripe().refunds.create({ payment_intent: payment.stripePaymentIntentId, reason: "requested_by_customer", metadata: { bookingId: booking.id, reason: "message_unanswered" } }, { idempotencyKey: `insidely-unanswered-${booking.id}` });
+      }
+      const now = new Date().toISOString();
+      const { data: cancelled } = await supabase.from("Booking").update({ status: "CANCELLED", updatedAt: now }).eq("id", booking.id).in("status", ["CONFIRMED", "AWAITING_CONFIRMATION"]).select("id").maybeSingle();
+      if (!cancelled) continue;
+      if (payment && paid) await supabase.from("Payment").update({ status: "REFUNDED", updatedAt: now }).eq("id", payment.id).in("status", ["PAID_HELD", "HELD", "APPROVED"]);
+      await supabase.from("Notification").insert([
+        { id: crypto.randomUUID(), userId: booking.customerId, title: "Perguntas sem resposta: valor devolvido", body: "O consultor não respondeu dentro de 48 horas. O valor integral será devolvido pelo meio de pagamento usado e o chat foi encerrado.", href: "/dashboard/agendamentos", createdAt: now },
+        { id: crypto.randomUUID(), userId: consultantId, title: "Pedido por mensagem encerrado sem resposta", body: "O prazo de 48 horas terminou sem resposta no chat. O cliente recebeu o valor de volta e o chat foi encerrado.", href: "/consultor/consultas", createdAt: now },
+      ]);
+      refunded++;
+    } catch (refundError) {
+      console.error("message_refund_failed", { bookingId: booking.id, error: refundError });
+    }
+  }
+  return refunded;
+}

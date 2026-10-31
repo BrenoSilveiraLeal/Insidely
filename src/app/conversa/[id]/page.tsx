@@ -48,7 +48,8 @@ export default async function ConversationPage({ params, searchParams }: { param
   const blockedHere = (await getBlockedBookingIds(user.id, [id])).has(id);
   const isMessage = conversation.format === "MESSAGE";
   const customerMessages = isMessage ? conversation.messages.filter((message) => message.senderId === conversation.customerId).length : 0;
-  // In a message booking the customer has {MESSAGE_QUESTION_LIMIT} messages; the consultant answers freely.
+  // In a message booking the customer's only message is the questions sent with the request; the
+  // consultant answers freely.
   const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false && customerMessages >= MESSAGE_QUESTION_LIMIT;
   const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes) && !questionsUsedUp;
   const notOpenYet = conversation.status === "CONFIRMED" && chatNotOpenYet(startsAt);
@@ -61,7 +62,7 @@ export default async function ConversationPage({ params, searchParams }: { param
       {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
       {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
       {isMessage && conversation.status === "CONFIRMED" && <section className="panel message-booking-bar">
-        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `Você usou ${customerMessages} de ${MESSAGE_QUESTION_LIMIT} mensagens. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`}</p></div>
+        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `Suas perguntas foram enviadas. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
         {!consultantMode && <form action={finishMessageBookingAction.bind(null, id)}><button className="button button-ghost button-sm">Minhas dúvidas foram respondidas</button></form>}
       </section>}
       <section className="panel conversation-panel">
@@ -70,7 +71,7 @@ export default async function ConversationPage({ params, searchParams }: { param
         {canSend
           ? <form action={sendMessageAction.bind(null, conversation.conversationId)} className="message-form"><input type="hidden" name="returnTo" value={here}/><input className="input" name="body" aria-label={`Mensagem para ${conversation.otherName}`} placeholder="Escreva uma mensagem" maxLength={2000} autoComplete="off" required/><button className="button button-dark">Enviar</button></form>
           : questionsUsedUp && conversation.status === "CONFIRMED"
-            ? <div className="chat-closed" role="status"><span>Suas 5 mensagens foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Quando suas dúvidas forem respondidas, encerre o pedido.</p></div>
+            ? <div className="chat-closed" role="status"><span>Suas perguntas foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Quando suas dúvidas forem respondidas, encerre o pedido.</p></div>
           : notOpenYet
             ? <div className="chat-closed" role="status"><span>Chat abre em {shortDate(chatOpensAt(startsAt))}</span><p>Para manter a conversa na Insidely, o chat abre 24 horas antes do horário marcado e fecha quando a conversa termina.</p></div>
             : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}
