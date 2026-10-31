@@ -36,7 +36,8 @@ function readLabel(readAt: string, now: number) {
 // side's page marks messages read (markConversationReadAction) and realtime delivers the UPDATE.
 // systemNotice: a note from Insidely shown first, centred like a chat app's system notice (it is not a
 // message: nobody sent it and it is not stored).
-export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages, blocked = [], systemNotice }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; blocked?: BlockedNotice[]; systemNotice?: string; initialMessages: Message[] }) {
+// closingNotice: the same kind of note, shown after the last message.
+export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages, blocked = [], systemNotice, closingNotice }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; blocked?: BlockedNotice[]; systemNotice?: string; closingNotice?: string; initialMessages: Message[] }) {
   const [messages, setMessages] = useState(initialMessages);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
@@ -99,5 +100,6 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
     })}
     {renderNotices(null)}
     {!messages.length && !blocked.length && <p className="muted conversation-empty">Nenhuma mensagem ainda. Use este espaço para alinhar os detalhes da conversa.</p>}
+    {closingNotice && <div className="message-system" role="note"><strong>Aviso da Insidely</strong><span>{closingNotice}</span></div>}
   </div>;
 }
