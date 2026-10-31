@@ -1589,3 +1589,4 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   .question-list article { min-height: 116px; }
   .question-list p { font-size: clamp(1.3rem, 2vw, 2rem); }
 }
+.onboarding-pending { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(242,196,93,.16); color: #f1dfb1; font-size: .88rem; line-height: 1.5; }

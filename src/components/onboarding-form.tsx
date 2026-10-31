@@ -70,6 +70,7 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
     {message&&<TimedMessage key={message.at} text={message.text} error duration={9000}/>}
 
     <fieldset className="onboarding-step" hidden={current!==stepIndex("role")} ref={(el)=>{steps.current[0]=el;}}>
+      <p className="onboarding-pending">Sua conta já foi criada. Falta só concluir o cadastro para abrir o seu painel: leva uns 2 minutos.</p>
       <h2 tabIndex={-1}>Como você quer usar a Insidely?</h2>
       <p className="onboarding-lead">Escolha o que combina com você agora. Dá para mudar depois.</p>
       <div className="role-cards" role="radiogroup" aria-label="Como você quer participar">
