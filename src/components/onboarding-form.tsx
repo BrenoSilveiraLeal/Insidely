@@ -8,6 +8,7 @@ import { CustomerIdentityFields } from "@/components/customer-identity-form";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { TimedMessage } from "@/components/timed-message";
 import { CityInput } from "@/components/city-input";
+import { SuggestInput } from "@/components/suggest-input";
 import { findUnsafeProfileText, unsafeProfileTextMessage } from "@/lib/chat-moderation";
 type Option={id:string;name:string};
 type Role="USER"|"CONSULTANT";
@@ -27,7 +28,7 @@ const ROLES: { value: Role; icon: typeof Compass; title: string; lead: string; p
 // Sign-up completion as short guided steps: how the person will use the platform, then (consultants
 // only) the professional profile, then identification and terms. Each step checks its own fields
 // before moving on, so a hidden required field never blocks the final submit.
-export function OnboardingForm({firstName,initialRole,companies,professions,next}:{firstName:string;initialRole:Role;companies:Option[];professions:Option[];next?:string}){
+export function OnboardingForm({firstName,initialRole,companies,professions,next,jobTitles=[]}:{firstName:string;initialRole:Role;companies:Option[];professions:Option[];next?:string;jobTitles?:string[]}){
   const [role,setRole]=useState<Role>(initialRole);
   const [step,setStep]=useState(0);
   const [result,action,pending]=useActionState(submitOnboarding,undefined);
@@ -87,7 +88,7 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
     {consultant&&<fieldset className="onboarding-step" hidden={current!==1} ref={(el)=>{steps.current[1]=el;}}>
       <h2 tabIndex={-1}>Seu perfil profissional</h2>
       <p className="onboarding-lead">É o que as pessoas veem antes de agendar com você. Tudo pode ser editado depois.</p>
-      <ConsultantProfileFields companies={companies} professions={professions}/>
+      <ConsultantProfileFields companies={companies} professions={professions} jobTitles={jobTitles}/>
       <div className="onboarding-nav"><button type="button" className="button button-ghost" onClick={()=>go(0)}><ArrowLeft size={17}/>Voltar</button><button type="button" className="button button-accent" onClick={advance}>Continuar<ArrowRight size={17}/></button></div>
     </fieldset>}
 
@@ -125,12 +126,12 @@ function EmploymentFields(){
 }
 
 // Also used by the "become a consultant" page, which adds a profile to an existing customer account.
-export function ConsultantProfileFields({companies,professions}:{companies:Option[];professions:Option[]}){
+export function ConsultantProfileFields({companies,professions,jobTitles=[]}:{companies:Option[];professions:Option[];jobTitles?:string[]}){
   const [bioLength,setBioLength]=useState(0);
   return <div className="profile-fields">
     <div className="profile-fields-group">
       <div className="field"><label htmlFor="headline">Título do perfil</label><input className="input" id="headline" name="headline" placeholder="Ex.: Product Designer em fintech" required/><small className="muted">Uma frase curta que aparece embaixo do seu nome.</small></div>
-      <div className="field"><label htmlFor="title">Cargo atual ou mais recente</label><input className="input" id="title" name="title" placeholder="Ex.: Analista de Produto Pleno" required/></div>
+      <div className="field"><label htmlFor="title">Cargo atual ou mais recente</label><SuggestInput id="title" name="title" options={jobTitles} required placeholder="Ex.: Analista de Produto Pleno"/></div>
       <CatalogPicker id="companyId" name="companyId" label="Empresa" kind="company" options={companies} required/>
       <CatalogPicker id="professionId" name="professionId" label="Área ou profissão" kind="profession" options={professions} required/>
       <EmploymentFields/>
