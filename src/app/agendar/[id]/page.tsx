@@ -1,7 +1,8 @@
 import { TopicIdeas } from "@/components/topic-ideas";
 import { MessageRequestForm } from "@/components/message-request-form";
 import { isSlotStillBookable } from "@/lib/booking-policy";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { viewerOwnsProfile } from "@/lib/review-replies";
 import { BookingSlotFields } from "@/components/booking-slot-fields";
 import { BookingRequestForm } from "@/components/booking-request-form";
 import { PublicShell } from "@/components/public-shell";
@@ -20,6 +21,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const { slot: requestedSlot, formato } = await searchParams;
   const [profile, identity] = await Promise.all([getProfessional(id), getCustomerIdentity(user.id)]);
   if (!profile) notFound();
+  // Nobody books their own profile (create_booking and create_message_booking refuse it too).
+  if (await viewerOwnsProfile(user.id, profile.id)) redirect(`/profissional/${profile.id}`);
   if (!identity) return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Antes do primeiro agendamento</span><h1>Identifique-se para agendar.</h1><p>Com {publicName(profile)} · leva menos de um minuto e só é pedido uma vez.</p></div></section><section className="section"><div className="container profile-layout">
     <section className="panel"><CustomerIdentityForm next={`/agendar/${profile.id}${requestedSlot ? `?slot=${encodeURIComponent(requestedSlot)}` : ""}`}/></section>
     <aside className="booking-box"><span className="eyebrow">Por que pedimos o CPF</span><h2>Segurança para os dois lados.</h2><p>As conversas acontecem por vídeo entre pessoas que não se conhecem. Com a identificação, a Insidely consegue responder a denúncias e a autoridades se algo grave acontecer.</p><p className="muted">O consultor vê apenas o CPF parcialmente mascarado e a sua idade. O CPF não pode ser usado em outra conta.</p></aside>

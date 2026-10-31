@@ -60,3 +60,19 @@ update public."Availability" a set "isBooked" = false
  where a."isBooked" = true
    and exists (select 1 from public."Booking" b where b."availabilityId" = a.id and b.status = 'PENDING_PAYMENT')
    and not exists (select 1 from public."Booking" b where b."availabilityId" = a.id and public.booking_holds_slot(b.status));
+
+-- Nobody books their own profile, by video or by message (it was allowed for testing).
+do $$
+declare v_def text; v_check text := E'if v_consultant_id is null then raise exception ''profile_not_found''; end if;';
+begin
+  v_def := pg_get_functiondef('public.create_booking(text,text,integer,text[],text)'::regprocedure);
+  if position('own_profile' in v_def) = 0 then
+    if position(v_check in v_def) = 0 then raise exception 'create_booking profile check not found'; end if;
+    execute replace(v_def, v_check, v_check || E'\n  if v_consultant_id = v_customer_id then raise exception ''own_profile''; end if;');
+  end if;
+  v_def := pg_get_functiondef('public.create_message_booking(text, text[], text)'::regprocedure);
+  if position('own_profile' in v_def) = 0 then
+    if position(v_check in v_def) = 0 then raise exception 'create_message_booking profile check not found'; end if;
+    execute replace(v_def, v_check, v_check || E'\n  if v_consultant_id = v_customer_id then raise exception ''own_profile''; end if;');
+  end if;
+end $$;

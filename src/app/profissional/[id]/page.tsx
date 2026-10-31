@@ -111,13 +111,14 @@ export default async function ProfessionalPage({ params, searchParams }: { param
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><AvailabilityWatchButton profileId={profile.id} watching={watching}/></div>}
+            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; const when = <span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span>; return isOwner ? <div className="availability-preview-item" key={slot.id}>{when}</div> : <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}>{when}<span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><AvailabilityWatchButton profileId={profile.id} watching={watching}/></div>}
           </div>
 
-          {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
+          {/* The owner sees the profile as customers do, without booking it. */}
+          {isOwner ? <p className="muted">Este é o seu perfil público: é assim que os clientes veem seus horários. Para mudar, use a sua agenda.</p> : availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
           {profile.messagePriceCents ? <div className="message-offer">
             <div><strong><MessageSquareText size={16} aria-hidden="true"/> Prefere por mensagem?</strong><p className="muted">{money(profile.messagePriceCents)} · todas as perguntas de uma vez, respostas em até 48h ou o valor volta, sem horário marcado.</p></div>
-            <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>
+            {!isOwner && <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>}
           </div> : null}
           {!isOwner && <FavoriteButton profileId={profile.id} initialSaved={isFavorite}/>}
           <p className="muted" style={{fontSize:12}}>A plataforma protege dados privados e libera a conversa somente após a confirmação do pagamento.</p>

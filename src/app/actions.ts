@@ -484,6 +484,7 @@ export async function createBookingAction(profileId: string, _previousState: For
     if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
     if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
     if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
+    if (message.includes("own_profile")) return { status: "error", message: "Você não pode agendar uma conversa com o seu próprio perfil." };
     if (message.includes("blocked")) return { status: "error", message: "Não é possível agendar com este consultor." };
     if (message.includes("consultant_paused")) return { status: "error", message: "Este consultor está com a agenda pausada no momento." };
     if (message.includes("account_suspended")) return { status: "error", message: "Este agendamento não está disponível no momento." };
