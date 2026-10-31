@@ -1580,3 +1580,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .panel .employment-choice label.is-selected { border-color: var(--ink); background: var(--paper-2); }
 .employment-note { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(126,207,196,.14); font-size: .86rem; line-height: 1.5; }
 @media (max-width: 520px) { .employment-choice { grid-template-columns: 1fr; } }
+/* "O que a vaga esconde" below 1700px: the headline is sized to its column (it ran to seven lines
+   on mid-size screens) and the questions sit centred beside it instead of leaving a gap below. */
+@media (min-width: 951px) and (max-width: 1699px) {
+  .problem-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: center; gap: clamp(40px, 6vw, 96px); }
+  .problem-heading { position: static; }
+  .problem-heading h2 { font-size: clamp(2.7rem, 4.3vw, 4.9rem); line-height: .92; margin-bottom: 26px; }
+  .question-list article { min-height: 116px; }
+  .question-list p { font-size: clamp(1.3rem, 2vw, 2rem); }
+}
