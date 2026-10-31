@@ -61,9 +61,10 @@ function CalendarPopover({ mode, selected, min, max, onPick, onClose }: { mode: 
 }
 
 // monthValue: in "month" mode, send "YYYY-MM" (sign-up) or "YYYY-MM-01" (fields stored as dates).
-export function DateTextInput({ id, name, mode = "day", defaultValue, required, min, max, onValue, label, monthValue = "month" }: {
+// minMessage: shown when the date is before `min` (e.g. "Saí em" before "Entrei em").
+export function DateTextInput({ id, name, mode = "day", defaultValue, required, min, max, onValue, label, monthValue = "month", minMessage }: {
   id: string; name: string; mode?: DateMode; defaultValue?: string | null; required?: boolean;
-  min?: string; max?: string; onValue?: (iso: string) => void; label?: string; monthValue?: "month" | "first-day";
+  min?: string; max?: string; onValue?: (iso: string) => void; label?: string; monthValue?: "month" | "first-day"; minMessage?: string;
 }) {
   const [text, setText] = useState(() => isoToText(defaultValue, mode));
   const [open, setOpen] = useState(false);
@@ -91,7 +92,7 @@ export function DateTextInput({ id, name, mode = "day", defaultValue, required, 
     else {
       iso = `${year}-${pad(month)}-${pad(day)}`;
       const compare = mode === "day" ? iso : iso.slice(0, 7);
-      if (min && compare < min.slice(0, compare.length)) problem = mode === "day" ? "Essa data já passou." : "Data muito antiga.";
+      if (min && compare < min.slice(0, compare.length)) problem = minMessage ?? (mode === "day" ? "Essa data já passou." : "Data muito antiga.");
       else if (max && compare > max.slice(0, compare.length)) problem = mode === "day" ? "Data muito distante." : "Esse mês ainda não chegou.";
       if (problem) iso = "";
     }

@@ -46,6 +46,7 @@ export function CatalogPicker({ name, label, options, kind, defaultId, defaultPe
     </div>
     <input type="hidden" name={name} value={match?.id ?? ""}/>
     <input type="hidden" name={`${name}Name`} value={typed ? text.trim() : ""}/>
+    {match && <small className="catalog-picker-ok" role="status">✓ {kind === "company" ? "Empresa" : "Área"} já cadastrada na Insidely.</small>}
     {typed && !suggestions.length && <small className="catalog-picker-note" role="status">“{text.trim()}” ainda não está cadastrada. Vai para análise da equipe e, até lá, seu perfil mostra “{placeholder}”.</small>}
   </div>;
 }

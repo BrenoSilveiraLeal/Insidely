@@ -3,7 +3,8 @@ import { DateTextInput } from "@/components/masked-inputs";
 import { CityInput } from "@/components/city-input";
 import { SuggestInput } from "@/components/suggest-input";
 import { KeepValuesForm } from "@/components/keep-values-form";
-import { ChevronDown, Plus, Trash2, Upload, UserRound } from "lucide-react";
+import { BriefcaseBusiness, ChevronDown, Plus, Trash2, Upload, UserRound, Wallet } from "lucide-react";
+import { EditBox } from "@/components/edit-box";
 import { useActionState, useState } from "react";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { FilePicker } from "@/components/file-picker";
@@ -22,6 +23,7 @@ const FIXED_BOUNDARIES = "Informações confidenciais, Documentos internos, Dado
 // One experience block. "Ainda trabalho aqui" hides the leaving date; blocks 2 and 3 can be removed.
 function ExperienceEditor({index,experience,companies,professions,jobTitles,onRemove,onProfession}:{index:number;experience:Experience;companies:Option[];professions:Option[];jobTitles:string[];onRemove?:()=>void;onProfession?:(id:string|null)=>void}){
   const [current,setCurrent]=useState(experience.isCurrent??index===0);
+  const [started,setStarted]=useState(experience.startedAt?.toISOString().slice(0,10)??"");
   const [max]=useState(()=>new Date().toISOString().slice(0,7));
   return <fieldset className="experience-card">
     <div className="experience-card-head"><legend>{index===0?"Experiência principal":`Experiência ${index+1}`}</legend>{onRemove&&<button type="button" className="experience-remove" onClick={onRemove}><Trash2 size={14}/> Remover</button>}</div>
@@ -38,8 +40,8 @@ function ExperienceEditor({index,experience,companies,professions,jobTitles,onRe
     </div>
     {current&&<input type="hidden" name={`isCurrent${index}`} value="on"/>}
     <div className="profile-fields-row">
-      <div className="field"><label htmlFor={`startedAt${index}`}>Entrei em</label><DateTextInput id={`startedAt${index}`} name={`startedAt${index}`} mode="month" monthValue="first-day" max={max} defaultValue={experience.startedAt?.toISOString().slice(0,10)} required/></div>
-      {!current&&<div className="field"><label htmlFor={`endedAt${index}`}>Saí em</label><DateTextInput id={`endedAt${index}`} name={`endedAt${index}`} mode="month" monthValue="first-day" max={max} defaultValue={experience.endedAt?.toISOString().slice(0,10)} required/></div>}
+      <div className="field"><label htmlFor={`startedAt${index}`}>Entrei em</label><DateTextInput id={`startedAt${index}`} name={`startedAt${index}`} mode="month" monthValue="first-day" max={max} defaultValue={experience.startedAt?.toISOString().slice(0,10)} onValue={setStarted} required/></div>
+      {!current&&<div className="field"><label htmlFor={`endedAt${index}`}>Saí em</label><DateTextInput id={`endedAt${index}`} name={`endedAt${index}`} mode="month" monthValue="first-day" max={max} min={started||undefined} minMessage="A saída precisa ser depois da entrada." defaultValue={experience.endedAt?.toISOString().slice(0,10)} required/></div>}
     </div>
     <div className="field"><label htmlFor={`summary${index}`}>{current?"O que você faz lá":"O que você fazia lá"}</label><textarea className="textarea" id={`summary${index}`} name={`summary${index}`} rows={2} maxLength={300} defaultValue={experience.summary??""} placeholder="Ex.: Atendimento a lojistas e relatórios do time de vendas."/></div>
   </fieldset>;
@@ -56,18 +58,17 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
   const hasLevels=LEVELED_CATEGORIES.has(mainCategory);
   const add=()=>setBlocks((list)=>list.length>=3?list:[...list,{key:`new-${Date.now()}`,experience:{}}]);
   const remove=(key:string)=>setBlocks((list)=>list.filter((block)=>block.key!==key));
-  return <section className="panel professional-edit-panel">
-    <h2>Seu perfil público</h2>
-    <p className="muted">É o que as pessoas leem antes de agendar uma conversa com você.</p>
-    <KeepValuesForm action={action} className="profile-edit-form">
+  const money=(cents:number)=>`R$ ${(cents/100).toFixed(2).replace(".",",")}`;
+  return <section className="professional-edit-panel">
+    {/* Required fields can sit in a closed box: open it so the browser can point at the field. */}
+    <KeepValuesForm action={action} className="profile-edit-form" onInvalidCapture={(event)=>(event.target as HTMLElement).closest("details")?.setAttribute("open","")}>
       <input type="hidden" name="topics" value={FIXED_TOPICS}/>
       <input type="hidden" name="boundaries" value={FIXED_BOUNDARIES}/>
       <input type="hidden" name="responseHours" value={profile.responseHours||24}/>
       <input type="hidden" name="region" value={profile.region||"Brasil"}/>
       <input type="hidden" name="yearsExperience" value={profile.yearsExperience}/>
 
-      <div className="profile-edit-section">
-        <h3><span>1</span> Como você aparece</h3>
+      <EditBox icon={<UserRound size={20}/>} title="Como você aparece" hint={[profile.headline,profile.location].filter(Boolean).join(" · ")||"Título, apresentação e cidade"}>
         <div className="field"><label htmlFor="profile-headline">Título do perfil</label><input className="input" id="profile-headline" name="headline" defaultValue={profile.headline} placeholder="Ex.: Product Designer em fintech" required/></div>
         <div className="field"><label htmlFor="profile-bio">Sobre você</label><textarea className="textarea" id="profile-bio" name="bio" rows={4} defaultValue={profile.bio} placeholder="Sobre o que você pode conversar? Ex.: Posso contar como era a rotina do time, o processo seletivo e o que eu gostaria de ter sabido antes." required/></div>
         <div className="profile-fields-row">
@@ -83,17 +84,15 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
           </div>
           <div className="field"><label htmlFor="profile-age">Faixa etária</label><select className="select" id="profile-age" name="ageRange" defaultValue={profile.ageRange??""}><option value="">Não informar</option><option value="UNDER_25">Até 24</option><option value="25_34">25–34</option><option value="35_44">35–44</option><option value="45_54">45–54</option><option value="55_PLUS">55+</option></select></div>
         </details>
-      </div>
+      </EditBox>
 
-      <div className="profile-edit-section">
-        <h3><span>2</span> Onde você trabalha ou trabalhou</h3>
+      <EditBox icon={<BriefcaseBusiness size={20}/>} title="Onde você trabalha ou trabalhou" hint={`${blocks.length} ${blocks.length===1?"empresa":"empresas"} · empresa, área, cargo e período`}>
         {blocks.map((block,index)=><ExperienceEditor key={block.key} index={index} experience={block.experience} companies={companies} professions={professions} jobTitles={jobTitles} onRemove={index>0?()=>remove(block.key):undefined} onProfession={index===0?setMainProfession:undefined}/>)}
         {blocks.length<3&&<button type="button" className="experience-add" onClick={add}><Plus size={16}/> Adicionar outra empresa</button>}
         <small className="muted">Até 3 empresas. Você aparece na busca de cada uma delas.</small>
-      </div>
+      </EditBox>
 
-      <div className="profile-edit-section">
-        <h3><span>3</span> Valores e recebimento</h3>
+      <EditBox icon={<Wallet size={20}/>} title="Valores e recebimento" hint={`30 min ${money(profile.price30Cents)} · 60 min ${money(profile.price60Cents)} · ${profile.pixKey?"Pix cadastrado":"falta a chave Pix"}`}>
         <div className="profile-fields-row">
           <div className="field"><label htmlFor="profile-price30">Conversa de 30 min (R$)</label><input className="input" id="profile-price30" type="number" name="price30Cents" min="10" step="0.01" defaultValue={(profile.price30Cents/100).toFixed(2)} required/></div>
           <div className="field"><label htmlFor="profile-price60">Conversa de 60 min (R$)</label><input className="input" id="profile-price60" type="number" name="price60Cents" min="10" step="0.01" defaultValue={(profile.price60Cents/100).toFixed(2)} required/></div>
@@ -103,7 +102,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
           {offersMessages&&<div className="field"><label htmlFor="profile-message-price">Valor das perguntas por mensagem (R$)</label><input className="input" id="profile-message-price" type="number" name="messagePrice" min="10" step="0.01" defaultValue={((messagePriceCents??Math.max(1000,Math.round(profile.price30Cents*0.6/100)*100))/100).toFixed(2)} required/><small className="muted">Sugerimos 60% do valor da conversa de 30 minutos.</small></div>}
         </div>
         <div className="field"><label htmlFor="profile-pix">Chave Pix para receber</label><input className="input" id="profile-pix" name="pixKey" defaultValue={profile.pixKey??""} placeholder="CPF, e-mail, celular ou chave aleatória" required/><small className="muted">É para onde vai o valor das suas conversas. Não aparece no perfil.</small></div>
-      </div>
+      </EditBox>
 
       {message&&<p className={message.startsWith("Perfil profissional atualizado") ? "form-feedback" : "form-error"} role="status">{message}</p>}
       <div className="profile-edit-actions"><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>

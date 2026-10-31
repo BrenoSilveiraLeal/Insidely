@@ -116,14 +116,15 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 const BIO_MIN=30;
 
 // Month and year typed as "mm/aaaa"; the form sends "YYYY-MM" (see readEmploymentPeriod).
-function MonthInput({id,name,label}:{id:string;name:string;label:string}){
+function MonthInput({id,name,label,min,minMessage,onValue}:{id:string;name:string;label:string;min?:string;minMessage?:string;onValue?:(iso:string)=>void}){
   const [max]=useState(()=>new Date().toISOString().slice(0,7));
-  return <div className="field"><label htmlFor={id}>{label}</label><DateTextInput id={id} name={name} mode="month" max={max} required/></div>;
+  return <div className="field"><label htmlFor={id}>{label}</label><DateTextInput id={id} name={name} mode="month" max={max} min={min} minMessage={minMessage} onValue={onValue} required/></div>;
 }
 
 // Current or former employee, the period and what the person does or did there.
 function EmploymentFields(){
   const [status,setStatus]=useState<"current"|"former">("current");
+  const [started,setStarted]=useState("");
   return <fieldset className="employment-fields">
     <legend>Você ainda trabalha lá?</legend>
     <div className="employment-choice" role="radiogroup">
@@ -131,8 +132,8 @@ function EmploymentFields(){
       <label className={status==="former"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="former" checked={status==="former"} onChange={()=>setStatus("former")}/>Não, já saí</label>
     </div>
     <div className="profile-fields-row">
-      <MonthInput id="startedAt" name="startedAt" label="Entrei em"/>
-      {status==="former"&&<MonthInput id="endedAt" name="endedAt" label="Saí em"/>}
+      <MonthInput id="startedAt" name="startedAt" label="Entrei em" onValue={setStarted}/>
+      {status==="former"&&<MonthInput id="endedAt" name="endedAt" label="Saí em" min={started||undefined} minMessage="A saída precisa ser depois da entrada."/>}
     </div>
     <div className="field"><label htmlFor="experienceSummary">{status==="former"?"O que você fazia lá":"O que você faz lá"}</label><textarea className="textarea" id="experienceSummary" name="experienceSummary" rows={2} minLength={15} maxLength={300} required placeholder="Ex.: Atendimento a lojistas e relatórios do time de vendas."/></div>
     <small className="muted">{status==="former"?"Quem já saiu costuma falar com mais liberdade. O perfil mostra a época em que você esteve lá.":"Seu nome e sua foto não aparecem no perfil por padrão."}</small>

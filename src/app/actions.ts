@@ -1018,16 +1018,17 @@ export async function replyToReviewAction(reviewId: string, profileId: string, f
   redirect(`/profissional/${profileId}?resposta=${error ? "repetida" : "ok"}`);
 }
 
-export async function acceptTermsAction(formData: FormData) {
-  // Not requireUser: it caches the account state for this request (terms not accepted yet), and the
-  // page this action redirects to is rendered in the same request, so it would bounce back here.
+// Returns where to go; the form (AcceptTermsForm) then does a full page load there. A redirect from
+// here was answered with pages cached before the acceptance, which sent people back to this screen.
+export async function acceptTermsAction(_: { next?: string; error?: string } | undefined, formData: FormData): Promise<{ next?: string; error?: string }> {
+  // Not requireUser: it caches the account state for this request (terms not accepted yet).
   const user = await getAuthenticatedUser();
-  if (!user) redirect("/entrar?next=/aceitar-termos");
-  if (formData.get("accept") !== "on") redirect("/aceitar-termos");
+  if (!user) return { next: "/entrar?next=/aceitar-termos" };
+  if (formData.get("accept") !== "on") return { error: "Marque a caixa para aceitar a nova versão." };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
-  // Absolute URL: the next page loads in a fresh request, with the new terms version.
-  redirect(`${getAppUrl()}${safeInternalPath(String(formData.get("next") || ""), "/continuar")}`);
+  const { error } = await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
+  if (error) return { error: "Não foi possível registrar o aceite agora. Tente de novo." };
+  return { next: safeInternalPath(String(formData.get("next") || ""), "/continuar") };
 }
 
 // Graduated enforcement: warnings are recorded first; the admin page suggests suspension next.

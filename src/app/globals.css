@@ -376,6 +376,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Perfil: os cards superiores ocupam a mesma faixa visual e as seções respiram. */
 .profile-management-stack { gap: 40px; }
+.profile-management-stack:has(> .edit-box) { gap: 14px; }
 .profile-admin-grid { align-items: start; }
 .profile-admin-grid > .panel { height: auto; box-sizing: border-box; }
 .profile-left-column { display: grid; gap: 22px; align-content: start; }
@@ -1818,3 +1819,27 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .profile-edit-more[open] .profile-edit-more-chevron { transform: rotate(180deg); }
 .profile-edit-more > :not(summary) { margin: 14px 16px 0; }
 .profile-edit-more > :last-child { margin-bottom: 16px; }
+
+.catalog-picker-ok { color: var(--success, #2f7d55); font-size: 0.8rem; margin-top: 6px; }
+
+/* Editar perfil: collapsible boxes (EditBox). Closed, each is one row with a hint of what is inside;
+   panels placed inside a box lose their own frame so the box is the only card. */
+.edit-box { border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,.54); overflow: hidden; }
+.edit-box > summary { display: flex; align-items: center; gap: 14px; padding: 18px 20px; list-style: none; cursor: pointer; transition: background .2s; }
+.edit-box > summary::-webkit-details-marker { display: none; }
+.edit-box > summary:hover { background: var(--paper); }
+.edit-box[open] > summary { border-bottom: 1px solid var(--line); }
+.edit-box-icon { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: var(--paper-2); color: var(--ink); }
+.edit-box-text { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.edit-box-text strong { font-size: 1.02rem; }
+.edit-box-text small { color: var(--muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edit-box-chevron { flex: none; color: var(--muted); transition: transform .2s; }
+.edit-box[open] .edit-box-chevron { transform: rotate(180deg); }
+.edit-box-body { display: grid; gap: 16px; padding: 20px; }
+.edit-box-body > .panel, .edit-box-stack > .panel, .edit-box-body .profile-admin-grid > .panel { border: 0; padding: 0; box-shadow: none; background: none; }
+.edit-box-stack { display: grid; gap: 24px; }
+.profile-edit-form { display: grid; gap: 14px; }
+.profile-edit-form .profile-edit-actions { position: sticky; bottom: 12px; z-index: 2; display: flex; justify-content: flex-end; }
+/* Cover editor: a wide 3:1 frame instead of the round photo frame. */
+.image-editor-crop.image-editor-crop-wide { position: relative; width: min(560px, 62vw); aspect-ratio: 3 / 1; border-radius: 14px; }
+@media (max-width: 700px) { .image-editor-crop.image-editor-crop-wide { width: min(340px, 84vw); } }
