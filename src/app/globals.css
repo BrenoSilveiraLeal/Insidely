@@ -1946,3 +1946,11 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .reviews-pending .rating-note { font-size: .82rem; }
 .reviews-pending .review-form .textarea { min-height: 0; }
 .reviews-pending .review-form .button-dark { justify-self: start; }
+/* Video room of the booking: one compact bar (when + link on the left, actions on the right). */
+.room-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper-2); }
+.room-bar-icon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; background: var(--forest); color: var(--paper); }
+.room-bar-text { display: grid; gap: 2px; flex: 1 1 260px; min-width: 0; }
+.room-bar-text strong { font-size: .9rem; }
+.room-bar-text small { color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.room-bar-text a { color: var(--ink); font-weight: 650; text-decoration: underline; }
+.room-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
