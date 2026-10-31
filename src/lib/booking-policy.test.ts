@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRetryTransfer, canReviewBooking, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
+import { canRetryTransfer, compareBookingsForList, canReviewBooking, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
 
 describe("booking policy", () => {
   it("allows messages only while a confirmed conversation has not ended", () => {
@@ -56,5 +56,21 @@ describe("review eligibility", () => {
   it("never opens the review for unpaid, cancelled or disputed bookings", () => {
     const later = new Date("2026-10-21T15:00:00.000Z");
     for (const status of ["PENDING_PAYMENT", "CANCELLED", "EXPIRED", "DISPUTED"]) expect(canReviewBooking(status, startsAt, 30, later)).toBe(false);
+  });
+});
+
+describe("conversation list order", () => {
+  it("puts what is still to happen above what already happened, and finished ones last", () => {
+    const at = (day: number) => new Date(`2026-11-${String(day).padStart(2, "0")}T12:00:00Z`);
+    const items = [
+      { id: "done-old", status: "COMPLETED", startsAt: at(1) },
+      { id: "happened", status: "AWAITING_CONFIRMATION", startsAt: at(2) },
+      { id: "happened-later", status: "DISPUTED", startsAt: at(3) },
+      { id: "upcoming-far", status: "CONFIRMED", startsAt: at(20) },
+      { id: "upcoming-near", status: "CONFIRMED", startsAt: at(10) },
+      { id: "message", status: "CONFIRMED", format: "MESSAGE", startsAt: at(5) },
+      { id: "cancelled", status: "CANCELLED", startsAt: at(15) },
+    ];
+    expect([...items].sort(compareBookingsForList).map((item) => item.id)).toEqual(["message", "upcoming-near", "upcoming-far", "happened-later", "happened", "cancelled", "done-old"]);
   });
 });

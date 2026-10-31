@@ -88,11 +88,13 @@ export function suggestedMessagePriceCents(price30Cents: number) {
 }
 
 // Order of conversation lists: message requests in progress first (urgent), then conversations still
-// to happen or to settle, nearest first, then finished ones (completed, cancelled, expired, no-show),
-// most recent first. The consultant's list does the same in get_consultant_bookings.
-const STILL_ACTIVE = ["PENDING_PAYMENT", "CONFIRMED", "IN_PROGRESS", "AWAITING_CONFIRMATION", "DISPUTED"];
+// to happen, nearest first, then ones that already happened and are still to settle (awaiting
+// confirmation, disputed), most recent first, then finished ones (completed, cancelled, expired,
+// no-show), most recent first. The consultant's list does the same in get_consultant_bookings.
+const UPCOMING = ["PENDING_PAYMENT", "CONFIRMED", "IN_PROGRESS"];
+const TO_SETTLE = ["AWAITING_CONFIRMATION", "DISPUTED"];
 export function compareBookingsForList(a: { status: string; format?: string; startsAt: Date }, b: { status: string; format?: string; startsAt: Date }) {
-  const group = (item: typeof a) => item.format === "MESSAGE" && item.status === "CONFIRMED" ? 0 : STILL_ACTIVE.includes(item.status) ? 1 : 2;
+  const group = (item: typeof a) => item.format === "MESSAGE" && item.status === "CONFIRMED" ? 0 : UPCOMING.includes(item.status) ? 1 : TO_SETTLE.includes(item.status) ? 2 : 3;
   const byGroup = group(a) - group(b);
   if (byGroup) return byGroup;
   return group(a) < 2 ? a.startsAt.getTime() - b.startsAt.getTime() : b.startsAt.getTime() - a.startsAt.getTime();
