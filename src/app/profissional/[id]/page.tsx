@@ -2,7 +2,7 @@ import { getProfileStories } from "@/lib/decision-stories";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { BriefcaseBusiness, CalendarDays, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star, MessageSquareReply } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Clock, Flag, MapPin, ShieldCheck, Star, MessageSquareReply, X } from "lucide-react";
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
@@ -75,9 +75,18 @@ export default async function ProfessionalPage({ params, searchParams }: { param
     <section className="section">
       <div className="container profile-layout">
         <div className="grid">
-          <article className="profile-main"><span className="eyebrow">Sobre a experiência</span><h2>Contexto que posso compartilhar</h2><p>{profile.bio}</p><div className="card-meta">{profile.topics.map(topic => <span className="badge" key={topic}>{topic}</span>)}</div></article>
-          <article className="profile-main"><span className="eyebrow">Trajetória</span><h2>Experiência declarada</h2><ul className="detail-list">{profile.experiences.map((exp, index) => <li key={exp.id}><div><strong>{exp.title}</strong><br/><span className="muted">{exp.profession.name} · {exp.company.name}</span><br/>{/* The proof sent covers the main (first) experience; the others stay as declared. */}{index === 0 && profile.verificationStatus === "VERIFIED" ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo com {exp.company.name} verificado</span> : <span className="experience-proof">{index === 0 ? "Vínculo não verificado pela Insidely" : "Declarada pelo consultor"}</span>}</div><BriefcaseBusiness/></li>)}</ul><p className="muted">Datas exatas e histórico completo respeitam as escolhas de privacidade do consultor.</p></article>
-          <article className="profile-main"><span className="eyebrow">Limites claros</span><h2>O que não entra na conversa</h2><ul>{profile.boundaries.map(item => <li key={item}>{item}</li>)}</ul></article>
+          <article className="profile-main profile-about"><h2>Sobre a experiência</h2><p className="profile-bio">{profile.bio}</p></article>
+          {(profile.topics.length > 0 || profile.boundaries.length > 0) && <article className="profile-main profile-scope"><h2>O que entra na conversa</h2><div className="profile-scope-grid">
+            <div><h3>Pode perguntar sobre</h3><ul className="scope-list scope-yes">{profile.topics.map(topic => <li key={topic}><Check size={15} aria-hidden="true"/>{topic.charAt(0).toUpperCase() + topic.slice(1).toLowerCase()}</li>)}</ul></div>
+            <div><h3>Fica de fora</h3><ul className="scope-list scope-no">{profile.boundaries.map(item => <li key={item}><X size={15} aria-hidden="true"/>{item}</li>)}</ul></div>
+          </div></article>}
+          <article className="profile-main profile-path"><h2>Trajetória</h2><ol className="path-list">{profile.experiences.map((exp, index) => <li key={exp.id} className={index === 0 ? "is-main" : undefined}>
+            <span className="path-logo" aria-hidden="true">{exp.company.name.trim().charAt(0).toUpperCase()}</span>
+            <div><strong>{exp.title}</strong><span className="muted">{exp.company.name} · {exp.profession.name}</span>
+              {/* The proof sent covers the main (first) experience; the others stay as declared. */}
+              {index === 0 && profile.verificationStatus === "VERIFIED" ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo verificado pela Insidely</span> : <span className="experience-proof">{index === 0 ? "Vínculo ainda não verificado" : "Declarada pelo consultor"}</span>}</div>
+            {index === 0 && <span className="path-tag">Principal</span>}
+          </li>)}</ol><p className="muted profile-note">Datas e histórico completo aparecem conforme a privacidade escolhida pelo consultor.</p></article>
           <article className="profile-main reviews-panel"><header className="reviews-head"><h2>Avaliações</h2>{reviews.length > 0 && <span className="reviews-summary"><Star size={16} fill="currentColor" aria-hidden="true"/> {average.toFixed(1)} <small>· {reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</small></span>}</header>
             {feedback && <p className={feedback.ok ? "form-feedback" : "form-error"} role={feedback.ok ? "status" : "alert"}>{feedback.text}</p>}
             {reviews.length ? <div className="list">{reviews.map(review => { const reply = replies.get(review.id); return <div className="review-card" key={review.id}>

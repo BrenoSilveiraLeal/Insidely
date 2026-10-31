@@ -1519,3 +1519,31 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 @media (max-width: 620px) {
   .search-panel { grid-template-columns: 1fr; }
 }
+
+/* Public profile, main column: one clear title per card, scope as yes / no lists, a trajectory list. */
+.profile-main h2 { margin: 0 0 14px; font: 850 clamp(1.35rem, 2vw, 1.7rem)/1.1 var(--display); letter-spacing: -.03em; }
+.profile-bio { margin: 0; font-size: 1.05rem; line-height: 1.7; max-width: 68ch; }
+.profile-scope-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.profile-scope-grid h3 { margin: 0 0 10px; font-size: .8rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.scope-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.scope-list li { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; font-weight: 600; }
+.scope-list svg { flex: none; padding: 3px; border-radius: 50%; box-sizing: content-box; }
+.scope-yes li { background: rgba(126,207,196,.18); }
+.scope-yes svg { background: #2f7d4f; color: #fff; }
+.scope-no li { background: rgba(179,64,58,.07); }
+.scope-no svg { background: var(--red); color: #fff; }
+.path-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.path-list li { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.path-list li:first-child { padding-top: 0; }
+.path-list li > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.path-list li > div strong { font-size: 1.02rem; }
+.path-logo { display: grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 13px; background: var(--paper-2); font: 850 1.15rem/1 var(--display); }
+.path-list li.is-main .path-logo { background: var(--ink); color: var(--paper); }
+.path-tag { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--paper-2); font-size: .72rem; font-weight: 800; }
+.profile-note { margin: 12px 0 0; font-size: .85rem; }
+@media (max-width: 620px) { .profile-scope-grid { grid-template-columns: 1fr; } }
+/* Booking box: icon and label on one line, value aligned to the right. */
+.booking-box .detail-list li { align-items: center; }
+.booking-box .detail-list li > span { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.booking-box .detail-list li > span svg { flex: none; }
+.booking-box .detail-list li > strong { text-align: right; }
