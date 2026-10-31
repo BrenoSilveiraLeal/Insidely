@@ -86,7 +86,7 @@ export async function createConnectOnboardingLink({ userId, email, returnUrl, re
 
 export async function createBookingCheckout({ bookingId, customerId, customerEmail, customerName, appUrl }: { bookingId: string; customerId: string; customerEmail: string; customerName: string; appUrl: string }) {
   const supabase = admin();
-  const { data: booking, error } = await supabase.from("Booking").select("id, customerId, totalCents, status, professionalProfileId, payment:Payment(*), professional:ProfessionalProfile(stripeAccountId, stripeOnboardingStatus, stripePayoutsEnabled)").eq("id", bookingId).eq("customerId", customerId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, customerId, totalCents, status, professionalProfileId, payment:Payment(*), professional:ProfessionalProfile(stripeAccountId, stripeOnboardingStatus, stripePayoutsEnabled, pixKey)").eq("id", bookingId).eq("customerId", customerId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!booking || booking.status !== "PENDING_PAYMENT") throw new Error("Este agendamento não está aguardando pagamento.");
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
@@ -123,6 +123,8 @@ export async function releaseBookingTransfer(bookingId: string) {
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
   if (!payment) return false;
   if (payment.stripeTransferId) return true;
+  // No Pix key yet: the value stays held (the daily job reminds the consultant and retries).
+  if (!String(professional?.pixKey ?? "").trim()) return false;
   if (payment.status === "RELEASED") return payment.provider === "SIMULATION";
   if (!canRetryTransfer(booking.status, payment.status)) return false;
   if (booking.disputedAt) return false;

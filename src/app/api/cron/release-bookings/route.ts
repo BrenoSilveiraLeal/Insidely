@@ -7,6 +7,7 @@ import { promptDecisionStories } from "@/lib/decision-stories";
 import { remindEmptyAgendas } from "@/lib/empty-agenda";
 import { recordCronRun } from "@/lib/admin-log";
 import { alertAdmins } from "@/lib/ops-alerts";
+import { processPixHolds } from "@/lib/pix-hold";
 
 import { isCronAuthorized } from "@/lib/cron-auth";
 
@@ -36,11 +37,12 @@ export async function GET(request: Request) {
       }
       } catch (bookingError) { console.error("booking_release_failed", { bookingId: booking.id, error: bookingError }); }
     }
+    const pixHolds = await processPixHolds(supabase).catch((pixError) => { console.error("pix_hold_failed", { error: pixError }); return null; });
     const suspicious = await flagSuspiciousAccounts(supabase).catch((flagError) => { console.error("suspicious_scan_failed", { error: flagError }); return null; });
     const decisionPrompts = await promptDecisionStories(supabase).catch((promptError) => { console.error("decision_prompt_failed", { error: promptError }); return null; });
     const emptyAgendas = await remindEmptyAgendas(supabase).catch((agendaError) => { console.error("empty_agenda_failed", { error: agendaError }); return null; });
     const retention = await applyRetention(supabase).catch((retentionError) => { console.error("retention_failed", { error: retentionError }); return null; });
-    const result = { ok: true, released, simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas };
+    const result = { ok: true, released: released + (pixHolds?.released ?? 0), simulationReleased: Number(simulationReleased ?? 0), expired: Number(expired ?? 0), retention, suspicious, decisionPrompts, emptyAgendas, pixWaiting: pixHolds?.waiting ?? 0 };
     await recordCronRun(supabase, "daily", true, result);
     return Response.json(result);
   } catch (error) {

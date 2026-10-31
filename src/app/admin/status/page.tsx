@@ -28,7 +28,7 @@ const RUN_LABELS: Record<string, string> = {
   reminded: "lembrete(s) enviado(s)", reviewPrompts: "pedido(s) de avaliação", closedRooms: "sala(s) encerrada(s)", noShows: "ausência(s) registrada(s)",
   resumedPauses: "pausa(s) encerrada(s)", unreadEmails: "e-mail(s) de mensagem não lida", pushes: "notificação(ões) push",
   released: "repasse(s) liberado(s)", simulationReleased: "repasse(s) de demonstração liberado(s)", expired: "agendamento(s) expirado(s)",
-  retention: "registro(s) antigo(s) apagado(s)", suspicious: "conta(s) suspeita(s) sinalizada(s)", decisionPrompts: "aviso(s) de decisão pendente", emptyAgendas: "aviso(s) de agenda vazia",
+  retention: "registro(s) antigo(s) apagado(s)", pixWaiting: "consultor(es) com valor retido aguardando chave Pix", suspicious: "conta(s) suspeita(s) sinalizada(s)", decisionPrompts: "aviso(s) de decisão pendente", emptyAgendas: "aviso(s) de agenda vazia",
 };
 
 // Turns a cron run's JSON detail into a short sentence; empty when the run had nothing to do.
