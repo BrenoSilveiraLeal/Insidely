@@ -1,4 +1,6 @@
 import { getProfileStories } from "@/lib/decision-stories";
+import { experiencePeriod } from "@/lib/experience-period";
+import { getVerifiedExperienceId } from "@/lib/verification-experience";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
@@ -37,6 +39,8 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const name = publicName(profile);
   const reviews = profile.reviews ?? [];
   const stories = await getProfileStories(profile.id).catch(() => []);
+  // Which experience the approved proof covers (Verification.experienceId); absent on older proofs.
+  const verifiedExperienceId = await getVerifiedExperienceId(profile.id);
   const isOwner = await viewerOwnsProfile(viewer?.id, profile.id);
   const replies = await getReviewReplies(reviews.map((review) => review.id));
   const query = await searchParams;
@@ -80,13 +84,14 @@ export default async function ProfessionalPage({ params, searchParams }: { param
             <div><h3>Pode perguntar sobre</h3><ul className="scope-list scope-yes">{profile.topics.map(topic => <li key={topic}><Check size={15} aria-hidden="true"/>{topic.charAt(0).toUpperCase() + topic.slice(1).toLowerCase()}</li>)}</ul></div>
             <div><h3>Fica de fora</h3><ul className="scope-list scope-no">{profile.boundaries.map(item => <li key={item}><X size={15} aria-hidden="true"/>{item}</li>)}</ul></div>
           </div></article>}
-          <article className="profile-main profile-path"><h2>Trajetória</h2><ol className="path-list">{profile.experiences.map((exp, index) => <li key={exp.id} className={index === 0 ? "is-main" : undefined}>
+          <article className="profile-main profile-path"><h2>Trajetória</h2><ol className="path-list">{profile.experiences.map((exp, index) => { const verified = profile.verificationStatus === "VERIFIED" && (verifiedExperienceId ? verifiedExperienceId === exp.id : index === 0); const former = exp.isCurrent === false; return <li key={exp.id} className={index === 0 ? "is-main" : undefined}>
             <span className="path-logo" aria-hidden="true">{exp.company.name.trim().charAt(0).toUpperCase()}</span>
             <div><strong>{exp.title}</strong><span className="muted">{exp.company.name} · {exp.profession.name}</span>
-              {/* The proof sent covers the main (first) experience; the others stay as declared. */}
-              {index === 0 && profile.verificationStatus === "VERIFIED" ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo verificado pela Insidely</span> : <span className="experience-proof">{index === 0 ? "Vínculo ainda não verificado" : "Declarada pelo consultor"}</span>}</div>
-            {index === 0 && <span className="path-tag">Principal</span>}
-          </li>)}</ol><p className="muted profile-note">Datas e histórico completo aparecem conforme a privacidade escolhida pelo consultor.</p></article>
+              <span className="path-period">{experiencePeriod(exp)}</span>
+              {exp.summary && <p className="path-summary">{exp.summary}</p>}
+              {verified ? <span className="experience-proof experience-proof-ok"><ShieldCheck size={13}/> Vínculo verificado pela Insidely</span> : <span className="experience-proof">{index === 0 ? "Vínculo ainda não verificado" : "Declarada pelo consultor"}</span>}</div>
+            <span className={`path-tag${former ? " is-former" : ""}`}>{former ? "Ex-funcionário" : "Atual"}</span>
+          </li>; })}</ol><p className="muted profile-note">{profile.experiences.some((exp) => exp.isCurrent === false) ? "Ex-funcionários costumam falar com mais liberdade; considere a época em que a pessoa esteve lá." : "Datas e histórico completo aparecem conforme a privacidade escolhida pelo consultor."}</p></article>
           <article className="profile-main reviews-panel"><header className="reviews-head"><h2>Avaliações</h2>{reviews.length > 0 && <span className="reviews-summary"><Star size={16} fill="currentColor" aria-hidden="true"/> {average.toFixed(1)} <small>· {reviews.length} {reviews.length === 1 ? "avaliação" : "avaliações"}</small></span>}</header>
             {feedback && <p className={feedback.ok ? "form-feedback" : "form-error"} role={feedback.ok ? "status" : "alert"}>{feedback.text}</p>}
             {reviews.length ? <div className="list">{reviews.map(review => { const reply = replies.get(review.id); return <div className="review-card" key={review.id}>

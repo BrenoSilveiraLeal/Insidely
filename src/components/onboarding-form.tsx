@@ -101,6 +101,27 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 }
 
 const BIO_MIN=30;
+const thisMonth=()=>{const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;};
+
+// Current or former employee, the period and what the person does or did there. Former employees
+// are welcome: they usually speak more freely about the company.
+function EmploymentFields(){
+  const [status,setStatus]=useState<"current"|"former">("current");
+  const [max]=useState(thisMonth);
+  return <fieldset className="employment-fields">
+    <legend>Você ainda trabalha nessa empresa?</legend>
+    <div className="employment-choice" role="radiogroup">
+      <label className={status==="current"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="current" checked={status==="current"} onChange={()=>setStatus("current")}/>Sim, trabalho lá atualmente</label>
+      <label className={status==="former"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="former" checked={status==="former"} onChange={()=>setStatus("former")}/>Não, já saí</label>
+    </div>
+    <div className="profile-fields-row">
+      <div className="field"><label htmlFor="startedAt">Entrei em</label><input className="input" id="startedAt" name="startedAt" type="month" max={max} required/></div>
+      {status==="former"&&<div className="field"><label htmlFor="endedAt">Saí em</label><input className="input" id="endedAt" name="endedAt" type="month" max={max} required/></div>}
+    </div>
+    <div className="field"><label htmlFor="experienceSummary">{status==="former"?"O que você fazia lá":"O que você faz lá"}</label><textarea className="textarea" id="experienceSummary" name="experienceSummary" rows={3} minLength={15} maxLength={300} required placeholder={status==="former"?"Ex.: Cuidava do atendimento a lojistas e de relatórios mensais do time de vendas.":"Ex.: Cuido do atendimento a lojistas e dos relatórios mensais do time de vendas."}/></div>
+    <p className="employment-note">{status==="former"?"Ótimo: quem já saiu costuma falar com mais liberdade. Quem agenda vai ver de que época é a sua visão.":"Por padrão, seu nome e sua foto não aparecem no perfil. Em Privacidade, você também pode esconder o nome da empresa e mostrar só a área."}</p>
+  </fieldset>;
+}
 
 // Also used by the "become a consultant" page, which adds a profile to an existing customer account.
 export function ConsultantProfileFields({companies,professions}:{companies:Option[];professions:Option[]}){
@@ -111,12 +132,10 @@ export function ConsultantProfileFields({companies,professions}:{companies:Optio
       <div className="field"><label htmlFor="title">Cargo atual ou mais recente</label><input className="input" id="title" name="title" placeholder="Ex.: Analista de Produto Pleno" required/></div>
       <CatalogPicker id="companyId" name="companyId" label="Empresa" kind="company" options={companies} required/>
       <CatalogPicker id="professionId" name="professionId" label="Área ou profissão" kind="profession" options={professions} required/>
-      <div className="profile-fields-row">
-        <div className="field"><label htmlFor="yearsExperience">Anos de experiência</label><input className="input" id="yearsExperience" name="yearsExperience" type="number" min="0" max="60" placeholder="Ex.: 4" required/></div>
-        <div className="field"><label htmlFor="location">Cidade</label><CityInput id="location" name="location" required/></div>
-      </div>
+      <EmploymentFields/>
+      <div className="field"><label htmlFor="location">Cidade onde você mora</label><CityInput id="location" name="location" required/></div>
     </div>
-    <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={5} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Conte em poucas frases o que você vive no dia a dia e sobre o que pode conversar. Ex.: Trabalho há 4 anos com produto em fintechs. Posso contar como é a rotina do time, como funciona o processo seletivo e o que eu gostaria de ter sabido antes de entrar."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo. Quanto mais concreto, mais fácil para quem vai agendar.":`Pelo menos ${BIO_MIN} caracteres · faltam ${BIO_MIN-bioLength}`}</small></div>
+    <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={5} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Conte em poucas frases o que você vive no dia a dia e sobre o que pode conversar. Ex.: Trabalhei 4 anos com produto em fintechs. Posso contar como era a rotina do time, como funciona o processo seletivo e o que eu gostaria de ter sabido antes de entrar."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo. Quanto mais concreto, mais fácil para quem vai agendar.":`Pelo menos ${BIO_MIN} caracteres · faltam ${BIO_MIN-bioLength}`}</small></div>
     <div className="field"><label htmlFor="price30">Quanto você quer receber por conversa de 30 min (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/><small className="muted">É o valor que você recebe; a taxa da Insidely é somada no pagamento do cliente. Dá para mudar depois.</small></div>
     <label className="check-row"><input name="confidentiality" type="checkbox" required/><span><strong>Confidencialidade:</strong> não vou revelar segredos da empresa, dados internos, informações de clientes ou de colegas. Falo apenas da minha experiência.</span></label>
   </div>

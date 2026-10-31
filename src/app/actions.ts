@@ -32,6 +32,7 @@ import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingL
 import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
+import { readEmploymentPeriod, saveEmploymentPeriod } from "@/lib/employment-period";
 import { imageModerationMessage, moderateImage } from "@/lib/image-moderation";
 
 type FormState = { status: "success" | "error"; message: string } | undefined;
@@ -321,7 +322,7 @@ function profileTextError(formData: FormData, fields: [label: string, name: stri
   const found = findUnsafeProfileText(fields.map(([label, name]) => [label, formData.getAll(name).map(String).join(" ")]));
   return found ? unsafeProfileTextMessage(found) : null;
 }
-const ONBOARDING_PROFILE_TEXTS: [string, string][] = [["Título profissional", "headline"], ["Cargo", "title"], ["Localização", "location"], ["O que você pode contextualizar", "bio"], ["Empresa", "companyIdName"], ["Área ou profissão", "professionIdName"]];
+const ONBOARDING_PROFILE_TEXTS: [string, string][] = [["Título profissional", "headline"], ["Cargo", "title"], ["Localização", "location"], ["O que você pode contextualizar", "bio"], ["O que você faz ou fazia na empresa", "experienceSummary"], ["Empresa", "companyIdName"], ["Área ou profissão", "professionIdName"]];
 
 // The verification proves the main (first) experience. If a verified consultant swaps that company,
 // the badge would vouch for a company nobody checked, so it is removed until a new proof is approved.
@@ -406,9 +407,12 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   if ("reactivated" in identity && identity.reactivated) redirect("/continuar");
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
   if (role === Role.CONSULTANT) { const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS); if (textError) return textError; }
+  const period = role === Role.CONSULTANT ? readEmploymentPeriod(formData) : null;
+  if (typeof period === "string") return period;
   const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
   if (role === Role.CONSULTANT && formData.get("confidentiality") !== "on") return "Aceite o termo de confidencialidade para consultores.";
   await rpc("complete_onboarding", { p_role: role, p_payload: formText(formData) });
+  if (period) await saveEmploymentPeriod(user.id, period);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
   await recordCatalogRequests(user.id, [catalog]);
@@ -423,6 +427,8 @@ export async function becomeConsultantAction(_: string | undefined, formData: Fo
   if (formData.get("confidentiality") !== "on") return "Aceite o termo de confidencialidade para consultores.";
   const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS);
   if (textError) return textError;
+  const period = readEmploymentPeriod(formData);
+  if (typeof period === "string") return period;
   const catalog = applyUnlistedCatalog(formData, "companyId", "professionId", "title");
   // become_consultant is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -433,6 +439,7 @@ export async function becomeConsultantAction(_: string | undefined, formData: Fo
     console.error("become_consultant_failed", { message: error.message });
     return "Não foi possível criar seu perfil de consultor agora. Tente novamente.";
   }
+  await saveEmploymentPeriod(user.id, period);
   await recordCatalogRequests(user.id, [catalog]);
   revalidatePath("/dashboard");
   revalidatePath("/consultor");
