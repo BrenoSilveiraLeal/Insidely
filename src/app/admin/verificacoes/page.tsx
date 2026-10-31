@@ -22,7 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
   return <DashboardShell mode="admin" title="Verificações">
     {query.ok && <FlashMessage key={query.ok}>{query.ok === "aprovado" ? "Comprovante aprovado. O perfil já mostra o vínculo verificado e o consultor foi avisado." : "Comprovante recusado. O consultor foi avisado e pode enviar outro."}</FlashMessage>}
     <div className="list">{pending.map((v) => <div className="list-row" key={v.id}>
-      <div><strong>{v.professionalProfile?.user?.name ?? "Perfil indisponível"}</strong><p>{v.professionalProfile?.headline ?? "Perfil profissional"} · {v.professionalProfile?.experiences?.[0]?.company?.name ?? "Empresa não informada"}</p><span className="status">{verificationMethodLabel(v.method)}</span></div>
+      <div><strong>{v.professionalProfile?.user?.name ?? "Perfil indisponível"}</strong><p>{v.professionalProfile?.headline ?? "Perfil profissional"} · {(v.professionalProfile?.experiences?.find((exp) => exp.id === (v as { experienceId?: string | null }).experienceId) ?? v.professionalProfile?.experiences?.[0])?.company?.name ?? "Empresa não informada"}</p><span className="status">{verificationMethodLabel(v.method)}</span></div>
       <div className="verification-row-actions">
         {v.documents.length ? <Link className="button button-dark button-sm" href={`/admin/verificacoes/${v.id}`}>Ver comprovante</Link> : <span className="button button-ghost button-sm verification-no-file" aria-disabled="true" title="Esta solicitação não tem arquivo enviado">Sem arquivo</span>}
         <form action={reviewVerificationAction.bind(null, v.id, "VERIFIED")}><button className="button button-accent button-sm">Aprovar</button></form>

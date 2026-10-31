@@ -50,6 +50,12 @@ function ExperienceEditor({index,experience,companies,professions,jobTitles,onRe
 export function ProfessionalProfileForm({profile,companies,professions,jobTitles=[],messagePriceCents=null}:{profile:Profile;companies:Option[];professions:Option[];jobTitles?:string[];areas?:string[];messagePriceCents?:number|null}){
   const [offersMessages,setOffersMessages]=useState(messagePriceCents!==null);
   const[message,action,pending]=useActionState(updateProfessionalProfileAction,undefined);
+  // "Salvar perfil" floats only while there are unsaved changes, so it never sits between the boxes.
+  // Pickers choose with a click on an option (no input event), hence the mousedown check.
+  const [dirty,setDirty]=useState(false);
+  // A save that just finished well clears it (state adjusted while rendering, not in an effect).
+  const [wasPending,setWasPending]=useState(pending);
+  if(pending!==wasPending){setWasPending(pending);if(!pending&&message?.startsWith("Perfil profissional atualizado"))setDirty(false);}
   // Blocks shown: the saved experiences (at least one). Keys survive removals.
   const [blocks,setBlocks]=useState(()=>(profile.experiences.length?profile.experiences:[{}]).slice(0,3).map((experience,index)=>({key:`saved-${index}`,experience})));
   // "Nível" (júnior, pleno…) only for areas with that kind of career ladder, by the main experience.
@@ -61,7 +67,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
   const money=(cents:number)=>`R$ ${(cents/100).toFixed(2).replace(".",",")}`;
   return <section className="professional-edit-panel">
     {/* Required fields can sit in a closed box: open it so the browser can point at the field. */}
-    <KeepValuesForm action={action} className="profile-edit-form" onInvalidCapture={(event)=>(event.target as HTMLElement).closest("details")?.setAttribute("open","")}>
+    <KeepValuesForm action={action} className="profile-edit-form" onInputCapture={()=>setDirty(true)} onChangeCapture={()=>setDirty(true)} onMouseDownCapture={(event)=>{if((event.target as HTMLElement).closest('[role="option"], button[type="button"]'))setDirty(true);}} onInvalidCapture={(event)=>(event.target as HTMLElement).closest("details")?.setAttribute("open","")}>
       <input type="hidden" name="topics" value={FIXED_TOPICS}/>
       <input type="hidden" name="boundaries" value={FIXED_BOUNDARIES}/>
       <input type="hidden" name="responseHours" value={profile.responseHours||24}/>
@@ -105,7 +111,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
       </EditBox>
 
       {message&&<p className={message.startsWith("Perfil profissional atualizado") ? "form-feedback" : "form-error"} role="status">{message}</p>}
-      <div className="profile-edit-actions"><small className="muted">Salva as três caixas acima.</small><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>
+      <div className={`profile-edit-actions${dirty||pending?" is-visible":""}`}><small className="muted">Alterações não salvas no perfil.</small><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>
     </KeepValuesForm>
   </section>;
 }

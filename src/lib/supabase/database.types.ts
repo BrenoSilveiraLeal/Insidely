@@ -1512,7 +1512,7 @@ export type Database = {
         Returns: undefined
       }
       set_recording_consent: { Args: { p_booking_id: string; p_consented: boolean }; Returns: undefined }
-      submit_verification: { Args: { p_storage_key: string; p_original_name: string; p_mime_type: string; p_size_bytes: number; p_method: string }; Returns: undefined }
+      submit_verification: { Args: { p_storage_key: string; p_original_name: string; p_mime_type: string; p_size_bytes: number; p_method: string; p_experience_id?: string }; Returns: undefined }
       sync_google_profile: {
         Args: { p_image: string; p_name: string }
         Returns: {
