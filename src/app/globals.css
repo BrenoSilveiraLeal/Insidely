@@ -1316,7 +1316,7 @@ html { scroll-padding-top: 120px; }
 .support-msg p { margin: 0; white-space: pre-wrap; line-height: 1.55; }
 .support-reply { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .support-reply-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
-.support-reply > small { text-align: right; }
+.support-reply > small { text-align: right; text-wrap: balance; }
 .support-waiting { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--paper); color: var(--muted); font-size: .88rem; }
 .support-resolve { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; margin-top: 18px; }
 .support-resolve p { margin: 4px 0 0; }

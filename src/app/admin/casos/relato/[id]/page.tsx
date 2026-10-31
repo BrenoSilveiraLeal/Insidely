@@ -67,7 +67,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <button className="button button-ghost button-sm" name="decision" value="RESOLVED">Responder e encerrar</button>
             <button className="button button-dark" name="decision" value="REPLY">Enviar resposta</button>
           </div>
-          <small className="muted">“Enviar resposta” mantém o caso aberto para a pessoa responder. “Encerrar” fecha o caso com esta mensagem.</small>
+          <small className="muted">“Enviar resposta” deixa o caso aberto; “Encerrar” fecha o caso com esta mensagem.</small>
         </form>}
         {open && !mine && <div className="case-not-mine"><p className="muted">Este caso é de <strong>{ownerName}</strong>. Você pode acompanhar, mas só o responsável responde.</p><form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form></div>}
       </section>
