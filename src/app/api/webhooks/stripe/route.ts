@@ -53,7 +53,19 @@ export async function POST(request: Request) {
       const sessionId = event.type.startsWith("checkout.") ? (object as Stripe.Checkout.Session).id : null;
       const paymentIntentId = event.type.startsWith("payment_intent.") ? (object as Stripe.PaymentIntent).id : (object as Stripe.Checkout.Session).payment_intent as string | null;
       await ensureUpdated(await supabase.from("Payment").update({ status: "PAID_HELD", paidAt: new Date().toISOString(), provider: "STRIPE", providerRef: paymentIntentId ?? sessionId, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId, updatedAt: new Date().toISOString() }).eq("bookingId", bookingId).in("status", ["PENDING", "PAYMENT_REPORTED"]), "payment_paid");
-      await ensureUpdated(await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT"), "booking_confirmed");
+      // The slot stays open until paid (migration 20261101109000): when someone else paid for it
+      // first, this charge is refunded at once and the request is cancelled.
+      const confirmed = await supabase.from("Booking").update({ status: "CONFIRMED", paymentConfirmedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "PENDING_PAYMENT");
+      if (confirmed.error?.message.includes("slot_taken")) {
+        if (paymentIntentId) await getStripe().refunds.create({ payment_intent: paymentIntentId, reason: "duplicate", metadata: { bookingId, reason: "slot_taken" } }, { idempotencyKey: `insidely-slot-taken-${bookingId}` });
+        const now = new Date().toISOString();
+        await ensureUpdated(await supabase.from("Booking").update({ status: "CANCELLED", updatedAt: now }).eq("id", bookingId).eq("status", "PENDING_PAYMENT"), "booking_slot_taken");
+        await ensureUpdated(await supabase.from("Payment").update({ status: "REFUNDED", updatedAt: now }).eq("bookingId", bookingId), "payment_slot_taken");
+        const { data: taken } = await supabase.from("Booking").select("customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+        if (taken) await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: taken.customerId, title: "Horário já reservado: valor devolvido", body: "Outra pessoa pagou por esse horário instantes antes de você. O valor integral será devolvido pelo meio de pagamento usado. Escolha outro horário no perfil.", href: `/profissional/${taken.professionalProfileId}`, createdAt: now });
+        return Response.json({ received: true, slotTaken: true });
+      }
+      await ensureUpdated(confirmed, "booking_confirmed");
       await notifyBookingParticipants(supabase, bookingId);
       try {
         await ensureGoogleMeetForBooking(supabase, bookingId);

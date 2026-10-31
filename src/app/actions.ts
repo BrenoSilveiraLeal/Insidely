@@ -536,15 +536,18 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
   const now = new Date().toISOString();
   if (paymentError || !payment) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível localizar o pagamento.")}`);
   if (payment.status === "PENDING") {
+    // The booking is confirmed first: the slot stays open until a payment, so someone else may have
+    // paid for it meanwhile ('slot_taken', migration 20261101109000) and nothing is charged then.
+    const { error: confirmError } = await supabase.from("Booking").update({
+      status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
+    }).eq("id", id).eq("status", "PENDING_PAYMENT");
+    if (confirmError?.message.includes("slot_taken")) redirect(`/checkout/${id}?erro=${encodeURIComponent("Esse horário acabou de ser reservado por outra pessoa. Nada foi cobrado: volte ao perfil e escolha outro horário.")}`);
+    if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível confirmar o agendamento. Tente de novo.")}`);
     const { error } = await supabase.from("Payment").update({
       status: "PAID_HELD", provider: "SIMULATION", providerRef: `demo-${method.toLowerCase()}-${id}`,
       paidAt: now, updatedAt: now,
     }).eq("id", payment.id).eq("status", "PENDING");
-    if (error) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível confirmar o pagamento simulado.")}`);
-    const { error: confirmError } = await supabase.from("Booking").update({
-      status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
-    }).eq("id", id).eq("status", "PENDING_PAYMENT");
-    if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pagamento registrado, mas não foi possível confirmar o agendamento.")}`);
+    if (error) redirect(`/checkout/${id}?erro=${encodeURIComponent("Agendamento confirmado, mas não foi possível registrar o pagamento simulado.")}`);
     // The Meet room is only created once the conversation starts (/sala creates it on the first
     // visit); this only does anything for an immediate conversation that is already under way.
     try { await ensureGoogleMeetForBooking(supabase, id); }
