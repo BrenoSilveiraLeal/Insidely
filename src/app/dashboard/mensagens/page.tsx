@@ -71,6 +71,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         </details>}
       </article>;
     })}</TwoColumns>
-    {!requests.length && <section className="panel"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}
+    {!requests.length && <section className="panel empty-state"><h2>Nenhum pedido de agendamento</h2><p className="muted">Quando você escolher um horário, o pedido e a conversa aparecerão aqui.</p><Link className="button button-dark" href="/buscar">Encontrar profissional</Link></section>}
   </DashboardShell>;
 }

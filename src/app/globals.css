@@ -1702,3 +1702,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 /* Fields side by side stay aligned at the top even when one shows a message below it. */
 .profile-fields-row, .availability-when, .profile-form-grid { align-items: start; }
 .profile-fields-row > .field, .availability-when > .field { align-content: start; }
+/* Empty states ("Nenhum agendamento ainda"…): title, text and button with room between them. */
+.empty-state { display: grid; gap: 10px; justify-items: start; padding: 30px; }
+.empty-state h2, .empty-state h3 { margin: 0; }
+.empty-state p { margin: 0 0 8px; }
