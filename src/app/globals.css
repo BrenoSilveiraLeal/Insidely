@@ -376,7 +376,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Perfil: os cards superiores ocupam a mesma faixa visual e as seções respiram. */
 .profile-management-stack { gap: 40px; }
-.profile-management-stack:has(> .edit-box) { gap: 14px; }
+.profile-management-stack:has(> .edit-box) { gap: 18px; }
 .profile-admin-grid { align-items: start; }
 .profile-admin-grid > .panel { height: auto; box-sizing: border-box; }
 .profile-left-column { display: grid; gap: 22px; align-content: start; }
@@ -1052,7 +1052,7 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .area-salary-bar { display: block; height: 10px; min-width: 6px; border-radius: 999px; background: var(--mineral); }
 .area-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .area-points ul { margin: 6px 0 0; padding-left: 18px; }
-.completeness { display: grid; gap: 10px; margin-top: 20px; margin-bottom: 14px; padding: 14px 18px; }
+.completeness { display: grid; gap: 10px; margin-top: 20px; margin-bottom: 22px; padding: 14px 18px; }
 .completeness-head { display: flex; gap: 14px; align-items: center; }
 .completeness-label { font-size: .86rem; color: var(--muted); white-space: nowrap; }
 .completeness-label strong { color: var(--ink); }
