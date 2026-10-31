@@ -20,6 +20,5 @@ export default async function AcceptTermsPage({ searchParams }: { searchParams: 
     <h2>Leia o que mudou.</h2>
     <ul className="terms-changes">{TERMS_CHANGES.map((item) => <li key={item}>{item}</li>)}</ul>
     <p className="terms-full">Leia os textos completos: <Link className="inline-link" href="/termos" target="_blank">Termos de Uso</Link> e <Link className="inline-link" href="/privacidade" target="_blank">Política de Privacidade</Link>.</p>
-    <label className="check-row"><input type="checkbox" name="accept" required/><span>Li e aceito a nova versão dos Termos de Uso e da Política de Privacidade.</span></label>
   </AcceptTermsForm></section></main>;
 }

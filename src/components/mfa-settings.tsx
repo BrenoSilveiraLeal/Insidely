@@ -97,7 +97,7 @@ export function MfaSettings({ challenge = false, continueTo = "/continuar" }: { 
     {challenge && loaded && (verified.length
       ? codeForm("Verificar código")
       : <p className="form-error" role="alert">Nenhum aplicativo autenticador ativo foi encontrado nesta conta.</p>)}
-    {challenge && <form action={logoutAction}><button type="submit" className="button button-ghost button-sm">Sair e entrar com outra conta</button></form>}
+    {challenge && <form action={logoutAction} style={{ justifySelf: "end" }}><button type="submit" className="button button-ghost button-sm">Sair e entrar com outra conta</button></form>}
 
     {!challenge && loaded && !pending && !verified.length && <button type="button" className="button button-dark" disabled={busy} onClick={enroll}>{busy ? "Preparando…" : "Configurar 2FA"}</button>}
     {!challenge && pending && <div className="mfa-setup form-stack">
