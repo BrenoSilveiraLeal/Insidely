@@ -1652,3 +1652,4 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .unblock-button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 13px; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); color: var(--ink); font-size: .8rem; font-weight: 700; cursor: pointer; }
 .unblock-button:hover { background: var(--ink); color: var(--paper); }
 .suggest-input .input { padding-left: 16px; }
+.verification-form > .button { justify-self: end; align-self: flex-end; margin-left: auto; }
