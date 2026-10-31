@@ -1293,6 +1293,7 @@ html { scroll-padding-top: 120px; }
 @media (max-width: 760px) { .consultant-home-columns { grid-template-columns: 1fr; } .next-conversation { border-left-width: 3px; } }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
+.case-filter { display: flex; flex-wrap: wrap; gap: 8px; }
 .case-owner { color: var(--ink); } .case-owner.is-me { color: var(--forest, var(--ink)); }
 
 /* Support cases as conversations (admin case page and the person's /dashboard/suporte/[id]). */
