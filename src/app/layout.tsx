@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Nunito } from "next/font/google";
 import { CookieConsent } from "@/components/cookie-consent";
+import { NoticeTimer } from "@/components/notice-timer";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { Suspense } from "react";
 import { NavigationProgress } from "@/components/navigation-progress";
@@ -27,5 +28,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`}><body suppressHydrationWarning><Suspense fallback={null}><NavigationProgress /></Suspense>{children}<CookieConsent /><ServiceWorkerRegister /></body></html>;
+  return <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`}><body suppressHydrationWarning><Suspense fallback={null}><NavigationProgress /></Suspense>{children}<CookieConsent /><ServiceWorkerRegister /><NoticeTimer /></body></html>;
 }

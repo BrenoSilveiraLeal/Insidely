@@ -1620,3 +1620,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .verification-panel .verification-methods legend { grid-column: 1 / -1; }
 .verification-panel .verification-form > label.field { max-width: 560px; }
 @media (max-width: 760px) { .verification-panel .verification-methods { grid-template-columns: 1fr; } }
+/* Cards share the row height while closed; when one opens a section (details[open]), only that
+   card grows and the others keep their own height instead of stretching along. */
+.two-columns:has(details[open]) .two-columns-item:not(:has(details[open])) { align-self: start; }
+.two-columns:has(details[open]) .two-columns-item:not(:has(details[open])) > * { flex: none; }
