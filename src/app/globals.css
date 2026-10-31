@@ -1653,3 +1653,4 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .unblock-button:hover { background: var(--ink); color: var(--paper); }
 .suggest-input .input { padding-left: 16px; }
 .verification-form > .button { justify-self: end; align-self: flex-end; margin-left: auto; }
+.support-points span span { display: inline; }
