@@ -1549,3 +1549,20 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .booking-box .detail-list li > strong { text-align: right; }
 .booking-box > h2 { margin: 8px 0 16px; font: 850 clamp(1.9rem, 2.6vw, 2.4rem)/1 var(--display); letter-spacing: -.04em; }
 .booking-box > h2 small { font: 600 .9rem/1 var(--body, inherit); letter-spacing: 0; color: var(--muted); }
+
+/* Home hero below 1700px: the orange shape keeps the proportion it has on large screens (starting
+   at ~58% of the width) instead of 67vw, which made it run under the headline on laptops. */
+@media (min-width: 951px) and (max-width: 1699px) {
+  .inside-hero:before { width: min(52vw, 970px); top: -18vw; right: -12vw; }
+}
+/* 951–1150px: text and cards side by side, like on large screens, with a smaller scene, instead of
+   the cards dropping below the text and leaving an empty band. */
+@media (min-width: 951px) and (max-width: 1150px) {
+  .inside-hero { display: grid; min-height: auto; padding: 128px 0 84px; }
+  .inside-hero-grid { grid-template-columns: minmax(0, 1.25fr) minmax(290px, .75fr); align-items: center; gap: 20px; }
+  .inside-hero-content { transform: none; }
+  .inside-hero h1 { max-width: 11ch; font-size: clamp(3rem, 5.6vw, 4.3rem); }
+  .inside-scene { width: auto; min-height: 520px; margin: 0; transform: scale(.82); transform-origin: center; }
+  .surface-card { top: 40px; left: -20px; }
+  .inside-card { right: -10px; bottom: 30px; }
+}
