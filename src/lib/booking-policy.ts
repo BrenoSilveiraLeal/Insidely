@@ -46,3 +46,11 @@ const REVIEWABLE_BOOKING_STATUSES = new Set(["CONFIRMED", "AWAITING_CONFIRMATION
 export function canReviewBooking(status: string, startsAt: Date, durationMinutes: number, now = new Date()) {
   return REVIEWABLE_BOOKING_STATUSES.has(status) && startsAt.getTime() + durationMinutes * 60_000 <= now.getTime();
 }
+
+// A free slot can still be booked until 5 minutes after it starts (the same rule as the
+// booking RPC); after that it is no longer offered, on the profile or in the consultant's agenda.
+export const SLOT_BOOKING_GRACE_MS = 5 * 60_000;
+
+export function isSlotStillBookable(slot: { startsAt: Date; isBooked: boolean }, now = new Date()) {
+  return !slot.isBooked && slot.startsAt.getTime() > now.getTime() - SLOT_BOOKING_GRACE_MS;
+}

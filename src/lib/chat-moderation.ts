@@ -101,6 +101,13 @@ function hasContactDigits(text: string, countScattered: boolean) {
   return countScattered && (digitized.match(/\d/g) ?? []).length >= 11;
 }
 
+// "gay" is blocked unless it clearly speaks of identity ("sou gay", "pessoas gays", "comunidade
+// gay", "LGBT"); used alone or aimed at someone ("fala gay") it is an insult in this chat.
+const IDENTITY_CONTEXT = /\b(?:sou|somos|e|eh|ser|sendo|homem|mulher|pessoas?|casais?|comunidade|publico|direitos?|movimento|orgulho|parada|cultura|amigos?|amigas?|homens|mulheres|lgbt\w*)\s+gays?\b|\bgays?\s+(?:e|ou)\s+(?:lesbicas?|trans|bissexuais?)\b|\blgbt/;
+function isGaySlur(plain: string) {
+  return /\bgays?\b/.test(plain) && !IDENTITY_CONTEXT.test(plain);
+}
+
 export function moderateChatMessage(raw: string, options: { countScatteredDigits?: boolean } = {}): ChatModerationResult {
   const text = stripAccents(raw.toLowerCase());
   const plain = decodeLeet(text).replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
@@ -121,6 +128,7 @@ export function moderateChatMessage(raw: string, options: { countScatteredDigits
   }
 
   if (OFFENSIVE_PHRASES.some((pattern) => pattern.test(plain))) return blocked("offensive");
+  if (isGaySlur(plain)) return blocked("offensive");
   const words = plain.split(" ");
   // Letters typed apart ("v i a d o") are joined back into one word.
   const spelled = [...plain.matchAll(/(?:^|\s)((?:[a-z]\s){2,}[a-z])(?=\s|$)/g)].map((match) => match[1].replace(/\s/g, ""));

@@ -1,3 +1,4 @@
+import { isSlotStillBookable } from "@/lib/booking-policy";
 import { Role } from "@/lib/domain";
 import { AvailabilityManager } from "@/components/consultant-availability";
 import { PauseProfile, RecurringAvailability } from "@/components/agenda-tools";
@@ -23,7 +24,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   const { data: pause } = await (createSupabaseServiceClient() as any).from("ProfessionalProfile").select("pausedAt, pausedUntil").eq("userId", user.id).maybeSingle();
   const paused = Boolean(pause?.pausedAt) && (!pause?.pausedUntil || parseDbDate(pause.pausedUntil) > new Date());
   const now = new Date();
-  const future = (profile?.availability ?? []).filter((slot) => slot.endsAt > now);
+  // Booked slots stay until they end; free ones only while someone can still book them.
+  const future = (profile?.availability ?? []).filter((slot) => slot.isBooked ? slot.endsAt > now : isSlotStillBookable(slot, now));
   const slots = future.map((slot) => ({ id: slot.id, startsAt: slot.startsAt.toISOString(), endsAt: time(slot.endsAt), isBooked: slot.isBooked, label: shortDate(slot.startsAt) }));
   // Week grid: the next 7 days, one column per day.
   const days = Array.from({ length: 7 }, (_, index) => new Date(now.getTime() + index * 86_400_000));

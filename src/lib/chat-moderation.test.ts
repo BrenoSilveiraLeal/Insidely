@@ -30,10 +30,10 @@ describe("profile text moderation", () => {
     expect(findUnsafeProfileText([["Apresentação", "Trabalhei 5 anos em 3 empresas, liderei 12 pessoas e entreguei 40 projetos entre 2015-2020."]])).toBeNull();
   });
   it("blocks diminutives, spaced letters and slurs aimed at someone, but not identity words", () => {
-    for (const text of ["seu cuzinho", "bichinha", "viadão", "putona", "v i a d o", "b1ch1nha", "seu gay", "sua lésbica", "gayzinho", "boiola", "toma no cu", "sua macaca", "seu gordo"]) {
+    for (const text of ["seu cuzinho", "bichinha", "viadão", "putona", "v i a d o", "b1ch1nha", "seu gay", "sua lésbica", "gayzinho", "boiola", "toma no cu", "sua macaca", "seu gordo", "gay", "fala gay", "sua bichinha"]) {
       expect(moderateChatMessage(text)).toEqual({ allowed: false, reason: "offensive" });
     }
-    for (const text of ["sou gay e queria saber sobre inclusão no time", "a empresa tem grupo de pessoas trans?", "meu bichinho de estimação", "tem anta no zoológico", "o lixo eletrônico da empresa", "rola uma vaga?", "preto e branco", "quero ser analista de dados"]) {
+    for (const text of ["sou gay e queria saber sobre inclusão no time", "a empresa apoia pessoas gays?", "tem grupo LGBT lá?", "eu cozinho para o time às vezes", "a empresa tem grupo de pessoas trans?", "meu bichinho de estimação", "tem anta no zoológico", "o lixo eletrônico da empresa", "rola uma vaga?", "preto e branco", "quero ser analista de dados"]) {
       expect(moderateChatMessage(text)).toEqual({ allowed: true });
     }
   });

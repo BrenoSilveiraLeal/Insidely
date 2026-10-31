@@ -1,5 +1,7 @@
 import { getProfileStories } from "@/lib/decision-stories";
 import { experiencePeriod } from "@/lib/experience-period";
+import { isSlotStillBookable } from "@/lib/booking-policy";
+import { AvailabilityWatchButton } from "@/components/availability-watch-button";
 import { getVerifiedExperienceId } from "@/lib/verification-experience";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +11,6 @@ import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
 import { getIdentityVerifiedProfileIds, getProfileSignals, isWatchingAvailability } from "@/lib/profile-signals";
-import { toggleAvailabilityWatchAction } from "@/app/actions";
 import { getAlsoTalkedWith } from "@/lib/area-insights";
 import { ProfessionalCard } from "@/components/cards";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
@@ -45,7 +46,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const replies = await getReviewReplies(reviews.map((review) => review.id));
   const query = await searchParams;
   const feedback = reviewFeedback(query.avaliacao, query.resposta);
-  const availability = profile.availability ?? [];
+  const availability = (profile.availability ?? []).filter((slot) => isSlotStillBookable(slot));
   const now = new Date();
   const immediateCutoff = now.getTime() + 15 * 60_000;
   const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
@@ -110,7 +111,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
 
           <div className="availability-preview">
             <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><form action={toggleAvailabilityWatchAction.bind(null, profile.id)}><button className={`button ${watching ? "button-ghost" : "button-dark"} button-sm`}>{watching ? "✓ Você será avisado · cancelar" : "Avise-me quando abrir horário"}</button></form></div>}
+            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; return <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}><span>{availableNow && <strong className="status">Disponível agora</strong>} {dateTimeInBrazil(slot.startsAt)}</span><span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><AvailabilityWatchButton profileId={profile.id} watching={watching}/></div>}
           </div>
 
           {availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}

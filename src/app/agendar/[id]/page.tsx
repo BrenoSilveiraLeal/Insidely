@@ -1,3 +1,4 @@
+import { isSlotStillBookable } from "@/lib/booking-policy";
 import { notFound } from "next/navigation";
 import { BookingSlotFields } from "@/components/booking-slot-fields";
 import { BookingRequestForm } from "@/components/booking-request-form";
@@ -21,7 +22,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
     <section className="panel"><CustomerIdentityForm next={`/agendar/${profile.id}${requestedSlot ? `?slot=${encodeURIComponent(requestedSlot)}` : ""}`}/></section>
     <aside className="booking-box"><span className="eyebrow">Por que pedimos o CPF</span><h2>Segurança para os dois lados.</h2><p>As conversas acontecem por vídeo entre pessoas que não se conhecem. Com a identificação, a Insidely consegue responder a denúncias e a autoridades se algo grave acontecer.</p><p className="muted">O consultor vê apenas o CPF parcialmente mascarado e a sua idade. O CPF não pode ser usado em outra conta.</p></aside>
   </div></section></PublicShell>;
-  const slots = profile.availability.map(slot => ({ id: slot.id, label: slot.startsAt <= new Date() ? "Agora (conversa imediata)" : shortDate(slot.startsAt), minutes: Math.round((slot.endsAt.getTime() - slot.startsAt.getTime()) / 60_000) }));
+  const slots = profile.availability.filter((slot) => isSlotStillBookable(slot)).map(slot => ({ id: slot.id, label: slot.startsAt <= new Date() ? "Agora (conversa imediata)" : shortDate(slot.startsAt), minutes: Math.round((slot.endsAt.getTime() - slot.startsAt.getTime()) / 60_000) }));
   const selectedSlot = slots.some(slot => slot.id === requestedSlot) ? requestedSlot : slots[0]?.id;
   return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Agendamento · horários de Brasília</span><h1>Prepare uma conversa útil.</h1><p>Com {publicName(profile)} · escolha um horário ainda disponível.</p></div></section><section className="section"><div className="container profile-layout">
     <BookingRequestForm profileId={profile.id}>
