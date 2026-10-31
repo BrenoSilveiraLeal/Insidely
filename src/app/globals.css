@@ -1501,3 +1501,21 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 /* A link inside a sentence: same size and weight as the text, marked by colour and a thin underline. */
 .inline-link { color: inherit; font: inherit; text-decoration: underline; text-decoration-color: var(--coral, #ff7657); text-decoration-thickness: 2px; text-underline-offset: 4px; transition: color .2s; }
 .inline-link:hover { color: var(--coral, #ff7657); }
+/* Search bar: filters and the Buscar button on one row; "Mais filtros" as a quiet toggle below,
+   opening a full-width row (no box inside the box). */
+.search-panel { grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr)) minmax(0, .75fr) auto; align-items: end; gap: 12px; padding: 18px 20px 14px; }
+.search-submit { min-height: 50px; padding-inline: 26px; white-space: nowrap; }
+.search-more { grid-column: 1 / -1; margin-top: -2px; }
+.search-more > summary { margin-left: 0; padding: 6px 2px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: .84rem; }
+.search-more > summary:hover { border: 0; color: var(--ink); }
+.search-more[open] > summary { border: 0; background: transparent; color: var(--ink); }
+.search-more-grid { margin-top: 6px; }
+.search-more[open] .search-more-grid { padding: 14px 0 4px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.search-more-grid .check-row { align-self: center; min-height: 50px; }
+@media (max-width: 1100px) {
+  .search-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .search-submit { grid-column: 1 / -1; }
+}
+@media (max-width: 620px) {
+  .search-panel { grid-template-columns: 1fr; }
+}
