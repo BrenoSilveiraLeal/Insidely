@@ -5,21 +5,24 @@ import { useEffect, useState } from "react";
 const STEPS = {
   customer: [
     ["Bem-vindo à Insidely!", "Aqui você conversa com quem vive ou já viveu a rotina de uma empresa ou profissão antes de tomar uma decisão de carreira."],
-    ["Encontre alguém", "Em “Ver plataforma”, busque por empresa, profissão, preço ou nota, e abra o perfil de quem você quer ouvir."],
+    ["Encontre alguém", "Em “Ver plataforma”, busque por empresa, profissão, cargo ou nome, e abra o perfil de quem você quer ouvir."],
+    ["Atual ou ex-funcionário", "Você pode conversar com quem trabalha hoje na empresa ou com quem já trabalhou lá. O perfil mostra a época em que a pessoa esteve na empresa, e a busca tem o filtro “Vínculo com a empresa”."],
     ["Agende e pague", "Escolha um horário livre e conte o que quer conversar. Depois do pagamento, a conversa aparece em Agendamentos e Mensagens."],
     ["No dia da conversa", "O link da sala abre no horário marcado. Depois, avalie a conversa em Avaliações. Dúvidas? Veja a Central de ajuda."],
   ],
   consultant: [
     ["Bem-vindo, consultor!", "Você compartilha sua experiência e recebe por cada conversa. Este painel mostra seus pedidos, sua agenda e seus ganhos."],
     ["Abra sua agenda", "Em Agenda, crie horários avulsos ou recorrentes. Sem horários livres, ninguém consegue agendar com você."],
-    ["Ganhe confiança", "Em Perfil e verificação, complete seu perfil e envie o comprovante de vínculo com a empresa para ganhar o selo."],
+    ["Trabalhou em mais de uma empresa?", "Em Perfil e verificação você pode cadastrar até 3 experiências, atuais ou anteriores. Assim seu perfil aparece na busca de cada uma dessas empresas."],
+    ["Ganhe confiança", "Também em Perfil e verificação, complete seu perfil e envie o comprovante de vínculo para ganhar o selo. Vale crachá, holerite, carteira de trabalho ou termo de rescisão."],
     ["Atenda e receba", "As conversas chegam em Consultas e mensagens. O valor é liberado em Ganhos depois que a conversa acontece."],
   ],
 } as const;
 
-// A short tour on the first visit to the customer or consultant dashboard (remembered per browser).
+// A short tour on the first visit to the customer or consultant dashboard (remembered per browser;
+// a new version key shows the updated tour once to people who saw the old one).
 export function WelcomeTour({ kind }: { kind: keyof typeof STEPS }) {
-  const key = `insidely-tour-${kind}`;
+  const key = `insidely-tour-v2-${kind}`;
   const [step, setStep] = useState<number | null>(null);
   useEffect(() => {
     let seen = true;

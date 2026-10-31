@@ -1672,3 +1672,5 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .field-label-text { font-weight: 700; }
 .month-year-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
 .month-year-error { color: #ffb4a3; font-size: .8rem; }
+.employment-more { margin: 0; padding: 12px 14px; border: 1px dashed rgba(247,242,232,.25); border-radius: 12px; font-size: .86rem; line-height: 1.5; color: #d6d8de; }
+.panel .employment-more { border-color: var(--line); color: var(--muted); }

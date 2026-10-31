@@ -152,6 +152,7 @@ export function ConsultantProfileFields({companies,professions,jobTitles=[]}:{co
       <div className="field"><label htmlFor="title">Cargo atual ou mais recente</label><SuggestInput id="title" name="title" options={jobTitles} required placeholder="Ex.: Analista de Produto Pleno"/></div>
       <CatalogPicker id="companyId" name="companyId" label="Empresa" kind="company" options={companies} required/>
       <CatalogPicker id="professionId" name="professionId" label="Área ou profissão" kind="profession" options={professions} required/>
+      <p className="employment-more">Trabalhou em mais de uma empresa? Comece pela principal. Depois do cadastro, em <strong>Perfil e verificação</strong>, você pode adicionar até 3 empresas, atuais ou anteriores, e aparecer na busca de cada uma.</p>
       <EmploymentFields/>
       <div className="field"><label htmlFor="location">Cidade onde você mora</label><CityInput id="location" name="location" required/></div>
     </div>
