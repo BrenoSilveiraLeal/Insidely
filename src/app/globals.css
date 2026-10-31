@@ -1294,7 +1294,17 @@ html { scroll-padding-top: 120px; }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
-.case-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+.case-filter { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.case-filter-menu { position: relative; }
+.case-filter-menu > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.case-filter-menu > summary::-webkit-details-marker { display: none; }
+.case-filter-menu > summary::before { content: ""; width: 14px; height: 10px; background: linear-gradient(currentColor 0 0) top / 100% 2px no-repeat, linear-gradient(currentColor 0 0) center / 70% 2px no-repeat, linear-gradient(currentColor 0 0) bottom / 40% 2px no-repeat; }
+.case-filter-menu[open] > summary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.case-filter-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--mineral); color: var(--ink); font-size: .72rem; font-weight: 800; }
+.case-filter-panel { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; display: grid; gap: 14px; min-width: 260px; max-width: calc(100vw - 32px); padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 16px 40px rgba(23,32,51,.14); }
+.case-filter-panel fieldset { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.case-filter-panel legend { margin-bottom: 8px; font-weight: 800; }
+.case-filter-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .case-owner { color: var(--ink); } .case-owner.is-me { color: var(--forest, var(--ink)); }
 
 /* Support cases as conversations (admin case page and the person's /dashboard/suporte/[id]). */
@@ -1318,7 +1328,7 @@ html { scroll-padding-top: 120px; }
 .support-msg p { margin: 0; white-space: pre-wrap; line-height: 1.55; }
 .support-reply { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .support-reply-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
-.support-reply > small { text-align: right; text-wrap: balance; }
+.support-reply > small { text-wrap: balance; }
 .support-rate { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
 .support-rate-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
 .support-rate-options label { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s; }

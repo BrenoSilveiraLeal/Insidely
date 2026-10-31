@@ -1,3 +1,4 @@
+import Form from "next/form";
 import Link from "next/link";
 import { assignCaseAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -19,10 +20,10 @@ const NOBODY = "ninguem";
 
 // One queue for everything that needs a person: open reports, reported reviews, disputes and
 // one-sided attendance (no-shows) of the last 14 days. Each case can be taken by an admin.
-// Filters: ?quem= (eu, an admin id or "ninguem") and ?estado=encerrados for the closed cases, which are
+// Filters: ?quem= (eu, a staff member's id or "ninguem"; repeatable) and ?estado=encerrados for the closed cases, which are
 // found through their CaseAssignment row (it stays after the case is closed). Support staff see only
 // support requests and reports (the other kinds are handled on admin-only pages).
-export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; quem?: string; estado?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; quem?: string | string[]; estado?: string }> }) {
   const { ok, erro, quem, estado } = await searchParams;
   const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
   const isAdmin = admin.role === Role.ADMIN;
@@ -30,14 +31,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const since = daysAgo(14);
-  const [{ data: reports }, { data: reviewReports }, { data: disputes }, { data: checked }, { data: assignments }] = await Promise.all([
+  const [{ data: reports }, { data: reviewReports }, { data: disputes }, { data: checked }, { data: assignments }, { data: adminRows }] = await Promise.all([
     supabase.from("Report").select("id, category, description, targetUserId, bookingId, status, createdAt").in("status", ["OPEN", "IN_REVIEW"]).order("createdAt"),
     isAdmin ? supabase.from("ReviewReport").select("id, reason, reviewComment, createdAt").eq("status", "OPEN").order("createdAt") : none,
     isAdmin ? supabase.from("Booking").select("id, customerId, disputedAt, updatedAt").eq("status", "DISPUTED").order("updatedAt") : none,
     !isAdmin ? none : supabase.from("Booking").select("id, customerId, startsAt, professionalProfile:ProfessionalProfile(userId)").not("noShowCheckedAt", "is", null).gte("startsAt", since).in("status", ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"]),
     supabase.from("CaseAssignment").select("caseKey, adminUserId, admin:User(name)"),
+    supabase.from("User").select("id, name").in("role", ["ADMIN", "SUPPORT"]).not("auth_user_id", "is", null).order("name"),
   ]);
-  const { data: adminRows } = await supabase.from("User").select("id, name").in("role", ["ADMIN", "SUPPORT"]).not("auth_user_id", "is", null).order("name");
   const cases: Case[] = [
     ...((reports ?? []) as { id: string; category: string; description: string; targetUserId: string | null; bookingId: string | null; status: string; createdAt: string }[]).map((item) => ({ key: `report:${item.id}`, kind: item.targetUserId || item.bookingId ? "Denúncia" : "Suporte", waiting: item.status === "IN_REVIEW" ? "Aguardando a pessoa" : undefined, title: item.category, detail: item.description, createdAt: item.createdAt, href: `/admin/casos/relato/${item.id}` })),
     ...((reviewReports ?? []) as { id: string; reason: string; reviewComment: string | null; createdAt: string }[]).map((item) => ({ key: `review:${item.id}`, kind: "Avaliação denunciada", title: `“${item.reviewComment ?? "sem comentário"}”`, detail: item.reason, createdAt: item.createdAt, href: "/admin/denuncias" })),
@@ -56,14 +57,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   cases.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const owner = new Map(((assignments ?? []) as { caseKey: string; adminUserId: string; admin: { name: string } | { name: string }[] | null }[]).map((row) => [row.caseKey, { id: row.adminUserId, name: (Array.isArray(row.admin) ? row.admin[0]?.name : row.admin?.name) ?? "Admin" }]));
   const admins = ((adminRows ?? []) as { id: string; name: string | null }[]).filter((row) => row.id !== admin.id);
-  const who = quem === "eu" ? admin.id : quem || null;
+  // Several people can be ticked at once (?quem=eu&quem=<id>); none ticked shows everyone.
+  const picked = (Array.isArray(quem) ? quem : quem ? [quem] : []).filter(Boolean);
+  const who = new Set(picked.map((value) => value === "eu" ? admin.id : value));
   const showClosed = estado === "encerrados";
-  const matches = (key: string) => !who || (who === NOBODY ? !owner.get(key) : owner.get(key)?.id === who);
+  const matches = (key: string) => { const taken = owner.get(key); return !who.size || (taken ? who.has(taken.id) : who.has(NOBODY)); };
   const open = cases.filter((item) => matches(item.key));
 
-  // Closed cases always had someone responsible, so "Sem responsável" has none.
+  // Closed cases always had someone responsible, so "Sem responsável" alone finds none.
   const openKeys = new Set(cases.map((item) => item.key));
-  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && who !== NOBODY && matches(key) && (isAdmin || key.startsWith("report:")));
+  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && matches(key) && (isAdmin || key.startsWith("report:")));
   const ids = (prefix: string) => closedKeys.filter((key) => key.startsWith(`${prefix}:`)).map((key) => key.slice(prefix.length + 1));
   const reportIds = ids("report"), reviewIds = ids("review"), disputeIds = new Set(ids("dispute")), bookingIds = [...disputeIds, ...ids("noshow")];
   const [{ data: oldReports }, { data: oldReviews }, { data: oldBookings }] = await Promise.all([
@@ -80,20 +83,31 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   }
   closed.sort((a, b) => b.closedAt.localeCompare(a.closedAt));
 
-  const link = (next: { quem?: string | null; estado?: string | null }) => {
+  const link = (next: { estado: string | null }) => {
     const params = new URLSearchParams();
-    const q = next.quem === undefined ? quem : next.quem, e = next.estado === undefined ? estado : next.estado;
-    if (q) params.set("quem", q);
-    if (e === "encerrados") params.set("estado", e);
+    for (const value of picked) params.append("quem", value);
+    if (next.estado === "encerrados") params.set("estado", next.estado);
     return `/admin/casos${params.size ? `?${params}` : ""}`;
   };
-  const people = [{ value: null, label: "Todos" }, { value: "eu", label: "Você" }, ...(isAdmin ? admins.map((row) => ({ value: row.id, label: row.name ?? "Admin" })) : []), { value: NOBODY, label: "Sem responsável" }];
+  const people = [{ value: "eu", label: "Você" }, ...(isAdmin ? admins.map((row) => ({ value: row.id, label: row.name ?? "Admin" })) : []), { value: NOBODY, label: "Sem responsável" }];
+  const pickedLabels = people.filter((person) => picked.includes(person.value)).map((person) => person.label);
   const ownerLabel = (key: string) => { const taken = owner.get(key); return taken ? (taken.id === admin.id ? "você" : taken.name) : null; };
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title="Casos">
     {erro === "assumir" && <FlashMessage param="erro">Esse caso ainda não tem responsável. Use “Assumir e abrir” para abri-lo.</FlashMessage>}
     {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
     <div className="case-queue">
-    <nav className="case-filter" aria-label="Responsável">{people.map((person) => { const active = (quem || null) === person.value; return <Link key={person.value ?? "todos"} className={`button button-sm ${active ? "button-dark" : "button-ghost"}`} href={link({ quem: person.value })} aria-current={active ? "page" : undefined}>{person.label}</Link>; })}</nav>
+    <div className="case-filter">
+      {/* Keyed by the filter, so the menu closes after "Aplicar". next/form navigates without a full reload. */}
+      <details className="case-filter-menu" key={picked.join(",")}>
+        <summary className="button button-ghost button-sm">Filtrar casos{picked.length > 0 && <span className="case-filter-count">{picked.length}</span>}</summary>
+        <Form className="case-filter-panel" action="/admin/casos">
+          {showClosed && <input type="hidden" name="estado" value="encerrados"/>}
+          <fieldset><legend>Responsável</legend>{people.map((person) => <label className="check-row" key={person.value}><input type="checkbox" name="quem" value={person.value} defaultChecked={picked.includes(person.value)}/><span>{person.label}</span></label>)}</fieldset>
+          <div className="case-filter-actions"><Link className="button button-ghost button-sm" href={showClosed ? "/admin/casos?estado=encerrados" : "/admin/casos"}>Limpar</Link><button className="button button-dark button-sm">Aplicar</button></div>
+        </Form>
+      </details>
+      <span className="muted">{pickedLabels.length ? `Responsável: ${pickedLabels.join(", ")}` : "Todos os responsáveis"}</span>
+    </div>
     <nav className="catalog-counters catalog-tabs" aria-label="Estado dos casos">
       <Link className={`metric catalog-tab${showClosed ? "" : " is-active"}`} href={link({ estado: null })} aria-current={showClosed ? undefined : "page"}><span>Abertos</span><strong>{open.length}</strong></Link>
       <Link className={`metric catalog-tab${showClosed ? " is-active" : ""}`} href={link({ estado: "encerrados" })} aria-current={showClosed ? "page" : undefined}><span>Encerrados</span><strong>{closed.length}</strong></Link>
@@ -101,13 +115,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     {showClosed ? <div className="list">{closed.map((item) => <div className="list-row case-row" key={item.key}>
       <div><span className="status">{item.kind}</span> <span className="support-case-state is-closed">{item.outcome}</span> <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Encerrado em {shortDate(parseDbDate(item.closedAt))} · <strong className={`case-owner${owner.get(item.key)?.id === admin.id ? " is-me" : ""}`}>Responsável: {ownerLabel(item.key)}</strong></small></div>
       <div className="verification-row-actions"><Link className="button button-ghost button-sm" href={item.href}>Ver</Link></div>
-    </div>)}{!closed.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso encerrado</h2><p className="muted">{who === NOBODY ? "Todo caso encerrado teve um responsável." : "Os casos encerrados aparecem aqui, do mais recente para o mais antigo."}</p></section>}</div> : <>
+    </div>)}{!closed.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso encerrado</h2><p className="muted">{picked.length === 1 && picked[0] === NOBODY ? "Todo caso encerrado teve um responsável." : "Os casos encerrados aparecem aqui, do mais recente para o mais antigo."}</p></section>}</div> : <>
     <p className="muted">{open.length} {open.length === 1 ? "caso aberto" : "casos abertos"}, do mais antigo para o mais recente. Para abrir um caso, alguém precisa assumi-lo: o responsável fica registrado e é quem responde.</p>
     <div className="list">{open.map((item) => { const taken = owner.get(item.key); return <div className="list-row case-row" key={item.key}>
       <div><span className="status">{item.kind}</span> {item.waiting && <span className="support-case-state is-answered">{item.waiting}</span>} <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · {taken ? <strong className={`case-owner${taken.id === admin.id ? " is-me" : ""}`}>Responsável: {taken.id === admin.id ? "você" : taken.name}</strong> : "Ninguém assumiu ainda"}</small></div>
       <div className="verification-row-actions">{taken ? <><Link className="button button-dark button-sm" href={item.href}>Abrir</Link>{taken.id !== admin.id && isAdmin && <form action={assignCaseAction.bind(null, item.key, undefined)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</> : <form action={assignCaseAction.bind(null, item.key, item.href)}><button className="button button-dark button-sm">Assumir e abrir</button></form>}</div>
 
-    </div>; })}{!open.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">{who ? "Nenhum caso aberto com este filtro." : "Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino."}</p></section>}</div>
+    </div>; })}{!open.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">{who.size ? "Nenhum caso aberto com este filtro." : "Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino."}</p></section>}</div>
     </>}
     </div>
   </DashboardShell>;
