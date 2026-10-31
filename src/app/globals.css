@@ -1706,3 +1706,29 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .empty-state { display: grid; gap: 10px; justify-items: start; padding: 30px; }
 .empty-state h2, .empty-state h3 { margin: 0; }
 .empty-state p { margin: 0 0 8px; }
+/* Avaliações: one page, short intro, "Para avaliar" and "Suas avaliações". */
+.reviews-intro { margin: 0; max-width: 70ch; }
+.reviews-list-title { margin: 0 0 4px; font: 850 clamp(1.3rem, 2vw, 1.7rem)/1.1 var(--display); letter-spacing: -.03em; }
+.panel > .reviews-list-title { margin-bottom: 14px; }
+.review-mine > div { display: grid; gap: 4px; }
+.review-mine p { margin: 4px 0 0; }
+.review-mine-date { font-size: .82rem; }
+.review-mine-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.review-tag { padding: 3px 10px; border-radius: 999px; background: var(--paper-2); font-size: .74rem; font-weight: 800; }
+.review-tag.is-verified { background: rgba(126,207,196,.3); color: #1f5d45; }
+/* Account deletion: icon heading, what happens as a list, confirmation folded until asked. */
+.danger-zone { display: grid; gap: 16px; }
+.danger-zone-head { display: flex; gap: 14px; align-items: center; }
+.danger-zone-head h2 { margin: 0; font: 850 clamp(1.4rem, 2.2vw, 1.8rem)/1.1 var(--display); letter-spacing: -.03em; }
+.danger-zone-head p { margin: 4px 0 0; }
+.danger-zone-icon { display: grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: rgba(179,64,58,.14); color: var(--red); }
+.danger-zone-list { display: grid; gap: 6px; margin: 0; padding-left: 20px; line-height: 1.5; }
+.danger-zone-confirm > summary { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--red); border-radius: 999px; color: var(--red); font-weight: 800; font-size: .86rem; cursor: pointer; list-style: none; }
+.danger-zone-confirm > summary::-webkit-details-marker { display: none; }
+.danger-zone-confirm[open] > summary { margin-bottom: 14px; background: rgba(179,64,58,.08); }
+.danger-zone-form { display: grid; gap: 12px; max-width: 560px; }
+.danger-zone-form label { line-height: 1.5; }
+.danger-zone-form .button { justify-self: start; }
+.danger-zone-form .button:disabled { opacity: .45; cursor: not-allowed; }
+/* Group titles above lists of options (Privacidade: Identidade, Experiência e localização…). */
+.privacy-group legend { margin-bottom: 12px; padding-top: 10px; }

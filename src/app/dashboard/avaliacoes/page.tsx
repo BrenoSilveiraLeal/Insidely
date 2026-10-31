@@ -26,11 +26,17 @@ export default async function Page() {
   const answeredIds = new Set((answered ?? []).map((row: { bookingId: string }) => row.bookingId));
   const survey = finished.filter((booking) => !answeredIds.has(booking.id)).slice(0, 3);
   return <DashboardShell mode="user" title="Avaliações" canConsultant={user.role === Role.CONSULTANT}>
-    <div className="profile-management-stack"><section className="reviews-page-heading"><span className="eyebrow">Depois da conversa</span><h2 className="section-title">Avaliações verificadas.</h2><p className="muted reviews-page-subtitle">Assim que o horário da conversa termina, quem agendou pode dar uma nota de 0 a 5 e deixar um comentário, uma vez por encontro.</p></section>
+    <div className="profile-management-stack"><p className="muted reviews-intro">Depois que o horário da conversa termina, você dá uma nota de 0 a 5 e, se quiser, deixa um comentário. Toda avaliação vem de uma conversa que aconteceu pela Insidely.</p>
       {survey.map((booking) => <section className="panel survey-card" key={`survey-${booking.id}`}><div><span className="eyebrow">{booking.professional.user.name} · {shortDate(booking.startsAt)}</span><strong>A conversa ajudou na sua decisão?</strong></div><div className="verification-row-actions">{([["YES", "Sim"], ["PARTLY", "Em parte"], ["NO", "Não"]] as const).map(([value, label]) => <form key={value} action={answerSurveyAction.bind(null, booking.id, value)}><button className="button button-ghost button-sm">{label}</button></form>)}</div></section>)}
+      {pending.length > 0 && <h2 className="reviews-list-title">Para avaliar</h2>}
       {pending.map((booking) => <ReviewForm key={booking.id} bookingId={booking.id} professionalName={booking.professional.user.name} date={shortDate(booking.startsAt)} />)}
-      {!pending.length && <section className="panel"><strong>Nenhuma avaliação pendente.</strong><p className="muted">Quando o horário de uma conversa terminar, ela aparecerá aqui para você avaliar.</p></section>}
-      <section className="panel"><span className="eyebrow">Suas avaliações publicadas</span><div className="list" style={{ marginTop: 18 }}>{published.map((booking) => <div className="list-row" key={booking.id}><div><strong>{booking.professional.user.name}</strong>{booking.review?.comment && <p>{booking.review.comment}</p>}</div><span className="rating">★ {booking.review?.rating}</span></div>)}{!published.length && <p className="muted">Você ainda não publicou avaliações.</p>}</div></section>
+      
+      {published.length > 0 && <section className="panel"><h2 className="reviews-list-title">Suas avaliações</h2><div className="list reviews-mine">{published.map((booking) => <div className="list-row review-mine" key={booking.id}>
+        <div><strong>{booking.professional.user.name}</strong><span className="muted review-mine-date">Conversa de {shortDate(booking.startsAt).split(" às ")[0]}</span>{booking.review?.comment && <p>{booking.review.comment}</p>}
+          <div className="review-mine-tags"><span className="review-tag">Conversa realizada</span>{booking.professional.verificationStatus === "VERIFIED" && <span className="review-tag is-verified">Vínculo verificado</span>}</div></div>
+        <span className="rating">★ {booking.review?.rating}</span>
+      </div>)}</div></section>}
+      {!pending.length && !published.length && <section className="panel empty-state"><h2>Nenhuma avaliação ainda</h2><p className="muted">Quando o horário de uma conversa terminar, ela aparece aqui para você avaliar.</p></section>}
     </div>
   </DashboardShell>;
 }
