@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { confirmMessageAnswersAction, disputeBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
 import { ChatMessageForm } from "@/components/chat-message-form";
+import { ChoiceWithReport } from "@/components/choice-with-report";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { MeetingRoomMessage } from "@/components/meeting-room-message";
@@ -99,12 +100,9 @@ export default async function ConversationPage({ params, searchParams }: { param
         <div><strong>{unfinishedPastDeadline ? "O prazo de respostas terminou." : "O consultor finalizou o atendimento."} Suas perguntas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
         {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}
         {query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente de novo.</p>}
-        <div className="policy-actions">
-          <form action={confirmMessageAnswersAction.bind(null, id)}><button className="button button-accent button-sm">Sim, foram respondidas</button></form>
-          <details className="policy-report"><summary className="button button-ghost button-sm">Não foram respondidas</summary>
+        <ChoiceWithReport confirm={<form action={confirmMessageAnswersAction.bind(null, id)}><button className="button button-accent button-sm">Sim, foram respondidas</button></form>} reportLabel="Não foram respondidas">
             <form action={disputeBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={`/conversa/${id}`}/><p className="muted">O suporte analisa a conversa e decide: se as perguntas não foram respondidas, ou foram só em parte, você recebe o valor de volta, todo ou em parte.</p><textarea className="textarea" name="description" rows={3} aria-label="O que ficou sem resposta" minLength={20} maxLength={2000} required placeholder="Ex.: A pergunta 2 foi respondida só com “depende” e a 3 não foi respondida."/><button className="button button-dark button-sm">Enviar ao suporte</button></form>
-          </details>
-        </div>
+        </ChoiceWithReport>
         <small className="muted">Confirmar encerra o pedido e libera o pagamento ao consultor. Não dá para desfazer.</small>
       </section>}
       {isMessage && query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação enviada. O suporte vai analisar a conversa e você recebe o resultado por notificação.</p>}

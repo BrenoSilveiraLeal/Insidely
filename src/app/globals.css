@@ -1966,3 +1966,8 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 /* "Suas perguntas foram respondidas?" on the conversation page: the two choices side by side. */
 .message-contest .policy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .message-contest .policy-actions form { margin: 0; }
+/* The box to describe a problem opens under the row of choices; the buttons stay where they are. */
+.policy-report-panel { width: 100%; margin-top: 10px; }
+.policy-report-panel > form { display: grid; gap: 8px; justify-items: start; }
+.policy-report-panel .textarea { width: 100%; min-height: 0; background: var(--paper); }
+.policy-actions .button[aria-expanded="true"] { background: rgba(21,23,20,.06); }
