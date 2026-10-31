@@ -1641,3 +1641,9 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .appointment-card .meeting-policy :empty:not(input):not(textarea) { display: none; }
 /* Agenda: day and time picked side by side. */
 .availability-when { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; }
+/* Sobre: room between label, heading and text inside the two large cards. */
+.about-card { display: flex; flex-direction: column; justify-content: flex-end; gap: 0; min-height: 400px; }
+.about-card > svg { margin-bottom: auto; padding-bottom: 40px; box-sizing: content-box; }
+.about-card .eyebrow { margin-bottom: 14px; }
+.about-card h2 { margin: 0 0 22px; font-size: clamp(2rem, 3.4vw, 3.6rem); line-height: .96; }
+.about-card p { margin: 0; max-width: 58ch; line-height: 1.6; }
