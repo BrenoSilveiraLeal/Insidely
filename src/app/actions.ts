@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Role } from "@/lib/domain";
-import { getSuspension, requireUser } from "@/lib/session";
+import { getAuthenticatedUser, getSuspension, requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
@@ -418,7 +418,8 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
   await recordCatalogRequests(user.id, [catalog]);
   const next = String(formData.get("next") || "");
-  redirect(next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard");
+  // Absolute URL: the dashboard loads in a fresh request, which sees the finished sign-up.
+  redirect(`${getAppUrl()}${next ? safeInternalPath(next, role === Role.CONSULTANT ? "/consultor" : "/dashboard") : role === Role.CONSULTANT ? "/consultor" : "/dashboard"}`);
 }
 
 // A customer account adds a consultant profile and keeps everything it had as a customer.
@@ -989,11 +990,15 @@ export async function replyToReviewAction(reviewId: string, profileId: string, f
 }
 
 export async function acceptTermsAction(formData: FormData) {
-  const user = await requireUser(undefined, { allowIncomplete: true, allowWithoutMfa: true });
+  // Not requireUser: it caches the account state for this request (terms not accepted yet), and the
+  // page this action redirects to is rendered in the same request, so it would bounce back here.
+  const user = await getAuthenticatedUser();
+  if (!user) redirect("/entrar?next=/aceitar-termos");
   if (formData.get("accept") !== "on") redirect("/aceitar-termos");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (createSupabaseServiceClient() as any).from("User").update({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }).eq("id", user.id);
-  redirect(safeInternalPath(String(formData.get("next") || ""), "/continuar"));
+  // Absolute URL: the next page loads in a fresh request, with the new terms version.
+  redirect(`${getAppUrl()}${safeInternalPath(String(formData.get("next") || ""), "/continuar")}`);
 }
 
 // Graduated enforcement: warnings are recorded first; the admin page suggests suspension next.
