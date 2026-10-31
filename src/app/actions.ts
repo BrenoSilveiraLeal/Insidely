@@ -1514,13 +1514,17 @@ export async function requestMessageBookingAction(profileId: string, _: string |
     const moderation = moderateChatMessage(question, { countScatteredDigits: false });
     if (!moderation.allowed) return `Pergunta ${index + 1}: ${moderation.reason === "offensive" ? "o texto tem palavrões ou ofensas. Reescreva para continuar." : "o texto parece ter contato ou combinação por fora. As conversas acontecem pela Insidely."}`;
   }
-  const goals = questions.length === 1 ? questions[0] : questions.map((question, index) => `${index + 1}. ${question}`).join("\n\n");
+  const greeting = String(formData.get("greeting") || "").trim().slice(0, 140);
+  if (greeting && !moderateChatMessage(greeting, { countScatteredDigits: false }).allowed) return "A apresentação parece ter contato, combinação por fora ou ofensas. Reescreva para continuar.";
+  const goals = [greeting, ...(questions.length === 1 ? questions : questions.map((question, index) => `${index + 1}. ${question}`))].filter(Boolean).join("\n\n");
   // create_message_booking is added by a migration beyond the generated types. With p_questions
   // (migration 20261101110000); before it, the questions go joined as a single text.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = await createSupabaseServerClient() as any;
   const topics = formData.getAll("topics").map(String);
-  let { data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions });
+  // With p_greeting (migration 20261101111000), before it without.
+  let { data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions, p_greeting: greeting });
+  if (error?.message.includes("Could not find the function")) ({ data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions }));
   if (error?.message.includes("Could not find the function")) ({ data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals }));
   if (error || !bookingId) {
     const message = error?.message ?? "";

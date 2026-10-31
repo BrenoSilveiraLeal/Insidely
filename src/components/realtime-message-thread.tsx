@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { markConversationReadAction } from "@/app/actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type Message = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null };
+type Message = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null; automatic?: boolean };
 // A message the moderation refused: shown only to its sender, as a red "bloqueada" bubble without the text.
 type BlockedNotice = { id: string; createdAt: string; reason: string };
 
@@ -88,6 +88,7 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
         <div className={`message ${side}`}>
           <small>{own ? "Você" : otherName}</small>
           <span>{message.body}</span>
+          {message.automatic && <span className="message-automatic">Enviada automaticamente pela Insidely</span>}
           <span className="message-meta">{messageTime(message.createdAt)}</span>
         </div>
         {lastOwn && <span className={`message-seen ${side}-seen`} title={message.readAt ? `Lida às ${messageTime(message.readAt)}` : undefined}>{message.readAt ? readLabel(message.readAt, now) : "Enviado"}</span>}

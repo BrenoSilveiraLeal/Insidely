@@ -239,8 +239,9 @@ export async function refundUnansweredMessageBookings() {
     const consultantId = one(booking.professionalProfile)?.userId as string | undefined;
     const conversationId = one(booking.conversation)?.id as string | undefined;
     if (!consultantId || !conversationId) continue;
-    const { count } = await supabase.from("Message").select("id", { count: "exact", head: true }).eq("conversationId", conversationId).eq("senderId", consultantId);
-    if (count) continue;
+    // Automatic messages (the welcome message, questions sent by the system) are not answers.
+    const { count, error: countError } = await supabase.from("Message").select("id", { count: "exact", head: true }).eq("conversationId", conversationId).eq("senderId", consultantId).eq("automatic", false);
+    if (countError || count) continue;
     try {
       const payment = one(booking.payment);
       const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));

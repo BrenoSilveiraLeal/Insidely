@@ -15,7 +15,7 @@ export async function postWelcomeMessage(supabase: any, bookingId: string) {
   if (!profile?.welcomeMessage || !conversation || profile.userId === booking.customerId) return;
   const { count } = await supabase.from("Message").select("id", { count: "exact", head: true }).eq("conversationId", conversation.id);
   if (count) return;
-  await supabase.from("Message").insert({ id: crypto.randomUUID(), conversationId: conversation.id, senderId: profile.userId, body: profile.welcomeMessage, createdAt: new Date().toISOString() });
+  await supabase.from("Message").insert({ id: crypto.randomUUID(), conversationId: conversation.id, senderId: profile.userId, body: profile.welcomeMessage, automatic: true, createdAt: new Date().toISOString() });
 }
 
 // Messages nobody read for 3 hours (sent in the last 2 days) trigger one e-mail per conversation to

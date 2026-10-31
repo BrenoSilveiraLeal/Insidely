@@ -47,7 +47,6 @@ export default async function ConversationPage({ params, searchParams }: { param
   const { data: blockedRows } = await (createSupabaseServiceClient() as any).from("ChatModerationEvent").select("id, reason, createdAt").eq("conversationId", conversation.conversationId).eq("userId", user.id).order("createdAt").limit(50);
   const blockedHere = (await getBlockedBookingIds(user.id, [id])).has(id);
   const isMessage = conversation.format === "MESSAGE";
-  const customerMessages = isMessage ? conversation.messages.filter((message) => message.senderId === conversation.customerId).length : 0;
   // In a message booking the customer's messages are the questions sent with the request (up to
   // MESSAGE_QUESTION_LIMIT, posted when paid); the consultant answers freely.
   const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false;
@@ -62,7 +61,7 @@ export default async function ConversationPage({ params, searchParams }: { param
       {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
       {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
       {isMessage && conversation.status === "CONFIRMED" && <section className="panel message-booking-bar">
-        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `${customerMessages === 1 ? "Sua pergunta foi enviada" : `Suas ${customerMessages} perguntas foram enviadas`}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
+        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.${conversation.questionsTotal > 1 ? ` Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal}: ${conversation.questionsSent < conversation.questionsTotal ? "quando você responder, a próxima é enviada automaticamente pela Insidely." : "todas as perguntas já foram enviadas."}` : ""}` : `${conversation.questionsTotal > 1 ? `Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal} enviada${conversation.questionsSent < conversation.questionsTotal ? "; a próxima vai quando o consultor responder" : ""}` : "Sua pergunta foi enviada"}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
         {!consultantMode && <form action={finishMessageBookingAction.bind(null, id)}><button className="button button-ghost button-sm">Minhas dúvidas foram respondidas</button></form>}
       </section>}
       <section className="panel conversation-panel">

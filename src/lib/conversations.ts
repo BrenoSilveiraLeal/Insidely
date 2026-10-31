@@ -1,10 +1,12 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
-export type ConversationMessage = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null };
+export type ConversationMessage = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null; automatic?: boolean };
 export type ConversationView = {
   bookingId: string; conversationId: string; status: string; format: "VIDEO" | "MESSAGE"; startsAt: string; durationMinutes: number; meetingUrl: string | null;
   customerId: string; consultantId: string; viewerIsConsultant: boolean; otherName: string; messages: ConversationMessage[];
+  // "Perguntas por mensagem": questions in the request and how many were sent so far (one at a time).
+  questionsTotal: number; questionsSent: number;
 };
 
 // Conversation tables are read with the service role after checking that the viewer is one of the
@@ -14,7 +16,7 @@ const service = () => createSupabaseServiceClient() as any;
 
 export async function getConversationForParticipant(bookingId: string, userId: string): Promise<ConversationView | null> {
   const supabase = service();
-  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId, questions, questionsSent").eq("id", bookingId).maybeSingle();
   if (!booking) return null;
   const [{ data: profile }, { data: conversation }] = await Promise.all([
     supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
@@ -24,10 +26,10 @@ export async function getConversationForParticipant(bookingId: string, userId: s
   // A customer self-booking their own profile counts as the consultant (it is their own profile).
   const viewerIsConsultant = profile.userId === userId;
   const [{ data: messages }, otherName] = await Promise.all([
-    supabase.from("Message").select("id, body, senderId, createdAt, readAt").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
+    supabase.from("Message").select("id, body, senderId, createdAt, readAt, automatic").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
     viewerIsConsultant ? customerName(supabase, booking.customerId) : consultantPublicName(supabase, booking.professionalProfileId),
   ]);
-  return { bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
+  return { questionsTotal: Array.isArray(booking.questions) ? booking.questions.length : 0, questionsSent: Number(booking.questionsSent ?? 0), bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

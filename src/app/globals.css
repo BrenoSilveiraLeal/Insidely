@@ -1297,6 +1297,7 @@ html { scroll-padding-top: 120px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
 .message-questions { display: grid; gap: 14px; }
+.message-automatic { font-size: .68rem; font-weight: 700; opacity: .7; }
 .message-question { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
 .message-question.is-skipped { opacity: .6; }
 .message-question.is-skipped .textarea { min-height: 0; height: 52px; resize: none; }
