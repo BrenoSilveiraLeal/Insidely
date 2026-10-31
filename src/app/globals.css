@@ -1547,3 +1547,5 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .booking-box .detail-list li > span { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
 .booking-box .detail-list li > span svg { flex: none; }
 .booking-box .detail-list li > strong { text-align: right; }
+.booking-box > h2 { margin: 8px 0 16px; font: 850 clamp(1.9rem, 2.6vw, 2.4rem)/1 var(--display); letter-spacing: -.04em; }
+.booking-box > h2 small { font: 600 .9rem/1 var(--body, inherit); letter-spacing: 0; color: var(--muted); }
