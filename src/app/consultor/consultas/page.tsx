@@ -1,3 +1,4 @@
+import { CalendarDays, ShieldCheck, Video } from "lucide-react";
 import { TwoColumns } from "@/components/two-columns";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
@@ -50,14 +51,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
       const upcoming = ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) && booking.startsAt > new Date();
       return <article className="panel booking-card" key={booking.id}>
-        <header className="booking-card-head">
+        <header className="booking-card-top">
+          <div className="booking-card-who">
+            <h2>{booking.customer.name}</h2>
+            {info?.reputation ? <span className={`booking-reputation ${info.reputation.label === "Atenção" ? "reputation-bad" : ""}`}>★ {info.reputation.average.toFixed(1)} · {info.reputation.label}</span> : info ? <span className="booking-reputation booking-reputation-neutral"><ShieldCheck size={13} aria-hidden="true"/> Cliente identificado</span> : null}
+          </div>
           <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span>
-          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
         </header>
-        <div className="booking-card-person">
-          <h2>{booking.customer.name}</h2>
-          {info?.reputation ? <span className={`booking-reputation ${info.reputation.label === "Atenção" ? "reputation-bad" : ""}`}>★ {info.reputation.average.toFixed(1)} · {info.reputation.label}</span> : info ? <span className="booking-reputation booking-reputation-neutral">Cliente identificado</span> : null}
-        </div>
+        <div className="booking-card-meta"><CalendarDays size={15} aria-hidden="true"/><span>{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}</div>
         <blockquote className="booking-card-goals"><span>O que o cliente quer conversar</span><p>{booking.goals}</p></blockquote>
 
         <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes))}. A conversa e a sala são liberadas depois da confirmação.`
@@ -80,8 +81,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
           <summary>Mais opções</summary>
           <div className="booking-card-more-body">
             {customers.has(booking.id) && <CustomerInfo info={info ?? null}/>}
-            {paid && <div className="booking-card-option"><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely; abre o Google Meet só no horário marcado.</p><a className="text-link" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">insidely.vercel.app/sala/{booking.id.slice(0, 8)}…</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/consultor/consultas"/></div>}
-            {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="booking-card-option"><strong>Gravação</strong><label className="check-row"><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o cliente também aceitar.</span></label><button className="button button-ghost button-sm">Salvar</button></form>}
+            {paid && <div className="booking-card-option"><div><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely: abre o Google Meet só no horário marcado.</p></div><div className="booking-option-actions"><a className="button button-ghost button-sm" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer"><Video size={15} aria-hidden="true"/> Abrir sala</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/consultor/consultas" className="button button-ghost button-sm"/></div></div>}
+            {booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="booking-card-option"><div><strong>Gravação</strong><label className="check-row"><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o cliente também aceitar.</span></label></div><div className="booking-option-actions"><button className="button button-ghost button-sm">Salvar</button></div></form>}
             {booking.status === "AWAITING_CONFIRMATION" && <form className="booking-card-option" action={disputeBookingAction.bind(null, booking.id)}><strong>Problema com o pagamento ou a conversa?</strong><input type="hidden" name="returnTo" value="/consultor/consultas"/><textarea className="textarea" name="description" aria-label="Descreva o problema" minLength={20} maxLength={2000} required placeholder="Explique para o suporte o que aconteceu."/><button className="button button-ghost button-sm">Abrir contestação</button></form>}
             {paid && customers.has(booking.id) && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/><BlockUserForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/></div>}
             {upcoming && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Cancelar conversa</span></summary><div className="cancel-booking-confirmation"><h3>Precisa cancelar esta conversa?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo do cancelamento</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo do cancelamento."/></label><button className="button button-danger button-sm" type="submit">Confirmar cancelamento</button></form></div></details>}

@@ -1590,3 +1590,27 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   .question-list p { font-size: clamp(1.3rem, 2vw, 2rem); }
 }
 .onboarding-pending { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(242,196,93,.16); color: #f1dfb1; font-size: .88rem; line-height: 1.5; }
+/* Consultant booking card: who and status on top, when below, options as a clean list. */
+.booking-card-top { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.booking-card-who { display: grid; gap: 6px; min-width: 0; }
+.booking-card-who h2 { margin: 0; font: 850 clamp(1.35rem, 2vw, 1.65rem)/1.1 var(--display); letter-spacing: -.03em; overflow-wrap: anywhere; }
+.booking-card-top .booking-chip { flex: none; }
+.booking-reputation-neutral { display: inline-flex; align-items: center; gap: 5px; color: #2f7d4f; font-size: .78rem; font-weight: 700; }
+.booking-card-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: -4px; color: var(--ink); font-size: .9rem; font-weight: 700; }
+.booking-card-meta svg { color: var(--muted); }
+.booking-card-note:empty { display: none; }
+.booking-card-more > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); font-weight: 700; list-style: none; }
+.booking-card-more > summary::-webkit-details-marker { display: none; }
+.booking-card-more > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
+.booking-card-more[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.booking-card-more-body { gap: 0; }
+.booking-card-more-body > * { margin: 0; }
+.booking-card-more-body > .booking-card-option, .booking-card-more-body > .customer-info, .booking-card-more-body > .conversation-safety-row, .booking-card-more-body > .cancel-booking-details { padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.booking-card-more-body > :last-child { border-bottom: 0; }
+.booking-card-option { display: grid; gap: 10px; }
+.booking-card-option p { margin: 4px 0 0; font-size: .86rem; }
+.booking-option-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.customer-info summary { display: flex; align-items: center; justify-content: space-between; list-style: none; }
+.customer-info summary::-webkit-details-marker { display: none; }
+.customer-info summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s; }
+.customer-info[open] summary::after { transform: rotate(-135deg); }
