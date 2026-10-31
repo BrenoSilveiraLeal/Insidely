@@ -1732,3 +1732,5 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .danger-zone-form .button:disabled { opacity: .45; cursor: not-allowed; }
 /* Group titles above lists of options (Privacidade: Identidade, Experiência e localização…). */
 .privacy-group legend { margin-bottom: 12px; padding-top: 10px; }
+/* Photo / cover: the format hint sits a little below the buttons, in smaller type. */
+.profile-photo-panel .upload-row + p.muted, .profile-photo-panel .upload-row ~ p.muted, .profile-cover-panel .upload-row ~ p.muted { margin: 12px 0 0; font-size: .78rem; }

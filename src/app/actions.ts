@@ -33,6 +33,7 @@ import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEma
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { formatPersonName } from "@/lib/person-name";
+import { isRepetitive, tidyHeadline, tidyPresentation } from "@/lib/profile-text";
 import { readEmploymentPeriod, saveEmploymentPeriod } from "@/lib/employment-period";
 import { imageModerationMessage, moderateImage } from "@/lib/image-moderation";
 
@@ -323,6 +324,16 @@ export async function saveCustomerIdentityAction(_: FormState, formData: FormDat
 }
 
 // Checks the public texts of a consultant profile; returns the error message or null.
+// Headline and presentation are tidied before saving (lib/profile-text.ts); filler made of one
+// repeated phrase is refused with a clear message.
+function tidyProfileTexts(formData: FormData) {
+  const bio = String(formData.get("bio") ?? "");
+  if (bio && isRepetitive(bio)) return "A apresentação repete a mesma frase. Conte com suas palavras o que você vive no trabalho e sobre o que pode conversar.";
+  if (formData.has("headline")) formData.set("headline", tidyHeadline(String(formData.get("headline"))));
+  if (bio) formData.set("bio", tidyPresentation(bio));
+  return null;
+}
+
 function profileTextError(formData: FormData, fields: [label: string, name: string][]) {
   const found = findUnsafeProfileText(fields.map(([label, name]) => [label, formData.getAll(name).map(String).join(" ")]));
   return found ? unsafeProfileTextMessage(found) : null;
@@ -411,7 +422,7 @@ export async function completeOnboardingAction(_: string | undefined, formData: 
   // Same CPF as an account this person deleted: that account came back, so this sign-up ends here.
   if ("reactivated" in identity && identity.reactivated) redirect("/continuar");
   for (const key of ["cpf", "birthDate", "identityConsent"]) formData.delete(key);
-  if (role === Role.CONSULTANT) { const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS); if (textError) return textError; }
+  if (role === Role.CONSULTANT) { const tidyError = tidyProfileTexts(formData); if (tidyError) return tidyError; const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS); if (textError) return textError; }
   const period = role === Role.CONSULTANT ? readEmploymentPeriod(formData) : null;
   if (typeof period === "string") return period;
   const catalog = role === Role.CONSULTANT ? applyUnlistedCatalog(formData, "companyId", "professionId", "title") : null;
@@ -431,6 +442,8 @@ export async function becomeConsultantAction(_: string | undefined, formData: Fo
   const user = await requireUser([Role.USER]);
   if (formData.get("terms") !== "on") return "Aceite os termos para consultores.";
   if (formData.get("confidentiality") !== "on") return "Aceite o termo de confidencialidade para consultores.";
+  const tidyError = tidyProfileTexts(formData);
+  if (tidyError) return tidyError;
   const textError = profileTextError(formData, ONBOARDING_PROFILE_TEXTS);
   if (textError) return textError;
   const period = readEmploymentPeriod(formData);
@@ -657,7 +670,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
 }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = formatPersonName(String(formData.get("name") || "")); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt);
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const tidyError = tidyProfileTexts(formData); if (tidyError) return tidyError; const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt);
   // Current or former job: a former one needs the date the person left, after the date they joined.
   for (const [index, item] of experiences.entries()) {
     if (item.isCurrent) item.endedAt = "";
