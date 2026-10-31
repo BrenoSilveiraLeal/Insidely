@@ -126,6 +126,6 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         </aside>
       </div>
     </section>
-    {alsoTalked.length > 0 && <section className="section"><div className="container"><span className="eyebrow">Recomendações</span><h2 className="section-title">Quem conversou com {name} também conversou com</h2><div className="grid grid-3">{alsoTalked.map((item, index) => <ProfessionalCard key={item.id} profile={item} index={index}/>)}</div></div></section>}
+    {alsoTalked.length > 0 && <section className="section"><div className="container"><span className="eyebrow">Recomendações</span><h2 className="section-title also-talked-title">Quem conversou com {name} também conversou com</h2><div className="grid grid-3">{alsoTalked.map((item, index) => <ProfessionalCard key={item.id} profile={item} index={index}/>)}</div></div></section>}
   </PublicShell>;
 }

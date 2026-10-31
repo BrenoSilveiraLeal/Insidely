@@ -1801,3 +1801,6 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .message-booking-bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; border-color: rgba(174,160,220,.7); background: rgba(174,160,220,.12); }
 .message-booking-bar p { margin: 4px 0 0; }
 .booking-card-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+/* Section headings followed directly by a card grid keep room above the cards. */
+.section-title + .grid, .also-talked-title + .grid, .section-head + .grid { margin-top: clamp(24px, 3vw, 40px); }
+.also-talked-title { max-width: 22ch; }
