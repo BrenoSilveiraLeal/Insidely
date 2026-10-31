@@ -8,13 +8,17 @@ Depois que a conversa acontece, cliente e consultor podem confirmar pelo aplicat
 
 Se alguém não confirmar, o prazo automático é 24 horas após o fim previsto da conversa. Sem contestação aberta, o cron inicia a transferência depois desse prazo. Se houver contestação, o valor continua retido até a análise. O cron atual roda diariamente às 04:00 UTC; por isso, a operação automática ocorre no primeiro ciclo depois que o prazo de 24 horas vence. Falhas de transferência ficam em `TRANSFER_FAILED` e podem ser tentadas novamente sem duplicar o repasse.
 
-A confirmação da conversa não libera avaliações/ganhos antes das regras de conclusão e a plataforma não deve executar transferências no frontend. Toda transferência real acontece no servidor via `releaseBookingTransfer`.
+Avaliações podem ser enviadas pelo cliente assim que o horário/duração da conversa termina, sem esperar a liberação financeira; uma contestação bloqueia a conclusão financeira automática. A plataforma não deve executar transferências no frontend. Toda transferência real acontece no servidor via `releaseBookingTransfer`.
+
+### Pedidos por mensagem
+
+O fluxo de perguntas também usa `Booking`, `Payment` e `Conversation`, mas não reserva um horário de vídeo. Após o pagamento, as perguntas chegam uma de cada vez; o consultor responde e libera a próxima. Se não houver resposta dentro de 48 horas, o pedido é cancelado e o pagamento é integralmente reembolsado. Depois que as perguntas forem respondidas, o cliente pode confirmar que foram esclarecidas ou o consultor pode finalizar o atendimento; esta última opção mantém o valor retido por 24 horas para uma possível contestação. Consulte [docs/CONVERSATIONS.md](CONVERSATIONS.md) para o ciclo completo.
 
 ## Simulação acadêmica atual
 
 A simulação não cobra, retém, transfere nem devolve dinheiro real. Ela grava estados demonstrativos para mostrar o fluxo. Duas confirmações concluem a simulação imediatamente. Se não houver confirmação, um processo automático marca o repasse demonstrativo como liberado depois do mesmo prazo de segurança de 24 horas, desde que não haja contestação. A migration `booking_release_policy` restringe os jobs demonstrativos a `provider=SIMULATION`, evitando que o SQL marque um pagamento Stripe como transferido sem criar uma `Transfer`.
 
-## Cancelamentos
+## Cancelamentos de reserva por vídeo
 
 Se o consultor cancela antes da conversa, o cliente recebe reembolso integral. Se o cliente cancela com mais de 24 horas de antecedência, recebe 100% de volta; dentro das 24 horas anteriores ao início, recebe 90%, com taxa de cancelamento de 10%. O reembolso real Stripe é solicitado para o meio de pagamento original e usa uma chave idempotente por booking.
 
@@ -27,4 +31,4 @@ Se o consultor cancela antes da conversa, o cliente recebe reembolso integral. S
 - `RELEASED`: simulação concluída ou transferência real concluída; para Stripe, requer `stripeTransferId`.
 - `REFUNDED`: reembolso processado/iniciado no provedor.
 
-Não usar o frontend para alterar estados financeiros. Alterações reais passam por webhook, função protegida ou job autorizado.
+Não usar o frontend para alterar estados financeiros. Alterações reais passam por webhook, função protegida ou job autorizado. O fluxo de checkout em produção ainda não está habilitado no produto; a simulação acadêmica não movimenta dinheiro.

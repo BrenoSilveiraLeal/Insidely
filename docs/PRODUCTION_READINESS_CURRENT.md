@@ -2,6 +2,8 @@
 
 Data da verificacao: 2026-09-12
 
+> Relatório histórico: as evidências abaixo descrevem o estado observado em 12/09/2026 e o commit citado. Elas não foram revalidadas para o `main` atual. Consulte [ROADMAP.md](../ROADMAP.md) para os próximos passos registrados no repositório.
+
 ## Resultado
 
 A aplicacao em producao responde corretamente. O codigo local passa nas validacoes estaticas, unitarias, build e E2E. O go-live completo ainda depende de validacoes de provedores externos que nao devem ser simuladas com dados reais.

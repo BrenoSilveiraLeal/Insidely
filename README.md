@@ -1,15 +1,30 @@
 # Insidely
 
-Marketplace de conversas profissionais para conhecer a realidade de empresas e profissões antes de tomar decisões de carreira. O frontend é Next.js 16 e o backend usa exclusivamente Supabase (Auth, Postgres, Storage e Edge Functions).
+Marketplace de conversas profissionais para conhecer empresas e profissões antes de tomar decisões de carreira. O produto conecta clientes a consultores por videochamada ou por perguntas respondidas no chat.
 
-## Requisitos
+**Stack:** Next.js 16 · React 19 · TypeScript · Supabase · Vercel
 
-- Node.js 24 LTS (consulte `.nvmrc`)
+> O checkout atualmente é demonstrativo: não cobra nem movimenta dinheiro real. A integração Stripe existente no código não está ativa no fluxo de checkout atual.
+
+## O produto
+
+- **Explorar profissionais:** busca por empresa, profissão, localização, senioridade e temas; perfis podem apresentar experiências e avaliações.
+- **Conversas por vídeo:** reserva de horário, chat protegido, sala Google Meet no horário marcado e confirmação após o encontro.
+- **Perguntas por mensagem:** pedido de uma a cinco perguntas; o consultor responde uma de cada vez dentro de 48 horas.
+- **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat, bloqueios, denúncias, contestações e histórico preservado.
+- **Painéis separados:** áreas para clientes, consultores e administração, com notificações, agenda e controles de privacidade.
+
+Veja os estados e as regras de cada formato em [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md).
+
+## Começar localmente
+
+### Requisitos
+
+- Node.js 24 LTS (`.nvmrc`)
 - npm 10 ou mais recente
-- Um projeto Supabase
-- Navegadores Playwright para os testes E2E
+- Projeto Supabase
 
-## Instalação
+### Instalação
 
 ```bash
 npm ci
@@ -17,130 +32,82 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Variáveis:
+Preencha no mínimo `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SERVICE_ROLE_KEY`. O arquivo `.env.example` lista as integrações opcionais. Nunca coloque a chave `service_role` em uma variável `NEXT_PUBLIC_*`.
 
-- `NEXT_PUBLIC_APP_URL`: origem pública da aplicação, sem barra final.
-- `NEXT_PUBLIC_SUPABASE_URL`: URL do projeto Supabase.
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: chave publicável; é segura no navegador quando RLS está correto.
-- `SUPABASE_SERVICE_ROLE_KEY`: chave server-side usada para provisionar perfis, gerar links de cadastro e tarefas protegidas.
-- `CRON_SECRET`: protege os endpoints `/api/cron/*`.
-- `PIX_RECEIVER_KEY`: legado e opcional; o checkout demonstrativo não usa chave Pix real.
-- `OPENAI_API_KEY`: opcional, somente para moderação avançada de avatar. A validação local continua funcionando sem ela.
-- `GOOGLE_MEET_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REFRESH_TOKEN`: criação das salas do Google Meet (veja [`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)).
-- `GOOGLE_LOGIN_CLIENT_ID` e `GOOGLE_LOGIN_CLIENT_SECRET` (opcionais): login com Google feito pelo próprio site, para a tela do Google mostrar "Prosseguir para insidely.vercel.app" em vez do endereço do Supabase. O cliente OAuth precisa ter o redirect `<APP_URL>/auth/google/callback`, e o Client ID precisa estar em Supabase → Authentication → Providers → Google → Client IDs. Sem elas, o login usa o OAuth do Supabase.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM`: envio de e-mails (Gmail com senha de app); `RESEND_API_KEY`/`RESEND_FROM_EMAIL` são a alternativa (veja [`docs/EMAIL-SETUP.md`](docs/EMAIL-SETUP.md)).
+## Banco de dados e migrations
 
-Nunca exponha uma chave secret/service-role em `NEXT_PUBLIC_*`.
+`supabase/baseline/schema.sql` é o snapshot do esquema-base. Para um projeto novo, aplique o baseline e as migrations incrementais na ordem. Para o projeto Supabase já conectado, confira o histórico remoto antes de aplicar alterações: migrations antigas foram registradas por caminhos diferentes e um `db push` direto pode tentar reaplicar versões existentes.
 
-## Supabase
-
-`supabase/baseline/schema.sql` é o snapshot reproduzível do esquema legado. Em um projeto vazio, aplique-o uma vez e depois execute, em ordem, as migrations incrementais de `supabase/migrations`. Em projetos novos, aplique as migrations com `npx supabase db push`. No projeto atual, aplique cada migration nova isoladamente (veja "Histórico de migrations" no fim deste arquivo):
+Procedimento usado para aplicar uma migration isoladamente:
 
 ```bash
 npx supabase link --project-ref <project-ref>
 npx supabase db query --linked -f supabase/migrations/<arquivo>.sql
-npx supabase migration repair --status applied <versão> --linked
+npx supabase migration repair --status applied <versao> --linked
 ```
 
-Elas criam/atualizam RPCs com validação de `auth.uid()`, índices, RLS e os buckets:
-
-- `avatars`: público para leitura; escrita e remoção limitadas ao diretório do titular; 3 MB; JPEG/PNG/WEBP.
-- `verification-documents`: privado; titular e administradores autorizados; 5 MB; PDF/JPEG/PNG/WEBP.
-
-A Edge Function de exclusão está em `supabase/functions/delete-account`:
+Consulte [docs/DEPLOY.md](docs/DEPLOY.md) e o histórico em `supabase/migrations`. A Edge Function de exclusão de conta fica em `supabase/functions/delete-account` e é publicada com:
 
 ```bash
 npx supabase functions deploy delete-account
 ```
 
-Ela exige JWT, confirmação do e-mail, remove arquivos, anonimiza o registro necessário para integridade histórica, registra auditoria mínima e exclui o usuário do Supabase Auth.
+## Integrações opcionais
 
-## Autenticação
+- **Google Meet:** `GOOGLE_MEET_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Veja [docs/GOOGLE-MEET-SETUP.md](docs/GOOGLE-MEET-SETUP.md).
+- **E-mail:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, ou Resend com `RESEND_API_KEY` e `RESEND_FROM_EMAIL`. Veja [docs/EMAIL-SETUP.md](docs/EMAIL-SETUP.md).
+- **Stripe:** `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. O checkout atual permanece demonstrativo. Veja [docs/STRIPE-SETUP.md](docs/STRIPE-SETUP.md) e [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md).
+- **Web push:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` habilitam notificações push no navegador.
+- **Moderação avançada de imagem:** `OPENAI_API_KEY`; as validações locais continuam ativas sem ela.
+- **Tarefas agendadas:** `/api/cron/*` usa `CRON_SECRET` quando configurado. Consulte [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
-Google e LinkedIn usam Supabase Auth. Configure os client IDs/secrets no painel Supabase e cadastre `<APP_URL>/auth/callback` nos provedores. O callback aceita apenas caminhos locais e sincroniza ambos os provedores pela RPC genérica `sync_social_profile`.
+O login social usa Supabase Auth. Opcionalmente, `GOOGLE_LOGIN_CLIENT_ID` e `GOOGLE_LOGIN_CLIENT_SECRET` configuram o OAuth Google pelo próprio site: cadastre `<APP_URL>/auth/google/callback` como redirect no cliente OAuth e inclua o Client ID na configuração do provedor Google no Supabase. Sem essas variáveis, o fluxo usa o OAuth do Supabase.
 
-Cadastro com e-mail e senha: quando o SMTP está configurado, a aplicação gera o link de confirmação (Supabase Admin `generateLink`), envia pelo próprio SMTP e o valida em `/auth/confirm`; o mesmo vale para "Esqueci minha senha". O perfil da aplicação (`public."User"`) é criado no callback, na confirmação ou no primeiro login, o que for primeiro. O papel escolhido no cadastro (cliente ou consultor) vem pré-selecionado no onboarding, que também pede o valor da conversa do consultor.
+## Estrutura do repositório
 
-O 2FA usa Supabase MFA TOTP: cadastro de fator, QR Code, confirmação, listagem, remoção, desafio após login e verificação AAL2. Se Challenge/Verify estiver desativado no painel Auth, habilite-o para TOTP.
+| Caminho | Conteúdo |
+| --- | --- |
+| `src/app` | Rotas, páginas, API routes e Server Actions. |
+| `src/components` | Componentes de interface, incluindo componentes client. |
+| `src/lib` | Políticas de domínio, sessão, consultas e integrações. |
+| `supabase/migrations` | Evolução incremental do banco, RPCs, triggers e RLS. |
+| `supabase/functions` | Edge Functions. |
+| `docs` | Guias operacionais, segurança, pagamentos, QA e arquitetura. |
+| `e2e` | Cenários automatizados com Playwright. |
 
-## Pagamento — demonstração acadêmica
+A visão das fronteiras e do fluxo de dados fica em [ARCHITECTURE.md](ARCHITECTURE.md).
 
-O checkout atual é uma **simulação**: oferece Pix, cartão de crédito, cartão de débito e boleto, mas não coleta dados financeiros nem chama a Stripe. Ao confirmar, registra o pagamento como simulado e confirma a reserva. Não há cobrança ou repasse de dinheiro. A integração Stripe permanece no código para possível evolução futura e não faz parte do checkout demonstrativo.
-
-Regras do ciclo da conversa:
-
-- O pagamento precisa ser confirmado em até 30 minutos após a solicitação (ou até o fim do horário, no caso de conversa imediata); depois disso a reserva expira e o horário é liberado.
-- Só aparecem para agendamento horários com pelo menos 10 minutos restantes.
-- Depois que a conversa começa, consultor e cliente podem confirmar que ela aconteceu; com as duas confirmações ela é concluída e o cliente pode avaliar. Sem contestação, a conclusão é automática 24 horas após o fim.
-- A sala do Google Meet só é criada no horário de início e é trancada após o fim (veja [`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)); a avaliação abre para o cliente assim que o horário da conversa termina.
-- Toda conta (cliente ou consultor) registra CPF (validado e único por conta) e data de nascimento (18+) no cadastro; contas antigas passam por `/identificacao` no próximo acesso, e o banco recusa perfis de consultor e agendamentos sem identificação. O consultor vê o CPF mascarado e a idade de quem agenda. A tabela `CustomerIdentity` não é exposta à Data API.
-- O chat não aceita telefone (inclusive por extenso), e-mail, links, redes sociais, pagamento por fora, palavrões ou ofensas (`src/lib/chat-moderation.ts`, repetido em `send_message`); as tentativas ficam em `ChatModerationEvent` e aparecem em `/admin/denuncias`.
-- Empresa e área de atuação são escolhidas por busca com sugestões; o que não estiver no catálogo é digitado como "Outra", o perfil fica com "Empresa não cadastrada"/"Área não cadastrada" e o pedido vai para `/admin/catalogo`, onde o admin adiciona, vincula a um item existente ou recusa (os perfis são atualizados na aprovação).
-- Uma conta de cliente vira consultor em `/dashboard/virar-consultor` (RPC `become_consultant`), mantendo o histórico de cliente.
-- O consultor pode agendar no próprio perfil para testes (a confirmação vale pelos dois lados), mas não pode avaliar a si mesmo.
-
-## Comandos
+## Comandos úteis
 
 ```bash
-npm run db:health
-npx tsc --noEmit
-npm run lint
-npm test
-npm run build
-npx playwright install
-npm run test:e2e
+npm run db:health       # verifica a Data API configurada
+npx tsc --noEmit        # checagem de tipos
+npm run lint            # ESLint
+npm test                # testes unitários
+npm run build           # build de produção
+npm run test:e2e        # Playwright
 ```
 
-`db:health` consulta de verdade a Data API configurada e retorna código diferente de zero em caso de falha.
+Os testes autenticados usam duas contas configuradas no ambiente E2E. Consulte [docs/E2E_TESTS.md](docs/E2E_TESTS.md) antes de executá-los.
 
-## Deploy
+## Documentação
 
-O repositório está conectado à Vercel. Configure as mesmas variáveis nos ambientes Preview/Production, aplique migrations e publique a Edge Function antes de promover o deploy.
+| Documento | Assunto |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Camadas, autorização, dados e rotas principais. |
+| [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md) | Ciclo de vídeo e perguntas por mensagem. |
+| [ROADMAP.md](ROADMAP.md) | Entregas atuais e próximos pontos operacionais. |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Ordem de publicação e verificação de deployment. |
+| [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md) | Simulação atual e integração financeira prevista. |
+| [docs/SUPABASE_SECURITY_REVIEW.md](docs/SUPABASE_SECURITY_REVIEW.md) | RLS, RPCs, views e dados sensíveis. |
+| [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | Crons, alertas e monitoramento. |
+| [docs/E2E_TESTS.md](docs/E2E_TESTS.md) | Preparação e execução dos fluxos E2E. |
+| `docs/QA_*.md` | Relatórios de QA feitos em datas específicas; leia a data antes de tratar um resultado como atual. |
 
-## Documentação operacional
+## Segurança
 
-Veja [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/PAYMENTS_AND_TRANSFERS.md`](docs/PAYMENTS_AND_TRANSFERS.md), [`docs/SUPABASE_SECURITY_REVIEW.md`](docs/SUPABASE_SECURITY_REVIEW.md), [`docs/E2E_TESTS.md`](docs/E2E_TESTS.md) e [`docs/QA_FINAL.md`](docs/QA_FINAL.md).
-
-## Segurança e operação
-
-- RLS permanece habilitado; autorização não usa `user_metadata`.
-- As views públicas são projeções deliberadamente limitadas e rodam com os direitos do dono (sem `security_invoker`) porque as tabelas-base não são expostas a `anon`; recriar uma delas com `security_invoker = true` quebra a busca e os perfis públicos. Qualquer nova coluna precisa de revisão de privacidade. Views internas usam `security_invoker`.
-- O endpoint `/api/health` chama uma RPC sem acesso a dados e nunca revela nomes de tabelas ou mensagens internas.
-- Documentos de verificação nunca usam URL pública.
-- RPCs privilegiadas revogam execução de `PUBLIC` e derivam identidade de `auth.uid()`.
-- Revise periodicamente os advisors de segurança/desempenho do Supabase.
-- `npm audit`: o único alerta restante é do `braces` (dependência da ferramenta de lint `eslint-config-next`), sem versão corrigida publicada; ele não faz parte do site publicado.
-
-## Solução de problemas
-
-- `Invalid Version` no npm: use Node 24 (veja `.nvmrc`) e o lockfile versionado; não reutilize `node_modules` antigo.
-- Login social volta com erro: confira URL de callback e credenciais no painel Supabase/provedor.
-- 2FA não desafia: confira se há fator `verified` e se TOTP Challenge/Verify está habilitado.
-- Link da sala sai como `meet.jit.si`: a criação no Google falhou. `Google OAuth failed: 400` nos logs indica refresh token vencido; deixe o app OAuth "Em produção" e gere um token novo ([`docs/GOOGLE-MEET-SETUP.md`](docs/GOOGLE-MEET-SETUP.md)).
-- E-mails não chegam: `Resend failed: 403` indica domínio do remetente não verificado; configure o Gmail SMTP ([`docs/EMAIL-SETUP.md`](docs/EMAIL-SETUP.md)).
-- Cadastro mostra "Não foi possível enviar o e-mail de confirmação": o SMTP não está configurado ou recusou o envio.
-- Upload negado: confirme migration dos buckets, MIME, tamanho e que o caminho começa pelo UUID autenticado.
-
-
-## Admin de demonstração
-
-Para habilitar o painel administrativo em um ambiente de demonstração, crie a conta normalmente e, após confirmar seu e-mail, execute no SQL Editor do Supabase:
-
-    update public."User" set role = 'ADMIN' where email = 'email-da-conta@example.com';
-
-Aplique as novas migrations em ordem antes de usar o painel. Não use uma conta de cliente como administrador em produção.
-
-
-## Histórico de migrations
-
-O projeto continha duas migrations locais com a versão 20260826070000. A lista remota consultada não contém essa versão; por isso, a migration de fixture E2E foi renumerada para 20260826070001.
-
-O histórico remoto não registra várias migrations antigas aplicadas por outros meios, então `supabase db push` tentaria reaplicá-las. Para aplicar uma migration nova isoladamente: `npx supabase db query --linked -f supabase/migrations/<arquivo>.sql` seguido de `npx supabase migration repair --status applied <versão> --linked`.
-
-## Operação e monitoramento
-
-- **Status:** `/admin/status` mostra banco, Google Meet, e-mail, tarefas automáticas e os erros do servidor dos últimos 7 dias (capturados por `src/instrumentation.ts`). Falha de tarefa ou do Meet gera aviso no sino e por e-mail aos admins (no máximo 1 a cada 6 horas por problema).
-- **Dependências:** o Dependabot abre pull requests semanais com atualizações.
-- **Site fora do ar (UptimeRobot, gratuito):** crie um monitor HTTP(s) para `https://insidely.vercel.app/api/health` a cada 5 minutos com alerta por e-mail.
-- **Notificações no celular (web push):** gere as chaves com `npx web-push generate-vapid-keys` e cadastre na Vercel `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` (Production), depois faça redeploy. Sem elas, a opção não aparece em Minha conta.
-- **Testes:** `npm test` (unitários, inclui o contraste das cores do site) e `npx playwright test e2e/public-pages.spec.ts` (páginas públicas com verificação de acessibilidade axe).
+- RLS permanece habilitado; identidade e papel são resolvidos no servidor a partir da sessão autenticada.
+- Dados de identidade e documentos de verificação não são expostos em views públicas.
+- RPCs privilegiadas validam autorização e revogam execução de `PUBLIC` e `anon`.
+- Views públicas devem expor somente os campos aprovados para o perfil público. Revise privacidade antes de acrescentar colunas.
+- Nunca execute pagamentos, reembolsos ou alterações financeiras no navegador.
