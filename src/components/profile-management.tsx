@@ -3,7 +3,7 @@ import { DateTextInput } from "@/components/masked-inputs";
 import { CityInput } from "@/components/city-input";
 import { SuggestInput } from "@/components/suggest-input";
 import { KeepValuesForm } from "@/components/keep-values-form";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Plus, Trash2, Upload, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { FilePicker } from "@/components/file-picker";
@@ -68,7 +68,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
           <div className="field"><label htmlFor="profile-mode">Modelo de trabalho</label><select className="select" id="profile-mode" name="workMode" defaultValue={profile.workMode}><option value="REMOTE">Remoto</option><option value="HYBRID">Híbrido</option><option value="ONSITE">Presencial</option></select></div>
         </div>
         <div className="field"><label htmlFor="profile-seniority">Nível</label><select className="select" id="profile-seniority" name="seniority" defaultValue={profile.seniority}><option value="INTERN">Estágio</option><option value="JUNIOR">Júnior</option><option value="MID">Pleno</option><option value="SENIOR">Sênior</option><option value="LEAD">Liderança</option><option value="MANAGER">Gestão</option></select></div>
-        <details className="profile-edit-more"><summary>Nome e idade no perfil</summary>
+        <details className="profile-edit-more"><summary><span className="profile-edit-more-icon" aria-hidden="true"><UserRound size={18}/></span><span className="profile-edit-more-text"><strong>Nome e idade no perfil</strong><small>Opcional · nome fictício, sobrenome e faixa etária</small></span><ChevronDown className="profile-edit-more-chevron" size={18} aria-hidden="true"/></summary>
           <p className="muted">Por padrão o perfil não mostra seu nome. Você escolhe o que aparece em Privacidade do perfil.</p>
           <div className="profile-fields-row">
             <div className="field"><label htmlFor="profile-pseudonym">Nome fictício</label><input className="input" id="profile-pseudonym" name="pseudonym" maxLength={40} defaultValue={profile.pseudonym??""} placeholder="Ex.: Dev Backend SP"/></div>

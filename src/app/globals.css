@@ -1804,3 +1804,17 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 /* Section headings followed directly by a card grid keep room above the cards. */
 .section-title + .grid, .also-talked-title + .grid, .section-head + .grid { margin-top: clamp(24px, 3vw, 40px); }
 .also-talked-title { max-width: 22ch; }
+/* Editar perfil: "Nome e idade no perfil" as a clickable card row with a rotating chevron. */
+.profile-edit-more { gap: 0; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.5); overflow: hidden; }
+.profile-edit-more > summary { display: flex; gap: 12px; align-items: center; padding: 14px 16px; list-style: none; cursor: pointer; color: var(--ink); transition: background .2s; }
+.profile-edit-more > summary::-webkit-details-marker { display: none; }
+.profile-edit-more > summary:hover { background: var(--paper); }
+.profile-edit-more[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--line); }
+.profile-edit-more-icon { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--paper-2); }
+.profile-edit-more-text { display: grid; flex: 1; gap: 2px; }
+.profile-edit-more-text strong { font-size: .95rem; }
+.profile-edit-more-text small { color: var(--muted); font-size: .78rem; font-weight: 500; }
+.profile-edit-more-chevron { flex: none; color: var(--muted); transition: transform .2s; }
+.profile-edit-more[open] .profile-edit-more-chevron { transform: rotate(180deg); }
+.profile-edit-more > :not(summary) { margin: 14px 16px 0; }
+.profile-edit-more > :last-child { margin-bottom: 16px; }
