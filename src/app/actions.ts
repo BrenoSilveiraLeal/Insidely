@@ -1349,11 +1349,18 @@ export async function addAdminNoteAction(userId: string, formData: FormData) {
 
 // Case queue: an admin takes ownership of a report, a reported review or a dispute.
 // Taking a case records who handles it; a case only opens after someone took it. With openHref
-// the admin lands on the case right away ("Assumir e abrir").
+// the admin lands on the case right away ("Assumir e abrir"). Support staff take only support
+// requests and reports, and never a case someone else already took.
 export async function assignCaseAction(caseKey: string, openHref?: string) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (createSupabaseServiceClient() as any).from("CaseAssignment").upsert({ caseKey, adminUserId: admin.id, assignedAt: new Date().toISOString() }, { onConflict: "caseKey" });
+  const supabase = createSupabaseServiceClient() as any;
+  if (admin.role === Role.SUPPORT) {
+    if (!caseKey.startsWith("report:")) redirect("/admin/casos");
+    const { data: taken } = await supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", caseKey).maybeSingle();
+    if (taken && taken.adminUserId !== admin.id) redirect("/admin/casos");
+  }
+  await supabase.from("CaseAssignment").upsert({ caseKey, adminUserId: admin.id, assignedAt: new Date().toISOString() }, { onConflict: "caseKey" });
   after(() => logAdminAction(admin.id, "take_case", null, caseKey));
   revalidatePath("/admin/casos");
   if (openHref) redirect(safeInternalPath(openHref, "/admin/casos").startsWith("/admin/") ? safeInternalPath(openHref, "/admin/casos") : "/admin/casos");
@@ -1409,7 +1416,7 @@ export async function adminDeleteAccountAction(userId: string, formData: FormDat
 // the person in the app (notification → /dashboard/suporte/[id]) and by e-mail. "REPLY" keeps the
 // case open waiting for the person; RESOLVED / DISMISSED close it with that last message.
 export async function answerReportAction(reportId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
   const decision = String(formData.get("decision") || "");
   const reply = String(formData.get("reply") || "").trim();
   const back = `/admin/casos/relato/${reportId}`;
@@ -1466,6 +1473,29 @@ export async function closeSupportCaseAction(reportId: string) {
   if (report) await notifyCaseStaff(supabase, reportId, `Caso marcado como resolvido: ${report.category}`, "Quem abriu o caso confirmou que o problema foi resolvido.", now);
   revalidatePath(`/dashboard/suporte/${reportId}`); revalidatePath("/admin/casos");
   redirect(`/dashboard/suporte/${reportId}?ok=resolvido`);
+}
+
+// After a case closed, the person who opened it rates the service once (Ruim, Bom, Ótimo) with an
+// optional comment. The rating goes to whoever took the case, or else whoever answered last.
+export async function rateSupportCaseAction(reportId: string, formData: FormData) {
+  const user = await requireUser();
+  const back = `/dashboard/suporte/${reportId}`;
+  const rating = String(formData.get("rating") || "");
+  const comment = String(formData.get("comment") || "").trim().slice(0, 1000);
+  if (!["RUIM", "BOM", "OTIMO"].includes(rating)) redirect(`${back}?erro=avaliacao#avaliacao`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: report } = await supabase.from("Report").select("id").eq("id", reportId).eq("reporterId", user.id).in("status", ["RESOLVED", "DISMISSED"]).maybeSingle();
+  if (!report) redirect(back);
+  const [{ data: owner }, { data: lastStaff }] = await Promise.all([
+    supabase.from("CaseAssignment").select("adminUserId").eq("caseKey", `report:${reportId}`).maybeSingle(),
+    supabase.from("ReportMessage").select("authorId").eq("reportId", reportId).eq("fromStaff", true).order("createdAt", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const { error } = await supabase.from("SupportRating").insert({ reportId, raterId: user.id, staffUserId: owner?.adminUserId ?? lastStaff?.authorId ?? null, rating, comment: comment || null });
+  // 23505: already rated (one rating per case).
+  if (error && error.code !== "23505") redirect(`${back}?erro=avaliacao#avaliacao`);
+  revalidatePath(back);
+  redirect(`${back}?ok=avaliado#avaliacao`);
 }
 
 // "Perguntas por mensagem": no time slot; the chat opens for 48 hours once paid (migration

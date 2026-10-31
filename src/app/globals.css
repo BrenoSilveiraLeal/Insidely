@@ -1318,6 +1318,23 @@ html { scroll-padding-top: 120px; }
 .support-reply { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .support-reply-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
 .support-reply > small { text-align: right; text-wrap: balance; }
+.support-rate { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+.support-rate-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.support-rate-options label { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s; }
+.support-rate-options label:hover { border-color: var(--ink); }
+.support-rate-options label:has(input:checked) { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.support-rate-options input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.support-rate-options label:has(input:focus-visible) { outline: 3px solid rgba(20,103,185,.28); outline-offset: 2px; }
+.support-rate-done { padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); }
+.support-rate-done strong { color: var(--ink); }
+.staff-rating-summary { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+.staff-rating-summary > div:first-child { display: grid; gap: 2px; }
+.staff-rating-summary > div:first-child strong { font: 900 2.6rem/1 var(--display); }
+.staff-rating-bars { display: grid; gap: 6px; }
+.staff-rating-bars > div { display: grid; grid-template-columns: 52px 1fr 28px; gap: 10px; align-items: center; font-size: .85rem; }
+.staff-rating-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.staff-rating-bar > span { display: block; height: 100%; background: var(--ink); }
+@media (max-width: 520px) { .staff-rating-summary { grid-template-columns: 1fr; } }
 .support-waiting { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--paper); color: var(--muted); font-size: .88rem; }
 .support-resolve { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; margin-top: 18px; }
 .support-resolve p { margin: 4px 0 0; }

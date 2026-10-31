@@ -1,19 +1,19 @@
 import { preferredDashboardMode } from "@/lib/dashboard-mode";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { closeSupportCaseAction, replySupportCaseAction } from "@/app/actions";
+import { closeSupportCaseAction, rateSupportCaseAction, replySupportCaseAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { FlashMessage } from "@/components/flash-message";
 import { SupportThread } from "@/components/support-thread";
 import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
-import { getSupportCase, OPEN_REPORT_STATUSES, personCaseStatus } from "@/lib/support-threads";
+import { getSupportCase, getSupportRating, OPEN_REPORT_STATUSES, personCaseStatus, SUPPORT_RATINGS, supportRatingLabel } from "@/lib/support-threads";
 
 export const metadata = { title: "Seu caso" };
 export const dynamic = "force-dynamic";
 
-const ERRORS: Record<string, string> = { curta: "Escreva sua mensagem antes de enviar.", limite: "Você enviou muitas mensagens na última hora. Aguarde um pouco.", fechado: "Este caso já foi encerrado. Se precisar, abra um novo pedido de ajuda." };
+const ERRORS: Record<string, string> = { curta: "Escreva sua mensagem antes de enviar.", limite: "Você enviou muitas mensagens na última hora. Aguarde um pouco.", fechado: "Este caso já foi encerrado. Se precisar, abra um novo pedido de ajuda.", avaliacao: "Escolha Ruim, Bom ou Ótimo para enviar a avaliação." };
 
 // One support case for the person who opened it: the conversation with the team, a reply box,
 // and "resolvido" to close it. Replies continue this case instead of opening a new one.
@@ -27,9 +27,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const answered = messages.some((message) => message.fromStaff);
   // The team answered last and now waits for the person (status IN_REVIEW).
   const waitingOnPerson = report.status === "IN_REVIEW";
+  // Once the case closed after an answer from the team, the person rates the service (only staff see it).
+  const rating = !open && answered ? await getSupportRating(report.id) : undefined;
   return <DashboardShell mode={await preferredDashboardMode(user.role)} title={report.category} canConsultant={user.role === Role.CONSULTANT}>
     {query.ok === "enviada" && <FlashMessage>Mensagem enviada. A equipe vai responder aqui mesmo.</FlashMessage>}
     {query.ok === "resolvido" && <FlashMessage>Obrigado! O caso foi marcado como resolvido.</FlashMessage>}
+    {query.ok === "avaliado" && <FlashMessage>Obrigado pela avaliação! Ela ajuda a melhorar o suporte.</FlashMessage>}
     {query.erro && <p className="form-error" role="alert">{ERRORS[query.erro] ?? "Não foi possível enviar. Tente de novo."}</p>}
     <p className="case-back"><Link className="text-link" href="/dashboard/suporte">← Seus casos</Link></p>
     <section className="panel support-case">
@@ -49,6 +52,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <textarea className="textarea" id="body" name="body" rows={4} maxLength={4000} required placeholder={waitingOnPerson ? "Explique o que continua acontecendo ou responda à pergunta do suporte." : "Escreva aqui. A equipe responde neste mesmo caso."}/>
         <div className="support-reply-actions">{waitingOnPerson && <a className="button button-ghost button-sm" href="#">Cancelar</a>}<button className="button button-dark">Enviar mensagem</button></div>
       </form>}
+      {rating === null && <form className="support-rate" id="avaliacao" action={rateSupportCaseAction.bind(null, report.id)}>
+        <div><strong>Como foi o atendimento do suporte?</strong><p className="muted">Sua avaliação é vista só pela equipe da Insidely.</p></div>
+        <fieldset className="support-rate-options"><legend className="sr-only">Avaliação do atendimento</legend>{SUPPORT_RATINGS.map((item) => <label key={item.value}><input type="radio" name="rating" value={item.value} required/>{item.label}</label>)}</fieldset>
+        <label className="field"><span>Comentário (opcional)</span><textarea className="textarea" name="comment" rows={3} maxLength={1000} placeholder="Conte se o atendimento ajudou a resolver o seu problema."/></label>
+        <div className="support-reply-actions"><button className="button button-dark">Enviar avaliação</button></div>
+      </form>}
+      {rating && <p className="support-rate-done" id="avaliacao">Você avaliou o atendimento como <strong>{supportRatingLabel(rating.rating)}</strong>.{rating.comment && <> “{rating.comment}”</>}</p>}
     </section>
   </DashboardShell>;
 }

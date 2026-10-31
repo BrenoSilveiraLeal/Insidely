@@ -25,7 +25,9 @@ const ERRORS: Record<string, string> = {
 // One support request or report, handled as a conversation with the person who opened it.
 // Left: the thread and the reply box. Right: who is involved, the booking and who owns the case.
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; erro?: string }> }) {
-  const admin = await requireUser([Role.ADMIN]);
+  const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
+  // Support staff answer the case; account pages, warnings and suspensions stay with admins.
+  const isAdmin = admin.role === Role.ADMIN;
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const found = await getSupportCase(id);
   if (!found) notFound();
@@ -47,11 +49,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const isSupport = !report.targetUserId && !report.bookingId;
   const open = OPEN_REPORT_STATUSES.includes(report.status);
   const waitingOnTeam = report.status === "OPEN";
-  const role = (value: string) => value === "CONSULTANT" ? "Consultor" : value === "ADMIN" ? "Admin" : "Cliente";
-  const personCard = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <><Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link><small className="muted">{role(person.role)} · {person.email}</small></> : <small className="muted">Conta removida</small>}</div>;
+  const role = (value: string) => value === "CONSULTANT" ? "Consultor" : value === "ADMIN" ? "Admin" : value === "SUPPORT" ? "Suporte" : "Cliente";
+  const personCard = (label: string, person: Person | undefined) => <div className="case-fact"><span>{label}</span>{person ? <>{isAdmin ? <Link className="text-link" href={`/admin/usuarios/${person.id}`}>{person.name || "Sem nome"}</Link> : <strong>{person.name || "Sem nome"}</strong>}<small className="muted">{role(person.role)} · {person.email}</small></> : <small className="muted">Conta removida</small>}</div>;
   const stateLabel = waitingOnTeam ? "Aguardando a equipe" : report.status === "IN_REVIEW" ? "Aguardando a pessoa" : report.status === "RESOLVED" ? "Resolvido" : "Arquivado";
 
-  return <DashboardShell mode="admin" title={report.category}>
+  return <DashboardShell mode={isAdmin ? "admin" : "support"} title={report.category}>
     {query.ok === "enviada" && <FlashMessage>Resposta enviada. A pessoa recebe um aviso no app e por e-mail.</FlashMessage>}
     {query.erro && <p className="form-error">{ERRORS[query.erro] ?? ERRORS["1"]}</p>}
     <p className="case-back"><Link className="text-link" href="/admin/casos">← Voltar para Casos</Link></p>
@@ -69,15 +71,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
           <small className="muted">“Enviar resposta” deixa o caso aberto; “Encerrar” fecha o caso com esta mensagem.</small>
         </form>}
-        {open && !mine && <div className="case-not-mine"><p className="muted">Este caso é de <strong>{ownerName}</strong>. Você pode acompanhar, mas só o responsável responde.</p><form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form></div>}
+        {open && !mine && <div className="case-not-mine"><p className="muted">Este caso é de <strong>{ownerName}</strong>. Você pode acompanhar, mas só o responsável responde.</p>{isAdmin && <form action={assignCaseAction.bind(null, `report:${report.id}`, `/admin/casos/relato/${report.id}`)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</div>}
       </section>
       <aside className="case-aside">
         <div className="case-fact"><span>Responsável</span><strong>{mine ? "Você" : ownerName}</strong></div>
         {personCard(isSupport ? "Quem pediu ajuda" : "Quem denunciou", reporter)}
         {!isSupport && personCard("Pessoa denunciada", target)}
         {booking && <div className="case-fact"><span>Conversa</span><strong>{shortDate(parseDbDate(booking.startsAt))}</strong><small className="muted">{bookingStatusLabel(booking.status)} · {money(booking.totalCents)}</small></div>}
-        {target && open && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${target.id}#suspensao`}>Advertir ou suspender</Link>}
-        {reporter && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${reporter.id}`}>Ver conta de quem abriu</Link>}
+        {isAdmin && target && open && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${target.id}#suspensao`}>Advertir ou suspender</Link>}
+        {isAdmin && reporter && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${reporter.id}`}>Ver conta de quem abriu</Link>}
       </aside>
     </div>
   </DashboardShell>;

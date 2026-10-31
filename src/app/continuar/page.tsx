@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/session";
+import { homeFor, requireUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ContinuePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
@@ -10,5 +10,5 @@ export default async function ContinuePage({ searchParams }: { searchParams: Pro
   const user = await requireUser(undefined, { allowIncomplete: true });
   if (!user.onboardingCompleted) redirect(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
   if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) redirect(next);
-  redirect(user.role === "CONSULTANT" ? "/consultor" : user.role === "ADMIN" ? "/admin" : "/dashboard");
+  redirect(homeFor(user.role));
 }

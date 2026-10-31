@@ -9,9 +9,9 @@ type Mode = "user" | "consultant";
 // flashing the client one while a consultant page loads.
 let lastMode: Mode | null = null;
 
-export function RememberDashboardMode({ mode }: { mode: Mode | "admin" }) {
+export function RememberDashboardMode({ mode }: { mode: Mode | "admin" | "support" }) {
   useEffect(() => {
-    if (mode === "admin") return;
+    if (mode === "admin" || mode === "support") return;
     lastMode = mode;
     // Also remembered for the server (lib/dashboard-mode.ts), so shared pages keep this menu.
     document.cookie = `insidely-mode=${mode}; path=/; max-age=31536000; samesite=lax`;

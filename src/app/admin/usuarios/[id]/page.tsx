@@ -7,6 +7,7 @@ import { parseDbDate, shortDate } from "@/lib/format";
 import { ageOn, formatCpf, maskCpf } from "@/lib/identity";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getStaffRatings, SUPPORT_RATINGS, supportRatingLabel } from "@/lib/support-threads";
 
 export const metadata = { title: "Usuário" };
 export const dynamic = "force-dynamic";
@@ -56,6 +57,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   // Admins are staff, not customers or consultants: no reputation, warnings or identity record.
   const isAdmin = user.role === Role.ADMIN;
   const warningRows = (warnings.data ?? []) as { id: string; reason: string; createdAt: string }[];
+  // Staff (admins and support) are rated by the people whose cases they closed.
+  const service = user.role === Role.ADMIN || user.role === Role.SUPPORT ? await getStaffRatings(user.id) : null;
 
   return <DashboardShell mode="admin" title={user.name}>
     {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
@@ -69,6 +72,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {!isAdmin && <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>}
         <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
       </section>
+
+      {service && <section className="panel form-stack" id="avaliacoes-suporte">
+        <span className="eyebrow">Avaliações do atendimento · só administradores veem</span>
+        {service.average === null ? <p className="muted">Nenhuma avaliação ainda. Quem abriu um caso pode avaliar o atendimento depois que ele é encerrado.</p> : <>
+          <div className="staff-rating-summary">
+            <div><strong>{service.average.toFixed(1).replace(".", ",")}</strong><span className="muted">de 3 · {service.ratings.length} {service.ratings.length === 1 ? "avaliação" : "avaliações"}</span></div>
+            <div className="staff-rating-bars">{[...SUPPORT_RATINGS].reverse().map((item) => <div key={item.value}><span>{item.label}</span><span className="staff-rating-bar"><span style={{ width: `${(service.counts[item.value] / service.ratings.length) * 100}%` }}/></span><span>{service.counts[item.value]}</span></div>)}</div>
+          </div>
+          <p className="muted">Ruim vale 1, Bom vale 2 e Ótimo vale 3.</p>
+          <div className="list">{service.ratings.map((row) => <div className="list-row" key={row.id}><div><strong>{supportRatingLabel(row.rating)}</strong> · <Link className="text-link" href={`/admin/casos/relato/${row.reportId}`}>{row.category}</Link>{row.comment && <p>“{row.comment}”</p>}</div><span className="muted">{when(row.createdAt)}</span></div>)}</div>
+        </>}
+      </section>}
 
       <section className="panel form-stack" id="notas">
         <span className="eyebrow">Notas internas · só a equipe vê</span>

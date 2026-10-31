@@ -1557,7 +1557,7 @@ export type Database = {
         | "PAID_HELD"
       PrivacyMode: "PUBLIC" | "PROTECTED" | "PSEUDONYM"
       ReportStatus: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED"
-      Role: "USER" | "CONSULTANT" | "ADMIN"
+      Role: "USER" | "CONSULTANT" | "ADMIN" | "SUPPORT"
       Seniority: "INTERN" | "JUNIOR" | "MID" | "SENIOR" | "LEAD" | "MANAGER"
       VerificationStatus:
         | "NOT_SUBMITTED"
@@ -1718,7 +1718,7 @@ export const Constants = {
       ],
       PrivacyMode: ["PUBLIC", "PROTECTED", "PSEUDONYM"],
       ReportStatus: ["OPEN", "IN_REVIEW", "RESOLVED", "DISMISSED"],
-      Role: ["USER", "CONSULTANT", "ADMIN"],
+      Role: ["USER", "CONSULTANT", "ADMIN", "SUPPORT"],
       Seniority: ["INTERN", "JUNIOR", "MID", "SENIOR", "LEAD", "MANAGER"],
       VerificationStatus: [
         "NOT_SUBMITTED",

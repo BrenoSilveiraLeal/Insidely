@@ -42,3 +42,26 @@ export async function getReportCaseOwners(reportIds: string[], adminId: string) 
   }
   return owners;
 }
+
+// Rating of the service, given by the person after the case closed (table SupportRating).
+export const SUPPORT_RATINGS = [{ value: "RUIM", label: "Ruim", score: 1 }, { value: "BOM", label: "Bom", score: 2 }, { value: "OTIMO", label: "Ótimo", score: 3 }] as const;
+export type SupportRating = { id: string; reportId: string; rating: string; comment: string | null; createdAt: string };
+export const supportRatingLabel = (value: string) => SUPPORT_RATINGS.find((item) => item.value === value)?.label ?? value;
+
+// undefined when ratings cannot be read (table not created yet): the page then offers no form.
+export async function getSupportRating(reportId: string): Promise<SupportRating | null | undefined> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (createSupabaseServiceClient() as any).from("SupportRating").select("id, reportId, rating, comment, createdAt").eq("reportId", reportId).maybeSingle();
+  return error ? undefined : data as SupportRating | null;
+}
+
+// Ratings of one staff member, newest first, with the average score (Ruim 1, Bom 2, Ótimo 3).
+export async function getStaffRatings(staffUserId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (createSupabaseServiceClient() as any).from("SupportRating").select("id, reportId, rating, comment, createdAt, report:Report(category)").eq("staffUserId", staffUserId).order("createdAt", { ascending: false }).limit(200);
+  const ratings = ((data ?? []) as (SupportRating & { report: { category: string } | { category: string }[] | null })[]).map((row) => ({ ...row, category: (Array.isArray(row.report) ? row.report[0]?.category : row.report?.category) ?? "Caso" }));
+  const scores = ratings.map((row): number => SUPPORT_RATINGS.find((item) => item.value === row.rating)?.score ?? 0).filter(Boolean);
+  const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
+  const counts = Object.fromEntries(SUPPORT_RATINGS.map((item) => [item.value, ratings.filter((row) => row.rating === item.value).length])) as Record<string, number>;
+  return { ratings, average, counts };
+}

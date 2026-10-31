@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Role } from "@/lib/domain";
+import { Role, STAFF_ROLES } from "@/lib/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { provisionAppUser } from "@/lib/provision-user";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -76,6 +76,11 @@ async function currentPath() {
   return path && path.startsWith("/") && !path.startsWith("//") && !/^\/(entrar|onboarding|continuar|identificacao|conta-suspensa|aceitar-termos|auth)/.test(path) ? path : undefined;
 }
 
+// Where each kind of account lands after signing in (and when it opens a page of another role).
+export function homeFor(role: string) {
+  return role === Role.CONSULTANT ? "/consultor" : role === Role.ADMIN ? "/admin" : role === Role.SUPPORT ? "/admin/casos" : "/dashboard";
+}
+
 export async function requireUser(roles?: Role[], options?: { allowIncomplete?: boolean; allowSuspended?: boolean; allowWithoutMfa?: boolean; nextPath?: string }) {
   const stored = await getAuthenticatedUser();
   const nextPath = options?.nextPath ?? await currentPath();
@@ -83,7 +88,7 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   // The account checks below each need a database round trip; start them together instead of one
   // after the other (results are cached per request, so the awaits further down reuse them).
   const accountState = getAccountState(stored.id).catch(() => null);
-  const identity = stored.role === Role.ADMIN || options?.allowIncomplete ? null : hasCustomerIdentity().catch(() => true);
+  const identity = STAFF_ROLES.includes(stored.role) || options?.allowIncomplete ? null : hasCustomerIdentity().catch(() => true);
   void accountState; void identity;
   // Accounts with 2FA must complete the code before any protected page, whatever path led here.
   // Read from the already verified session cookie, so no extra request to Supabase Auth.
@@ -92,10 +97,11 @@ export async function requireUser(roles?: Role[], options?: { allowIncomplete?: 
   if (stored.role !== Role.ADMIN && !options?.allowSuspended && await getSuspension(stored.id)) redirect("/conta-suspensa");
   // Admins see full CPFs and suspend accounts: two-step verification is mandatory for them.
   if (stored.role === Role.ADMIN && !options?.allowWithoutMfa && assurance?.currentLevel !== "aal2") redirect("/dashboard/configuracoes?mfa=obrigatorio");
-  if (roles && !roles.includes(stored.role)) redirect(stored.role === Role.CONSULTANT ? "/consultor" : stored.role === Role.ADMIN ? "/admin" : "/dashboard");
+  if (roles && !roles.includes(stored.role)) redirect(homeFor(stored.role));
   if (!options?.allowIncomplete && !stored.onboardingCompleted) redirect(nextPath ? "/onboarding?next=" + encodeURIComponent(nextPath) : "/onboarding");
   // Every customer and consultant account registers a CPF; older accounts do it on the next visit.
   if (!options?.allowIncomplete && !await hasAcceptedCurrentTerms(stored.id)) redirect(nextPath ? "/aceitar-termos?next=" + encodeURIComponent(nextPath) : "/aceitar-termos");
-  if (!options?.allowIncomplete && stored.role !== Role.ADMIN && !await hasCustomerIdentity()) redirect(nextPath ? "/identificacao?next=" + encodeURIComponent(nextPath) : "/identificacao");
+  // Staff accounts (admin, support) do not book conversations, so they register no CPF.
+  if (!options?.allowIncomplete && !STAFF_ROLES.includes(stored.role) && !await hasCustomerIdentity()) redirect(nextPath ? "/identificacao?next=" + encodeURIComponent(nextPath) : "/identificacao");
   return stored;
 }

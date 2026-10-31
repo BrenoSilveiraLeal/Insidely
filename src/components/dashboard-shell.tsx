@@ -9,6 +9,7 @@ const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
   consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Editar perfil"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
   admin: [["/admin", "Visão geral"], ["/admin/casos", "Casos"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/historias", "Histórias"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"], ["/admin/registro", "Registro de ações"], ["/admin/status", "Status do sistema"], ["/dashboard/configuracoes", "Conta e segurança"]],
+  support: [["/admin/casos", "Casos"], ["/dashboard/configuracoes", "Conta e segurança"]],
 } as const;
 
 type Notification = { id: string; title: string; body: string; href: string | null; readAt: string | null };
@@ -24,7 +25,7 @@ export function DashboardShell({ mode, title, children, profileId, notifications
     </> : <>
       {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}{!canConsultant && mode === "user" && <Link href="/dashboard/virar-consultor">Virar consultor</Link>}
-      {mode !== "admin" && <Link href="/dashboard/suporte">Suporte</Link>}<Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
+      {mode !== "admin" && mode !== "support" && <Link href="/dashboard/suporte">Suporte</Link>}<Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form>
     </>}
-  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" ? <AdminNotifications/> : <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
+  </nav></DashboardNavToggle></aside><section className="dash-main"><div className="dash-top"><div><span className="eyebrow">Painel {mode === "user" ? "pessoal" : mode === "consultant" ? "do consultor" : mode === "support" ? "do suporte" : "administrativo"}</span><h1 className="dash-title">{title}</h1></div>{mode === "admin" || mode === "support" ? <AdminNotifications/> : <NotificationPopover notifications={notifications} />}</div>{children}</section></div></main>;
 }
