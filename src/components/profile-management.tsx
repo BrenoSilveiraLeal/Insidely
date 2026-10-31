@@ -42,7 +42,8 @@ function ExperienceEditor({index,experience,companies,professions,jobTitles,onRe
   </fieldset>;
 }
 
-export function ProfessionalProfileForm({profile,companies,professions,jobTitles=[]}:{profile:Profile;companies:Option[];professions:Option[];jobTitles?:string[];areas?:string[]}){
+export function ProfessionalProfileForm({profile,companies,professions,jobTitles=[],messagePriceCents=null}:{profile:Profile;companies:Option[];professions:Option[];jobTitles?:string[];areas?:string[];messagePriceCents?:number|null}){
+  const [offersMessages,setOffersMessages]=useState(messagePriceCents!==null);
   const[message,action,pending]=useActionState(updateProfessionalProfileAction,undefined);
   // Blocks shown: the saved experiences (at least one). Keys survive removals.
   const [blocks,setBlocks]=useState(()=>(profile.experiences.length?profile.experiences:[{}]).slice(0,3).map((experience,index)=>({key:`saved-${index}`,experience})));
@@ -89,6 +90,10 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
         <div className="profile-fields-row">
           <div className="field"><label htmlFor="profile-price30">Conversa de 30 min (R$)</label><input className="input" id="profile-price30" type="number" name="price30Cents" min="10" step="0.01" defaultValue={(profile.price30Cents/100).toFixed(2)} required/></div>
           <div className="field"><label htmlFor="profile-price60">Conversa de 60 min (R$)</label><input className="input" id="profile-price60" type="number" name="price60Cents" min="10" step="0.01" defaultValue={(profile.price60Cents/100).toFixed(2)} required/></div>
+        </div>
+        <div className="message-format-setting">
+          <label className="check-row"><input type="checkbox" name="messageEnabled" checked={offersMessages} onChange={(event)=>setOffersMessages(event.target.checked)}/><span><strong>Também aceito perguntas por mensagem</strong><small className="muted">O cliente paga, o chat abre na hora e você tem 48 horas para responder até 5 mensagens. Sem horário marcado.</small></span></label>
+          {offersMessages&&<div className="field"><label htmlFor="profile-message-price">Valor das perguntas por mensagem (R$)</label><input className="input" id="profile-message-price" type="number" name="messagePrice" min="10" step="0.01" defaultValue={((messagePriceCents??Math.max(1000,Math.round(profile.price30Cents*0.6/100)*100))/100).toFixed(2)} required/><small className="muted">Sugerimos 60% do valor da conversa de 30 minutos.</small></div>}
         </div>
         <div className="field"><label htmlFor="profile-pix">Chave Pix para receber</label><input className="input" id="profile-pix" name="pixKey" defaultValue={profile.pixKey??""} placeholder="CPF, e-mail, celular ou chave aleatória" required/><small className="muted">É para onde vai o valor das suas conversas. Não aparece no perfil.</small></div>
       </div>

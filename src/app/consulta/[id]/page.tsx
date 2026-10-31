@@ -24,6 +24,8 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
   }
 
   if (!booking || !["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) notFound();
+  // "Perguntas por mensagem" has no video room: its page is the chat.
+  if ((booking as typeof booking & { format?: string }).format === "MESSAGE") redirect(`/conversa/${id}`);
   const mode = await preferredDashboardMode(user.role);
   const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
   return <DashboardShell mode={mode} title="Sua consulta">

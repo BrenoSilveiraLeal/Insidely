@@ -3,7 +3,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export type ConversationMessage = { id: string; body: string; senderId: string; createdAt: string; readAt: string | null };
 export type ConversationView = {
-  bookingId: string; conversationId: string; status: string; startsAt: string; durationMinutes: number; meetingUrl: string | null;
+  bookingId: string; conversationId: string; status: string; format: "VIDEO" | "MESSAGE"; startsAt: string; durationMinutes: number; meetingUrl: string | null;
   customerId: string; consultantId: string; viewerIsConsultant: boolean; otherName: string; messages: ConversationMessage[];
 };
 
@@ -14,7 +14,7 @@ const service = () => createSupabaseServiceClient() as any;
 
 export async function getConversationForParticipant(bookingId: string, userId: string): Promise<ConversationView | null> {
   const supabase = service();
-  const { data: booking } = await supabase.from("Booking").select("id, status, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (!booking) return null;
   const [{ data: profile }, { data: conversation }] = await Promise.all([
     supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
@@ -27,7 +27,7 @@ export async function getConversationForParticipant(bookingId: string, userId: s
     supabase.from("Message").select("id, body, senderId, createdAt, readAt").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
     viewerIsConsultant ? customerName(supabase, booking.customerId) : consultantPublicName(supabase, booking.professionalProfileId),
   ]);
-  return { bookingId, conversationId: conversation.id, status: booking.status, startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
+  return { bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { sendMessageAction } from "@/app/actions";
+import { finishMessageBookingAction, sendMessageAction } from "@/app/actions";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
 import { StartsIn } from "@/components/starts-in";
 import { PrepChecklist } from "@/components/prep-checklist";
-import { canSendBookingMessage, chatClosedReason, chatOpensAt } from "@/lib/booking-policy";
+import { canSendBookingMessage, chatClosedReason, chatOpensAt, MESSAGE_QUESTION_LIMIT } from "@/lib/booking-policy";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getBlockedBookingIds } from "@/lib/blocks";
 import { chatFeedbackText } from "@/lib/chat-moderation";
@@ -46,21 +46,31 @@ export default async function ConversationPage({ params, searchParams }: { param
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: blockedRows } = await (createSupabaseServiceClient() as any).from("ChatModerationEvent").select("id, reason, createdAt").eq("conversationId", conversation.conversationId).eq("userId", user.id).order("createdAt").limit(50);
   const blockedHere = (await getBlockedBookingIds(user.id, [id])).has(id);
-  const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes);
+  const isMessage = conversation.format === "MESSAGE";
+  const customerMessages = isMessage ? conversation.messages.filter((message) => message.senderId === conversation.customerId).length : 0;
+  // In a message booking the customer has {MESSAGE_QUESTION_LIMIT} messages; the consultant answers freely.
+  const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false && customerMessages >= MESSAGE_QUESTION_LIMIT;
+  const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes) && !questionsUsedUp;
   const notOpenYet = conversation.status === "CONFIRMED" && chatNotOpenYet(startsAt);
   return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} canConsultant={user.role === Role.CONSULTANT}>
     <div className="conversation-page">
-      <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {shortDate(startsAt)} · {conversation.durationMinutes} min</span>{conversation.status === "CONFIRMED" && <StartsIn startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
+      <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {isMessage ? `Perguntas por mensagem · respostas até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}` : `${shortDate(startsAt)} · ${conversation.durationMinutes} min`}</span>{conversation.status === "CONFIRMED" && <StartsIn startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
       {query.bloqueio === "ok" && <p className="form-feedback" role="status">Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro.</p>}
       {query.bloqueio === "removido" && <p className="form-feedback" role="status">Bloqueio removido. Vocês voltam a poder agendar conversas.</p>}
       {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
-      {conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
-      <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>
+      {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
+      {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
+      {isMessage && conversation.status === "CONFIRMED" && <section className="panel message-booking-bar">
+        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `Você usou ${customerMessages} de ${MESSAGE_QUESTION_LIMIT} mensagens. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`}</p></div>
+        {!consultantMode && <form action={finishMessageBookingAction.bind(null, id)}><button className="button button-ghost button-sm">Minhas dúvidas foram respondidas</button></form>}
+      </section>}
       <section className="panel conversation-panel">
         <RealtimeMessageThread blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages}/>
-        {query.mensagem && <p className="form-error chat-feedback" role="alert">{chatFeedbackText(query.mensagem)}</p>}
+        {query.mensagem && <p className={`${query.mensagem === "encerrada" ? "form-feedback" : "form-error"} chat-feedback`} role="alert">{chatFeedbackText(query.mensagem)}</p>}
         {canSend
           ? <form action={sendMessageAction.bind(null, conversation.conversationId)} className="message-form"><input type="hidden" name="returnTo" value={here}/><input className="input" name="body" aria-label={`Mensagem para ${conversation.otherName}`} placeholder="Escreva uma mensagem" maxLength={2000} autoComplete="off" required/><button className="button button-dark">Enviar</button></form>
+          : questionsUsedUp && conversation.status === "CONFIRMED"
+            ? <div className="chat-closed" role="status"><span>Suas 5 mensagens foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Quando suas dúvidas forem respondidas, encerre o pedido.</p></div>
           : notOpenYet
             ? <div className="chat-closed" role="status"><span>Chat abre em {shortDate(chatOpensAt(startsAt))}</span><p>Para manter a conversa na Insidely, o chat abre 24 horas antes do horário marcado e fecha quando a conversa termina.</p></div>
             : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}

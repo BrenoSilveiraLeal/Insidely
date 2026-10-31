@@ -54,3 +54,11 @@ export const SLOT_BOOKING_GRACE_MS = 5 * 60_000;
 export function isSlotStillBookable(slot: { startsAt: Date; isBooked: boolean }, now = new Date()) {
   return !slot.isBooked && slot.startsAt.getTime() > now.getTime() - SLOT_BOOKING_GRACE_MS;
 }
+
+// "Perguntas por mensagem": the chat opens when paid, for 48 hours, with up to 5 customer messages.
+export const MESSAGE_WINDOW_MINUTES = 48 * 60;
+export const MESSAGE_QUESTION_LIMIT = 5;
+// Suggested price for the message format: 60% of the 30-minute video price.
+export function suggestedMessagePriceCents(price30Cents: number) {
+  return Math.max(1000, Math.round(price30Cents * 0.6 / 100) * 100);
+}

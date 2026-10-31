@@ -662,7 +662,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
   try { await rpc("send_message", { p_conversation_id: id, p_body: body }); }
   catch (error) {
     const message = error instanceof Error ? error.message : "";
-    redirect(`${returnTo}?mensagem=${message.includes("offensive_language") ? "ofensiva" : message.includes("contact_sharing") ? "bloqueada" : message.includes("rate_limited") ? "limite" : "erro"}`);
+    redirect(`${returnTo}?mensagem=${message.includes("offensive_language") ? "ofensiva" : message.includes("contact_sharing") ? "bloqueada" : message.includes("question_limit") ? "limite-perguntas" : message.includes("rate_limited") ? "limite" : "erro"}`);
   }
   revalidatePath(returnTo);
   revalidatePath("/dashboard/mensagens");
@@ -686,7 +686,10 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
   const service = createSupabaseServiceClient() as any;
   const { data: ownProfile } = await service.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const { data: proofLinks } = ownProfile ? await service.from("Verification").select("id, experienceId").eq("professionalProfileId", ownProfile.id).not("experienceId", "is", null) : { data: [] };
-  const before = await mainVerifiedCompany(user.id); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); for (const link of (proofLinks ?? []) as { id: string; experienceId: string }[]) { if (experiences.some((item) => item.id === link.experienceId)) await service.from("Verification").update({ experienceId: link.experienceId }).eq("id", link.id); } await recordCatalogRequests(user.id, catalog); const dropped = await dropVerificationIfCompanyChanged(user.id, before); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return dropped ? "Perfil atualizado. Como a empresa principal mudou, o selo de vínculo verificado saiu; envie um comprovante da nova empresa em Verificação." : catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
+  const before = await mainVerifiedCompany(user.id); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); // Message format: on with its price, or off (null). Column from migration 20261101103000.
+  const messagePrice = Number(String(formData.get("messagePrice") || "").replace(",", "."));
+  if (ownProfile) await service.from("ProfessionalProfile").update({ messagePriceCents: formData.get("messageEnabled") === "on" && Number.isFinite(messagePrice) && messagePrice >= 10 ? Math.round(messagePrice * 100) : null }).eq("id", ownProfile.id);
+  for (const link of (proofLinks ?? []) as { id: string; experienceId: string }[]) { if (experiences.some((item) => item.id === link.experienceId)) await service.from("Verification").update({ experienceId: link.experienceId }).eq("id", link.id); } await recordCatalogRequests(user.id, catalog); const dropped = await dropVerificationIfCompanyChanged(user.id, before); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return dropped ? "Perfil atualizado. Como a empresa principal mudou, o selo de vínculo verificado saiu; envie um comprovante da nova empresa em Verificação." : catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; const method = String(formData.get("method") || ""); if (!VERIFICATION_METHODS.some((item) => item.value === method)) { await supabase.storage.from("verification-documents").remove([path]); return "Escolha o tipo de comprovante."; } try { await rpc("submit_verification", { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: method }); } catch (error) { await supabase.storage.from("verification-documents").remove([path]); return error instanceof Error && error.message.includes("verification_pending") ? "Você já tem um comprovante em análise. Aguarde a resposta da equipe." : "Não foi possível enviar o comprovante agora. Tente novamente."; } await linkVerificationExperience(formData); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); return "Comprovante enviado. A equipe da Insidely vai analisar e você recebe uma notificação com o resultado."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateImage(file); if (!moderation.allowed) return imageModerationMessage(moderation.reason, "foto de perfil"); const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {
@@ -1426,6 +1429,42 @@ export async function closeSupportCaseAction(reportId: string) {
   if (report) await notifyCaseStaff(supabase, reportId, `Caso marcado como resolvido: ${report.category}`, "Quem abriu o caso confirmou que o problema foi resolvido.", now);
   revalidatePath(`/dashboard/suporte/${reportId}`); revalidatePath("/admin/casos");
   redirect(`/dashboard/suporte/${reportId}?ok=resolvido`);
+}
+
+// "Perguntas por mensagem": no time slot; the chat opens for 48 hours once paid (migration
+// 20261101103000). Goes to the same checkout as a video conversation.
+export async function requestMessageBookingAction(profileId: string, _: string | undefined, formData: FormData) {
+  await requireUser(undefined, { nextPath: `/agendar/${profileId}?formato=mensagem` });
+  const goals = String(formData.get("goals") || "").trim();
+  if (goals.length < 12) return "Conte em pelo menos 12 caracteres o que você quer perguntar.";
+  const moderation = moderateChatMessage(goals, { countScatteredDigits: false });
+  if (!moderation.allowed) return moderation.reason === "offensive" ? "O texto tem palavrões ou ofensas. Reescreva para continuar." : "O texto parece ter contato ou combinação por fora. As conversas acontecem pela Insidely.";
+  // create_message_booking is added by a migration beyond the generated types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bookingId, error } = await (await createSupabaseServerClient() as any).rpc("create_message_booking", { p_profile_id: profileId, p_topics: formData.getAll("topics").map(String), p_goals: goals });
+  if (error || !bookingId) {
+    const message = error?.message ?? "";
+    if (message.includes("format_not_offered")) return "Este consultor não oferece perguntas por mensagem no momento.";
+    if (message.includes("own_profile")) return "Você não pode fazer perguntas para o seu próprio perfil.";
+    if (message.includes("blocked")) return "Não é possível conversar com este perfil.";
+    return "Não foi possível criar o pedido agora. Tente novamente.";
+  }
+  revalidatePath("/dashboard/mensagens");
+  redirect(`/checkout/${bookingId}`);
+}
+
+// The customer ends a message booking early ("minhas dúvidas foram respondidas"): the window closes
+// now, so the usual end-of-conversation steps (confirmation, release, review) follow.
+export async function finishMessageBookingAction(bookingId: string) {
+  const user = await requireUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: booking } = await supabase.from("Booking").select("startsAt, status, format, customerId").eq("id", bookingId).maybeSingle();
+  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") redirect(`/conversa/${bookingId}`);
+  const elapsed = Math.max(1, Math.ceil((Date.now() - parseDbDate(booking.startsAt).getTime()) / 60_000));
+  await supabase.from("Booking").update({ durationMinutes: elapsed, updatedAt: new Date().toISOString() }).eq("id", bookingId).eq("status", "CONFIRMED");
+  revalidatePath(`/conversa/${bookingId}`);
+  redirect(`/conversa/${bookingId}?mensagem=encerrada`);
 }
 
 // Records which experience the just-submitted proof covers (Verification.experienceId, migration

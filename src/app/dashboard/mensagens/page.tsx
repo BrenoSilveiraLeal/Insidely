@@ -47,12 +47,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         : booking.status === "EXPIRED" ? "O pagamento não foi concluído a tempo e o horário foi liberado."
         : booking.status === "DISPUTED" ? "Em análise pelo suporte."
         : booking.status === "CONFIRMED" && roomState === "upcoming" ? meetingRoomOpeningText(booking.startsAt)
+        : booking.format === "MESSAGE" && booking.status === "CONFIRMED" ? "Envie suas perguntas pelo chat; as respostas chegam aqui."
         : booking.status === "CONFIRMED" && roomState === "open" ? "A sala está aberta agora."
         : null;
       return <article className="panel booking-card" key={booking.id}>
         <header className="booking-card-head">
           <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{requestStatus(booking.status)}</span>
-          <span className="booking-card-when">{shortDate(booking.startsAt)} · {booking.durationMinutes} min</span>{booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
+          <span className="booking-card-when">{booking.format === "MESSAGE" ? <><span className="format-chip">Por mensagem</span> respostas até {shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}</> : <>{shortDate(booking.startsAt)} · {booking.durationMinutes} min</>}</span>{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
         </header>
         <div className="booking-card-person"><h2>{booking.professional.user.name}</h2><span className="booking-reputation booking-reputation-neutral">{money(booking.totalCents)}</span></div>
         {booking.goals && <blockquote className="booking-card-goals"><span>O que você quer conversar</span><p>{booking.goals}</p></blockquote>}
@@ -60,7 +61,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         <div className="booking-card-actions">
           {booking.status === "PENDING_PAYMENT" && <Link className="button button-accent" href={`/checkout/${booking.id}`}>Continuar pagamento</Link>}
           {booking.status !== "CANCELLED" && booking.conversation && <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={booking.conversation.messages.length}/>}
-          {booking.status === "CONFIRMED" && roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na sala</a>}
+          {booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na sala</a>}
         </div>
         {paid && <details className="booking-card-more">
           <summary>Mais opções</summary>

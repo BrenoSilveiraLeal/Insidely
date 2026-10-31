@@ -7,7 +7,7 @@ import { parseDbDate } from "./format";
 export async function checkNoShows(supabase: any, now = new Date()) {
   const { data: bookings, error } = await supabase.from("Booking")
     .select("id, startsAt, durationMinutes, customerId, professionalProfileId")
-    .in("status", ["CONFIRMED", "AWAITING_CONFIRMATION"]).is("noShowCheckedAt", null)
+    .in("status", ["CONFIRMED", "AWAITING_CONFIRMATION"]).eq("format", "VIDEO").is("noShowCheckedAt", null)
     .gt("startsAt", new Date(now.getTime() - 2 * 24 * 60 * 60_000).toISOString()).lte("startsAt", now.toISOString())
     .limit(50);
   if (error) { console.error("no_show_lookup_failed", { error }); return 0; }

@@ -17,10 +17,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // meetingUrl is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: booking } = await supabase.from("Booking").select("id, status, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId").eq("id", id).maybeSingle();
+  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId").eq("id", id).maybeSingle();
   const { data: profile } = booking ? await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle() : { data: null };
   const participant = booking && (booking.customerId === user.id || profile?.userId === user.id);
   if (!participant || !["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) return NextResponse.redirect(new URL("/dashboard/agendamentos", request.url));
+  // "Perguntas por mensagem" happens in the chat, not in a video room.
+  if (booking.format === "MESSAGE") return NextResponse.redirect(new URL(`/conversa/${id}`, request.url));
   if (!isMeetingRoomOpen(parseDbDate(booking.startsAt), booking.durationMinutes)) return NextResponse.redirect(new URL(`/consulta/${id}`, request.url));
   const meetingUrl = booking.meetingUrl ?? await ensureGoogleMeetForBooking(supabase, id).catch(() => null);
   if (meetingUrl) await recordRoomEntry(supabase, id, user.id).catch((error) => console.error("room_attendance_failed", { bookingId: id, error }));

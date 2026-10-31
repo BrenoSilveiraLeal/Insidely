@@ -100,8 +100,10 @@ export async function closeGoogleMeetSpace(name: string) {
 // exists before the scheduled time and nobody can enter early.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ensureGoogleMeetForBooking(supabase: any, bookingId: string, now = new Date()) {
-  const { data: booking, error } = await supabase.from("Booking").select("id, status, startsAt, durationMinutes, meetingUrl, meetingClosedAt").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, meetingClosedAt").eq("id", bookingId).maybeSingle();
   if (error) throw new Error("meet_booking_lookup: " + error.message);
+  // "Perguntas por mensagem" has no video room.
+  if ((booking as { format?: string } | null)?.format === "MESSAGE") return null;
   if (!booking || booking.meetingClosedAt) return null;
   if (!isMeetingRoomOpen(parseDbDate(booking.startsAt), booking.durationMinutes, now)) return null;
   if (booking.meetingUrl) return booking.meetingUrl;
