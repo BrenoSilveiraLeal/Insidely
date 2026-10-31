@@ -8,11 +8,13 @@ function label(value: string) {
 }
 
 function years(start: string, end: string | null, now: Date) {
-  const [sy, sm = "1"] = start.split("-").map(String);
+  const [sy, sm] = start.split("-");
   const [ey, em] = end ? end.split("-") : [String(now.getFullYear()), String(now.getMonth() + 1)];
+  // Year-only dates (the default privacy) count whole calendar years: 2023 → 2026 is 3 years.
+  if (!sm) { const total = Number(ey) - Number(sy); return total < 1 ? "menos de 1 ano" : total === 1 ? "1 ano" : `${total} anos`; }
   const months = (Number(ey) - Number(sy)) * 12 + (Number(em ?? "12") - Number(sm));
   if (months < 12) return months <= 1 ? "menos de 1 ano" : `${months} meses`;
-  const total = Math.round(months / 12);
+  const total = Math.floor(months / 12);
   return total === 1 ? "1 ano" : `${total} anos`;
 }
 
