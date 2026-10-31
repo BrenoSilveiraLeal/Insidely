@@ -55,6 +55,23 @@ export function isSlotStillBookable(slot: { startsAt: Date; isBooked: boolean },
   return !slot.isBooked && slot.startsAt.getTime() > now.getTime() - SLOT_BOOKING_GRACE_MS;
 }
 
+// Rescheduling (customer, video conversations): once, up to 2 hours before the start, to another free
+// slot of the same consultant; a fixed fee plus any price difference (no refund for a cheaper slot).
+// Enforced by request_booking_reschedule (migration 20261101104000).
+export const RESCHEDULE_FEE_CENTS = 500;
+export const RESCHEDULE_MIN_HOURS = 2;
+export const RESCHEDULE_HOLD_MINUTES = 30;
+export function canRescheduleBooking(booking: { status: string; format?: string | null; startsAt: Date }, alreadyRescheduled: boolean, now = new Date()) {
+  return booking.status === "CONFIRMED" && (booking.format ?? "VIDEO") === "VIDEO" && !alreadyRescheduled && booking.startsAt.getTime() - now.getTime() >= RESCHEDULE_MIN_HOURS * 3_600_000;
+}
+// A free slot of the same consultant, at least 10 minutes ahead and not the current time.
+export function isRescheduleSlot(slot: { startsAt: Date; isBooked: boolean }, currentStartsAt: Date, now = new Date()) {
+  return !slot.isBooked && slot.startsAt.getTime() >= now.getTime() + 10 * 60_000 && slot.startsAt.getTime() !== currentStartsAt.getTime();
+}
+export function rescheduleDifferenceCents(newPriceCents: number, paidSubtotalCents: number) {
+  return Math.max(0, newPriceCents - paidSubtotalCents);
+}
+
 // "Perguntas por mensagem": the chat opens when paid, for 48 hours, with up to 5 customer messages.
 export const MESSAGE_WINDOW_MINUTES = 48 * 60;
 export const MESSAGE_QUESTION_LIMIT = 5;

@@ -1843,3 +1843,6 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 /* Cover editor: a wide 3:1 frame instead of the round photo frame. */
 .image-editor-crop.image-editor-crop-wide { position: relative; width: min(560px, 62vw); aspect-ratio: 3 / 1; border-radius: 14px; }
 @media (max-width: 700px) { .image-editor-crop.image-editor-crop-wide { width: min(340px, 84vw); } }
+/* Reschedule (/reagendar): total row stands out; rules as a short readable list. */
+.detail-list .reschedule-summary-total strong { font-size: 1.05rem; }
+.reschedule-rules { margin: 12px 0; padding-left: 18px; display: grid; gap: 8px; line-height: 1.5; }

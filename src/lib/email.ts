@@ -76,7 +76,7 @@ export async function sendTransactionalEmail({ to, subject, html: content, ics }
 // Confirmation (right after payment) and reminder (about an hour before) for both participants,
 // with the room link, date/time, a shortcut to the booking chat and a calendar invite.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "confirmation" | "reminder") {
+async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "confirmation" | "reminder" | "rescheduled") {
   if (!emailConfigured()) return;
   const { data: booking, error } = await supabase.from("Booking").select("id, startsAt, durationMinutes, goals, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
@@ -98,15 +98,20 @@ async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "co
     consultant?.email ? { email: consultant.email, name: consultant.name, with: customer?.name || "seu cliente", chat: "/consultor/consultas" } : null,
   ].filter((recipient): recipient is BookingRecipient & { with: string; chat: string } => Boolean(recipient)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
   for (const recipient of recipients) {
-    const subject = kind === "confirmation" ? "Sua conversa na Insidely foi confirmada" : `Lembrete: sua conversa na Insidely começa às ${time}`;
-    const intro = kind === "confirmation" ? `Sua conversa com ${escapeHtml(recipient.with)} foi confirmada.` : `Sua conversa com ${escapeHtml(recipient.with)} começa em breve.`;
-    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "confirmation" ? ics : undefined, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p>${emailButton(appUrl + recipient.chat, "Abrir o chat da conversa")}</p>${kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : "<p><strong>Antes de entrar:</strong></p><ul><li>Teste câmera e microfone em meet.google.com.</li><li>Escolha um lugar silencioso e com boa internet.</li><li>Releia o que foi combinado e anote suas perguntas.</li><li>A sala abre exatamente no horário marcado.</li></ul>"}` });
+    const subject = kind === "confirmation" ? "Sua conversa na Insidely foi confirmada" : kind === "rescheduled" ? "Sua conversa na Insidely mudou de horário" : `Lembrete: sua conversa na Insidely começa às ${time}`;
+    const intro = kind === "confirmation" ? `Sua conversa com ${escapeHtml(recipient.with)} foi confirmada.` : kind === "rescheduled" ? `A conversa com ${escapeHtml(recipient.with)} foi reagendada. O horário anterior foi liberado.` : `Sua conversa com ${escapeHtml(recipient.with)} começa em breve.`;
+    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "reminder" ? undefined : ics, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p>${emailButton(appUrl + recipient.chat, "Abrir o chat da conversa")}</p>${kind === "rescheduled" ? "<p>O convite em anexo traz o novo horário. Se você tinha adicionado a conversa à sua agenda, apague o evento antigo.</p>" : kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : "<p><strong>Antes de entrar:</strong></p><ul><li>Teste câmera e microfone em meet.google.com.</li><li>Escolha um lugar silencioso e com boa internet.</li><li>Releia o que foi combinado e anote suas perguntas.</li><li>A sala abre exatamente no horário marcado.</li></ul>"}` });
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendBookingConfirmationEmails(supabase: any, bookingId: string) {
   await sendBookingRoomEmails(supabase, bookingId, "confirmation");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendBookingRescheduledEmails(supabase: any, bookingId: string) {
+  await sendBookingRoomEmails(supabase, bookingId, "rescheduled");
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -205,7 +205,10 @@ export async function refundCustomerCancellation({ bookingId, customerId }: { bo
   const payment = (Array.isArray(booking.payment) ? booking.payment[0] : booking.payment) as StripeRow | null;
   const paid = ["PAID_HELD", "HELD", "APPROVED"].includes(String(payment?.status));
   if (!paid) return { refundCents: 0, feeCents: 0 };
-  const amountCents = Number(payment?.amountCents ?? booking.totalCents);
+  // A paid reschedule fee is not refunded when the customer cancels (Terms, section 6).
+  const { data: reschedules } = await (supabase as any).from("BookingReschedule").select("feeCents").eq("bookingId", bookingId).eq("status", "PAID"); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const rescheduleFeeCents = ((reschedules ?? []) as { feeCents: number }[]).reduce((sum, row) => sum + Number(row.feeCents || 0), 0);
+  const amountCents = Math.max(0, Number(payment?.amountCents ?? booking.totalCents) - rescheduleFeeCents);
   const late = parseDbDate(booking.startsAt).getTime() - Date.now() <= 24 * 60 * 60 * 1000;
   const feeCents = late ? Math.round(amountCents * 0.1) : 0;
   const refundCents = amountCents - feeCents;

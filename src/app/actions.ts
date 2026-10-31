@@ -29,7 +29,7 @@ import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-e
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
+import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendBookingRescheduledEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { formatPersonName } from "@/lib/person-name";
@@ -774,6 +774,42 @@ export async function reviewVerificationAction(id: string, decision: "VERIFIED" 
   redirect(`/admin/verificacoes?ok=${decision === "VERIFIED" ? "aprovado" : "recusado"}`);
 }
 export async function resolveReportAction(id: string) { const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_report", null, id)); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
+// Rescheduling (migration 20261101104000): step 1 holds the new slot, step 2 is the (simulated)
+// payment of the fee plus any price difference, which moves the conversation.
+export async function requestRescheduleAction(bookingId: string, _previousState: FormState, formData: FormData): Promise<FormState> {
+  await requireUser();
+  const slot = String(formData.get("slot") || "");
+  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
+  if (!slot) return { status: "error", message: "Escolha um novo horário." };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (await createSupabaseServerClient() as any).rpc("request_booking_reschedule", { p_booking_id: bookingId, p_slot_id: slot, p_duration: duration });
+  if (error) {
+    const message = String(error.message || "");
+    if (message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro." };
+    if (message.includes("too_late")) return { status: "error", message: "Faltam menos de 2 horas para a conversa; não dá mais para reagendar." };
+    if (message.includes("already_rescheduled")) return { status: "error", message: "Esta conversa já foi reagendada uma vez." };
+    if (message.includes("invalid_duration")) return { status: "error", message: "O reagendamento mantém ou aumenta a duração da conversa." };
+    return { status: "error", message: "Não foi possível reagendar esta conversa agora." };
+  }
+  revalidatePath(`/reagendar/${bookingId}`);
+  redirect(`/reagendar/${bookingId}`);
+}
+
+export async function payRescheduleAction(bookingId: string, rescheduleId: string, formData: FormData) {
+  const user = await requireUser();
+  const method = String(formData.get("method") || "");
+  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO"].includes(method)) redirect(`/reagendar/${bookingId}?erro=metodo`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: pending } = await supabase.from("BookingReschedule").select("id").eq("id", rescheduleId).eq("bookingId", bookingId).eq("customerId", user.id).eq("status", "PENDING_PAYMENT").maybeSingle();
+  if (!pending) redirect(`/reagendar/${bookingId}?erro=expirado`);
+  const { error } = await supabase.rpc("apply_booking_reschedule", { p_reschedule_id: rescheduleId, p_method: method });
+  if (error) { console.error("reschedule_apply_failed", { bookingId, error }); redirect(`/reagendar/${bookingId}?erro=expirado`); }
+  after(() => sendBookingRescheduledEmails(supabase, bookingId).catch((mailError) => console.error("reschedule_email_failed", { bookingId, error: mailError })));
+  revalidatePath("/dashboard/agendamentos"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/agenda");
+  redirect("/dashboard/agendamentos?reagendamento=ok");
+}
+
 export async function customerCancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser();
   let ok = true;
