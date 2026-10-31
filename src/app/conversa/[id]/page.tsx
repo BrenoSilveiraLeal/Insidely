@@ -65,8 +65,14 @@ export default async function ConversationPage({ params, searchParams }: { param
   const lastQuestionAt = Math.max(0, ...conversation.messages.filter((message) => message.senderId === conversation.customerId && !isMessageClosing(message)).map((message) => parseDbDate(message.createdAt).getTime()));
   const answeredLast = conversation.messages.some((message) => message.senderId === conversation.consultantId && !message.automatic && parseDbDate(message.createdAt).getTime() > lastQuestionAt);
   const allAnswered = isMessage && conversation.questionsSent >= conversation.questionsTotal && answeredLast;
-  const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : null;
-  const canContest = isMessage && !consultantMode && conversation.status === "AWAITING_CONFIRMATION" && isFuture(contestUntil);
+  // Past the answer deadline without the consultant finishing (some answers, no "Finalizar"), the
+  // customer gets the same choice as after a finish: answered, or contest. The amount stays held 24
+  // hours after the deadline, as releaseBookingTransfer does.
+  const answersUntil = new Date(startsAt.getTime() + conversation.durationMinutes * 60_000);
+  const deadlinePassed = Date.now() > answersUntil.getTime();
+  const unfinishedPastDeadline = isMessage && conversation.status === "CONFIRMED" && deadlinePassed;
+  const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : unfinishedPastDeadline ? new Date(answersUntil.getTime() + 24 * 60 * 60_000) : null;
+  const canContest = isMessage && !consultantMode && (conversation.status === "AWAITING_CONFIRMATION" || unfinishedPastDeadline) && isFuture(contestUntil);
   return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} activeHref={backHref} canConsultant={user.role === Role.CONSULTANT}>
     <div className="conversation-page">
       <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {isMessage ? `Perguntas por mensagem · respostas até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}` : `${shortDate(startsAt)} · ${conversation.durationMinutes} min`}</span>{!isMessage && conversation.status === "CONFIRMED" && <StartsIn key={id} startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
@@ -77,7 +83,7 @@ export default async function ConversationPage({ params, searchParams }: { param
       {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
       {/* The customer only follows the answers (the consultant finishes; afterwards the customer can contest),
           so their bar goes away once the consultant concluded: the closing notice in the chat says what comes next. */}
-      {isMessage && conversation.status === "CONFIRMED" && (consultantMode || !concluded) && <section className="panel message-booking-bar">
+      {isMessage && conversation.status === "CONFIRMED" && (deadlinePassed ? consultantMode && concluded : consultantMode || !concluded) && <section className="panel message-booking-bar">
         <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.${conversation.questionsTotal > 1 ? ` Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal}: ${conversation.questionsSent < conversation.questionsTotal ? "quando terminar de responder, clique em “Enviar próxima pergunta”." : "todas as perguntas já foram enviadas."}` : ""}` : `${conversation.questionsTotal > 1 ? `Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal} enviada${conversation.questionsSent < conversation.questionsTotal ? "; a próxima vai quando o consultor terminar de responder" : ""}` : "Sua pergunta foi enviada"}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
         {/* The consultant releases the next question once they finished answering (a greeting alone does not). */}
         {consultantMode && conversation.questionsSent < conversation.questionsTotal && (answeredLast
@@ -90,7 +96,7 @@ export default async function ConversationPage({ params, searchParams }: { param
             : <small className="muted">Responda a última pergunta para concluir.</small>)}
       </section>}
       {canContest && contestUntil && <section className="panel form-stack message-contest">
-        <div><strong>O consultor finalizou o atendimento. Suas perguntas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
+        <div><strong>{unfinishedPastDeadline ? "O prazo de respostas terminou." : "O consultor finalizou o atendimento."} Suas perguntas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
         {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}
         {query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente de novo.</p>}
         <div className="policy-actions">
@@ -108,7 +114,7 @@ export default async function ConversationPage({ params, searchParams }: { param
         {query.mensagem && <p className={`${query.mensagem === "encerrada" || query.mensagem === "finalizada" ? "form-feedback" : "form-error"} chat-feedback`} role="alert">{chatFeedbackText(query.mensagem)}</p>}
         {canSend
           ? <ChatMessageForm action={sendMessageAction.bind(null, conversation.conversationId)} returnTo={here} label={`Mensagem para ${conversation.otherName}`}/>
-          : questionsUsedUp && conversation.status === "CONFIRMED"
+          : questionsUsedUp && conversation.status === "CONFIRMED" && !deadlinePassed
             ? <div className="chat-closed" role="status"><span>Suas perguntas foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Depois que ele finalizar o atendimento, se alguma pergunta ficou sem resposta, você pode contestar.</p></div>
           : notOpenYet
             ? <div className="chat-closed" role="status"><span>Chat abre em {shortDate(chatOpensAt(startsAt))}</span><p>Para manter a conversa na Insidely, o chat abre 24 horas antes do horário marcado e fecha quando a conversa termina.</p></div>

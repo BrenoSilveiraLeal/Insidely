@@ -1556,8 +1556,10 @@ export async function requestMessageBookingAction(profileId: string, _: string |
 export async function confirmMessageAnswersAction(bookingId: string) {
   const user = await requireUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: booking } = await (createSupabaseServiceClient() as any).from("Booking").select("customerId, format, status").eq("id", bookingId).maybeSingle();
-  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.status !== "AWAITING_CONFIRMATION") redirect(`/conversa/${bookingId}`);
+  const { data: booking } = await (createSupabaseServiceClient() as any).from("Booking").select("customerId, format, status, startsAt, durationMinutes").eq("id", bookingId).maybeSingle();
+  // Also past the answer deadline when the consultant never finished (still CONFIRMED).
+  const deadlinePassed = booking && Date.now() > parseDbDate(booking.startsAt).getTime() + Number(booking.durationMinutes) * 60_000;
+  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || !(booking.status === "AWAITING_CONFIRMATION" || (booking.status === "CONFIRMED" && deadlinePassed))) redirect(`/conversa/${bookingId}`);
   try { await confirmConversationAction(bookingId); } catch (error) { console.error("message_confirm_failed", { bookingId, error }); redirect(`/conversa/${bookingId}?mensagem=erro`); }
   revalidatePath(`/conversa/${bookingId}`);
   redirect(`/conversa/${bookingId}?mensagem=encerrada`);
