@@ -64,11 +64,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const who = new Set(picked.map((value) => value === "eu" ? admin.id : value));
   const showClosed = estado === "encerrados";
   const matches = (key: string) => { const taken = owner.get(key); return !who.size || (taken ? who.has(taken.id) : who.has(NOBODY)); };
-  const open = cases.filter((item) => matches(item.key));
+  // Support staff see only cases nobody took yet (to take them) and their own; admins see all.
+  const visibleToMe = (key: string) => { const taken = owner.get(key); return isAdmin || !taken || taken.id === admin.id; };
+  const open = cases.filter((item) => visibleToMe(item.key) && matches(item.key));
 
   // Closed cases always had someone responsible, so "Sem responsável" alone finds none.
   const openKeys = new Set(cases.map((item) => item.key));
-  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && matches(key) && (isAdmin || key.startsWith("report:")));
+  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && matches(key) && (isAdmin || (key.startsWith("report:") && owner.get(key)?.id === admin.id)));
   const ids = (prefix: string) => closedKeys.filter((key) => key.startsWith(`${prefix}:`)).map((key) => key.slice(prefix.length + 1));
   const reportIds = ids("report"), reviewIds = ids("review"), disputeIds = new Set(ids("dispute")), bookingIds = [...disputeIds, ...ids("noshow")];
   const [{ data: oldReports }, { data: oldReviews }, { data: oldBookings }] = await Promise.all([

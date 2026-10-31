@@ -42,6 +42,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   ]);
   // An open case opens only after someone took it (see /admin/casos); closed ones are history.
   if (!assignment && OPEN_REPORT_STATUSES.includes(report.status)) redirect("/admin/casos?erro=assumir");
+  // A support staff member opens only the cases they took; another staff member's case (open or
+  // closed) and closed cases nobody took stay with that person and the admins.
+  if (!isAdmin && assignment?.adminUserId !== admin.id) notFound();
   const mine = assignment?.adminUserId === admin.id;
   const ownerName = mine ? "você" : assignment ? (Array.isArray(assignment.admin) ? assignment.admin[0]?.name : assignment.admin?.name) ?? "Admin" : "ninguém";
   const byId = new Map(((people ?? []) as Person[]).map((person) => [person.id, person]));
