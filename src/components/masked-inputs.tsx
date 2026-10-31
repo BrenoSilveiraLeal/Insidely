@@ -96,6 +96,11 @@ export function DateTextInput({ id, name, mode = "day", defaultValue, required, 
       if (problem) iso = "";
     }
   }
+  // The visible field stays invalid while the value is incomplete or not allowed, so a step's
+  // "Continuar" (checkValidity) stops here and the browser points at this field.
+  const field = useRef<HTMLInputElement>(null);
+  const invalidMessage = text && !complete ? (mode === "day" ? "Complete o dia, o mês e o ano (dd/mm/aaaa)." : "Complete o mês e o ano (mm/aaaa).") : problem ?? "";
+  useEffect(() => { field.current?.setCustomValidity(invalidMessage); }, [invalidMessage]);
   const apply = (raw: string) => {
     const next = mask(raw.replace(/\D/g, "").slice(0, size), sizes, "/");
     setText(next);
@@ -108,13 +113,11 @@ export function DateTextInput({ id, name, mode = "day", defaultValue, required, 
     setOpen(false);
   };
   return <div className="date-field" ref={wrapper}>
-    <input className="input masked-input" id={id} inputMode="numeric" autoComplete="off" required={required}
+    <input ref={field} className="input masked-input" id={id} inputMode="numeric" autoComplete="off" required={required}
       placeholder={mode === "day" ? "dd/mm/aaaa" : "mm/aaaa"} maxLength={mode === "day" ? 10 : 7} value={text}
       aria-label={label} aria-invalid={problem ? true : undefined}
       onChange={(event) => apply(event.target.value)}
-      onBlur={(event) => event.currentTarget.setCustomValidity(text && !complete ? (mode === "day" ? "Complete o dia, o mês e o ano (dd/mm/aaaa)." : "Complete o mês e o ano (mm/aaaa).") : problem ?? "")}
-      onInvalid={(event) => { if (!text) event.currentTarget.setCustomValidity(mode === "day" ? "Digite a data (dd/mm/aaaa)." : "Digite o mês e o ano (mm/aaaa)."); }}
-      onInput={(event) => event.currentTarget.setCustomValidity("")}/>
+      onInvalid={(event) => { if (!text) event.currentTarget.setCustomValidity(mode === "day" ? "Digite a data (dd/mm/aaaa)." : "Digite o mês e o ano (mm/aaaa)."); }}/>
     <button type="button" className="date-field-button" aria-label={mode === "day" ? "Abrir calendário" : "Escolher mês e ano"} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
       <CalendarDays size={17} aria-hidden="true"/>
     </button>

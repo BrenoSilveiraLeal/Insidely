@@ -1777,3 +1777,13 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .experience-add:hover { border-color: var(--ink); background: var(--paper); }
 .profile-edit-actions { display: flex; justify-content: flex-end; }
 .pix-missing { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; margin-bottom: 20px; border-color: rgba(242,196,93,.8); background: rgba(242,196,93,.16); } .pix-missing p { margin: 4px 0 0; }
+/* Helper texts under a field ("Usado quando…", "No seu fuso…", limits): smaller, with room above,
+   everywhere. They explain the field, so they sit quieter than the label. */
+:is(.input, .select, .textarea, .city-input, .date-field, .password-field, .file-picker, .catalog-picker) + small,
+:is(.input, .select, .textarea, .city-input, .date-field) ~ small.muted,
+.field > small, label > small:last-child {
+  display: block; margin-top: 7px; font-size: .76rem; line-height: 1.45; color: var(--muted);
+}
+.auth-form :is(.field > small, label > small:last-child) { color: #a9adb6; }
+.field-problem, .month-year-error { display: block; margin-top: 6px; font-size: .78rem; }
+label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
