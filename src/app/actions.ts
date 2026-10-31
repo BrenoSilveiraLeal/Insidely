@@ -29,7 +29,7 @@ import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-e
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendExistingAccountEmail, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
+import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
 import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { formatPersonName } from "@/lib/person-name";
@@ -156,6 +156,9 @@ export async function changePasswordAction(_: string | undefined, formData: Form
   return "Senha alterada com sucesso.";
 }
 
+const EXISTING_ACCOUNT = "Já existe uma conta com este e-mail. Entre com sua senha ou recupere o acesso.";
+const EXISTING_GOOGLE_ACCOUNT = "Já existe uma conta com este e-mail, criada com o Google. Entre usando o botão do Google.";
+
 export async function registerAction(_: string | undefined, formData: FormData) {
   const parsed = z.object({ name: z.string().trim().min(2), email: z.string().trim().email(), password: z.string().min(8).regex(/[A-Z]/).regex(/\d/), confirmPassword: z.string(), role: z.enum(["USER", "CONSULTANT"]), terms: z.literal("on") }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -187,9 +190,10 @@ export async function registerAction(_: string | undefined, formData: FormData) 
       // Resend a confirmation link for that account; its password is left untouched.
       const existing = await service.auth.admin.generateLink({ type: "magiclink", email });
       if (existing.error || !existing.data.user) return "Não foi possível criar sua conta agora. Tente novamente.";
+      // A confirmed account already uses this address: say so on the form (with links to sign in or
+      // reset the password) instead of a generic screen. An unconfirmed one gets a fresh link below.
       if (existing.data.user.email_confirmed_at) {
-        const google = !accountHasPassword(existing.data.user);
-        send = () => sendExistingAccountEmail({ to: email, google });
+        return accountHasPassword(existing.data.user) ? EXISTING_ACCOUNT : EXISTING_GOOGLE_ACCOUNT;
       } else {
         const link = `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(existing.data.properties.hashed_token)}&type=email&next=/onboarding`;
         send = () => sendAuthLinkEmail({ to: email, name: parsed.data.name, kind: "signup", link });
@@ -220,7 +224,7 @@ export async function registerAction(_: string | undefined, formData: FormData) 
   }
   if (signUpError) {
     const message = signUpError.toLowerCase();
-    if (message.includes("already registered")) redirect("/entrar?cadastro=confirmar");
+    if (message.includes("already registered")) return EXISTING_ACCOUNT;
     if (message.includes("sending confirmation email")) {
       console.error("signup_supabase_mailer_failed", { message: signUpError });
       // Local development without any mailer: create the account already confirmed so it can be used.
