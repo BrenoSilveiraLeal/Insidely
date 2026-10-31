@@ -169,7 +169,8 @@ export async function releaseBookingTransfer(bookingId: string) {
 }
 
 // `customerNotice` replaces the "the consultant cancelled" text, e.g. when the account was suspended.
-export async function cancelBookingAndRefund({ bookingId, consultantId, reason, customerNotice }: { bookingId: string; consultantId: string; reason: string; customerNotice?: string }) {
+// removeSlot: the slot is deleted instead of opening again (the consultant is not available then).
+export async function cancelBookingAndRefund({ bookingId, consultantId, reason, customerNotice, removeSlot = false }: { bookingId: string; consultantId: string; reason: string; customerNotice?: string; removeSlot?: boolean }) {
   const supabase = admin();
   const { data: profile, error: profileError } = await supabase.from("ProfessionalProfile").select("id").eq("userId", consultantId).maybeSingle();
   if (profileError) throw new Error(profileError.message);
@@ -192,7 +193,9 @@ export async function cancelBookingAndRefund({ bookingId, consultantId, reason, 
     if (paymentError) throw new Error(paymentError.message);
   }
   if (booking.availabilityId) {
-    const { error: availabilityError } = await supabase.from("Availability").update({ isBooked: false }).eq("id", booking.availabilityId);
+    const { error: availabilityError } = removeSlot
+      ? await supabase.from("Availability").delete().eq("id", booking.availabilityId)
+      : await supabase.from("Availability").update({ isBooked: false }).eq("id", booking.availabilityId);
     if (availabilityError) throw new Error(availabilityError.message);
   }
   const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa cancelada e reembolso iniciado", body: `${customerNotice ?? "O consultor cancelou a conversa."} ${paid ? "O valor integral será devolvido pelo meio de pagamento usado." : "Como o pagamento ainda não havia sido confirmado, nenhuma cobrança foi concluída."}`, href: "/dashboard/agendamentos", createdAt: now });

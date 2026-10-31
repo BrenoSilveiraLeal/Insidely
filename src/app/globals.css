@@ -1296,6 +1296,8 @@ html { scroll-padding-top: 120px; }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
+.cancel-slot-choice { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.cancel-slot-choice legend { margin-bottom: 6px; font-weight: 700; }
 .message-questions { display: grid; gap: 14px; }
 .message-automatic { font-size: .68rem; font-weight: 700; opacity: .7; }
 .message-system { display: grid; gap: 4px; justify-self: center; max-width: min(560px, 92%); margin: 4px auto 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper-2); color: var(--ink); font-size: .82rem; line-height: 1.45; text-align: center; }

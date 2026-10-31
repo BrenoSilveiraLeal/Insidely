@@ -636,7 +636,8 @@ export async function cancelBookingAction(id: string, formData: FormData) {
   const reason = String(formData.get("reason") || "").trim();
   if (reason.length < 10 || reason.length > 500) redirect("/consultor/consultas?cancelamento=motivo");
   try {
-    const result = await cancelBookingAndRefund({ bookingId: id, consultantId: user.id, reason });
+    // The consultant chooses whether the freed slot reopens for others or leaves their agenda.
+    const result = await cancelBookingAndRefund({ bookingId: id, consultantId: user.id, reason, removeSlot: formData.get("slot") === "remove" });
     try { await sendBookingCancellationEmail(createSupabaseServiceClient(), id, reason, result.refunded); } catch (error) { console.error("booking_cancellation_email_failed", { bookingId: id, error }); }
     revalidatePath("/consultor"); revalidatePath("/consultor/consultas"); revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos");
     redirect("/consultor/consultas?cancelamento=ok");
