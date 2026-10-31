@@ -105,7 +105,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
       </EditBox>
 
       {message&&<p className={message.startsWith("Perfil profissional atualizado") ? "form-feedback" : "form-error"} role="status">{message}</p>}
-      <div className="profile-edit-actions"><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>
+      <div className="profile-edit-actions"><small className="muted">Salva as três caixas acima.</small><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>
     </KeepValuesForm>
   </section>;
 }

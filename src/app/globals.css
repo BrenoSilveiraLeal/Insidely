@@ -1838,8 +1838,8 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .edit-box-body { display: grid; gap: 16px; padding: 20px; }
 .edit-box-body > .panel, .edit-box-stack > .panel, .edit-box-body .profile-admin-grid > .panel { border: 0; padding: 0; box-shadow: none; background: none; }
 .edit-box-stack { display: grid; gap: 24px; }
-.profile-edit-form { display: grid; gap: 14px; }
-.profile-edit-form .profile-edit-actions { position: sticky; bottom: 12px; z-index: 2; display: flex; justify-content: flex-end; }
+.profile-edit-form { display: grid; gap: 14px; margin-top: 0; }
+.profile-edit-form .profile-edit-actions { position: sticky; bottom: 12px; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: 14px; justify-self: end; margin-bottom: 18px; padding: 8px 8px 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); box-shadow: 0 10px 30px rgba(23,32,51,.12); }
 /* Cover editor: a wide 3:1 frame instead of the round photo frame. */
 .image-editor-crop.image-editor-crop-wide { position: relative; width: min(560px, 62vw); aspect-ratio: 3 / 1; border-radius: 14px; }
 @media (max-width: 700px) { .image-editor-crop.image-editor-crop-wide { width: min(340px, 84vw); } }
