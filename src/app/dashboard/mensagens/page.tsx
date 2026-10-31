@@ -39,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
     {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
-    <TwoColumns>{requests.map((booking) => {
+    <TwoColumns layout="masonry">{requests.map((booking) => {
       const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
       const note = booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento."

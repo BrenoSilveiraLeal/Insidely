@@ -48,7 +48,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
     {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar esta conversa. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
-    </div><TwoColumns>{bookings.items.map(booking => {
+    </div><TwoColumns layout="masonry">{bookings.items.map(booking => {
       const roomState = roomStates.get(booking.id);
       const info = customers.get(booking.id);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);

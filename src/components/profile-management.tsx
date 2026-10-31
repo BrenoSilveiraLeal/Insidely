@@ -12,12 +12,15 @@ import { deleteAccountAction, saveAreaInsightsAction, saveWelcomeMessageAction, 
 type Option={id:string;name:string}; type Experience={id?:string;companyId?:string;professionId?:string;pendingCompanyName?:string|null;pendingProfessionName?:string|null;title?:string;area?:string;isCurrent?:boolean;startedAt?:Date|null;endedAt?:Date|null;summary?:string}; type Profile={headline:string;bio:string;publicSurname?:string|null;pseudonym?:string|null;ageRange?:string|null;location:string;region:string;workMode:string;seniority:string;yearsExperience:number;price30Cents:number;price60Cents:number;responseHours:number;pixKey?:string|null;topics:string[];boundaries:string[];experiences:Experience[]};
 // The consultant picks which experience (current or former) the proof is about.
 export function VerificationRequestForm({experiences=[]}:{experiences?:{id:string;label:string}[]}){const[message,action,pending]=useActionState(submitVerificationAction,undefined);return <form className="verification-form" action={action}>{experiences.length>0&&<label className="field"><span className="field-label">Qual experiência você vai comprovar?</span><select className="select" name="experienceId" defaultValue={experiences[0].id} required>{experiences.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}<fieldset className="verification-methods"><legend>O que você vai enviar?</legend>{VERIFICATION_METHODS.map((item,index)=><label className="verification-method" key={item.value}><input type="radio" name="method" value={item.value} defaultChecked={index===0} required/><span><strong>{item.label}</strong><small>{item.hint}</small></span></label>)}</fieldset><div className="field"><span className="field-label">Foto ou PDF do comprovante</span><FilePicker id="document" name="document" accept="application/pdf,image/png,image/jpeg,image/webp" hint="PDF, JPG, PNG ou WEBP de até 5 MB." required/></div><div className="verification-note"><Upload size={18}/><span>O arquivo fica privado. No perfil público aparece apenas o resultado da verificação.</span></div>{message&&<p className="form-feedback">{message}</p>}<button className="button button-accent" disabled={pending}>{pending?"Enviando…":"Enviar para verificação"}</button></form>}
+// Areas (catalog categories) where júnior / pleno / sênior make sense.
+const LEVELED_CATEGORIES=new Set(["Tecnologia","Dados","Design","Produto","Engenharia"]);
+
 // What every consultant can talk about and what stays out: fixed for everyone (not editable).
 const FIXED_TOPICS = "Rotina real, Cultura da equipe, Processo seletivo, Crescimento, Carga de trabalho";
 const FIXED_BOUNDARIES = "Informações confidenciais, Documentos internos, Dados pessoais de terceiros";
 
 // One experience block. "Ainda trabalho aqui" hides the leaving date; blocks 2 and 3 can be removed.
-function ExperienceEditor({index,experience,companies,professions,jobTitles,onRemove}:{index:number;experience:Experience;companies:Option[];professions:Option[];jobTitles:string[];onRemove?:()=>void}){
+function ExperienceEditor({index,experience,companies,professions,jobTitles,onRemove,onProfession}:{index:number;experience:Experience;companies:Option[];professions:Option[];jobTitles:string[];onRemove?:()=>void;onProfession?:(id:string|null)=>void}){
   const [current,setCurrent]=useState(experience.isCurrent??index===0);
   const [max]=useState(()=>new Date().toISOString().slice(0,7));
   return <fieldset className="experience-card">
@@ -26,7 +29,7 @@ function ExperienceEditor({index,experience,companies,professions,jobTitles,onRe
     <input type="hidden" name={`area${index}`} defaultValue={experience.area??""}/>
     <CatalogPicker id={`companyId${index}`} name={`companyId${index}`} label="Empresa" kind="company" options={companies} defaultId={experience.companyId} defaultPendingName={experience.pendingCompanyName} required/>
     <div className="profile-fields-row">
-      <CatalogPicker id={`professionId${index}`} name={`professionId${index}`} label="Área" kind="profession" options={professions} defaultId={experience.professionId} defaultPendingName={experience.pendingProfessionName} required/>
+      <CatalogPicker id={`professionId${index}`} name={`professionId${index}`} label="Área" kind="profession" options={professions} defaultId={experience.professionId} defaultPendingName={experience.pendingProfessionName} required onMatch={onProfession}/>
       <div className="field"><label htmlFor={`title${index}`}>Cargo</label><SuggestInput id={`title${index}`} name={`title${index}`} options={jobTitles} defaultValue={experience.title??""} required placeholder="Ex.: Analista de Dados"/></div>
     </div>
     <div className="employment-choice" role="radiogroup" aria-label="Você ainda trabalha lá?">
@@ -47,6 +50,10 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
   const[message,action,pending]=useActionState(updateProfessionalProfileAction,undefined);
   // Blocks shown: the saved experiences (at least one). Keys survive removals.
   const [blocks,setBlocks]=useState(()=>(profile.experiences.length?profile.experiences:[{}]).slice(0,3).map((experience,index)=>({key:`saved-${index}`,experience})));
+  // "Nível" (júnior, pleno…) only for areas with that kind of career ladder, by the main experience.
+  const [mainProfession,setMainProfession]=useState<string|null>(profile.experiences[0]?.professionId??null);
+  const mainCategory=(professions.find((option)=>option.id===mainProfession) as (Option&{category?:string})|undefined)?.category??"";
+  const hasLevels=LEVELED_CATEGORIES.has(mainCategory);
   const add=()=>setBlocks((list)=>list.length>=3?list:[...list,{key:`new-${Date.now()}`,experience:{}}]);
   const remove=(key:string)=>setBlocks((list)=>list.filter((block)=>block.key!==key));
   return <section className="panel professional-edit-panel">
@@ -67,7 +74,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
           <div className="field"><label htmlFor="profile-location">Cidade</label><CityInput id="profile-location" name="location" defaultValue={profile.location} required/></div>
           <div className="field"><label htmlFor="profile-mode">Modelo de trabalho</label><select className="select" id="profile-mode" name="workMode" defaultValue={profile.workMode}><option value="REMOTE">Remoto</option><option value="HYBRID">Híbrido</option><option value="ONSITE">Presencial</option></select></div>
         </div>
-        <div className="field"><label htmlFor="profile-seniority">Nível</label><select className="select" id="profile-seniority" name="seniority" defaultValue={profile.seniority}><option value="INTERN">Estágio</option><option value="JUNIOR">Júnior</option><option value="MID">Pleno</option><option value="SENIOR">Sênior</option><option value="LEAD">Liderança</option><option value="MANAGER">Gestão</option></select></div>
+        {hasLevels?<div className="field"><label htmlFor="profile-seniority">Nível</label><select className="select" id="profile-seniority" name="seniority" defaultValue={profile.seniority}><option value="INTERN">Estágio</option><option value="JUNIOR">Júnior</option><option value="MID">Pleno</option><option value="SENIOR">Sênior</option><option value="LEAD">Liderança</option><option value="MANAGER">Gestão</option></select><small className="muted">Aparece porque a sua área principal costuma ter níveis de carreira.</small></div>:<input type="hidden" name="seniority" value={profile.seniority}/>}
         <details className="profile-edit-more"><summary><span className="profile-edit-more-icon" aria-hidden="true"><UserRound size={18}/></span><span className="profile-edit-more-text"><strong>Nome e idade no perfil</strong><small>Opcional · nome fictício, sobrenome e faixa etária</small></span><ChevronDown className="profile-edit-more-chevron" size={18} aria-hidden="true"/></summary>
           <p className="muted">Por padrão o perfil não mostra seu nome. Você escolhe o que aparece em Privacidade do perfil.</p>
           <div className="profile-fields-row">
@@ -80,7 +87,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
 
       <div className="profile-edit-section">
         <h3><span>2</span> Onde você trabalha ou trabalhou</h3>
-        {blocks.map((block,index)=><ExperienceEditor key={block.key} index={index} experience={block.experience} companies={companies} professions={professions} jobTitles={jobTitles} onRemove={index>0?()=>remove(block.key):undefined}/>)}
+        {blocks.map((block,index)=><ExperienceEditor key={block.key} index={index} experience={block.experience} companies={companies} professions={professions} jobTitles={jobTitles} onRemove={index>0?()=>remove(block.key):undefined} onProfession={index===0?setMainProfession:undefined}/>)}
         {blocks.length<3&&<button type="button" className="experience-add" onClick={add}><Plus size={16}/> Adicionar outra empresa</button>}
         <small className="muted">Até 3 empresas. Você aparece na busca de cada uma delas.</small>
       </div>

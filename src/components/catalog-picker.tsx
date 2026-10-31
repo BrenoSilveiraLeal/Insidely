@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { catalogKey } from "@/lib/catalog";
 
 type Option = { id: string; name: string };
@@ -9,7 +9,8 @@ const plain = (value: string) => value.normalize("NFD").replace(/[̀-ͯ]/g, "").
 // Type-ahead over the catalog: a few suggestions (4) that follow what is typed, never the whole list.
 // Picking a listed name submits its id in `name`; a name that is not listed is submitted in
 // `${name}Name` and goes to the admin queue (see recordCatalogRequests).
-export function CatalogPicker({ name, label, options, kind, defaultId, defaultPendingName, required, id }: { name: string; label: string; options: Option[]; kind: "company" | "profession"; defaultId?: string; defaultPendingName?: string | null; required?: boolean; id?: string }) {
+// onMatch: tells the parent which catalog item is selected (null while the text matches none).
+export function CatalogPicker({ name, label, options, kind, defaultId, defaultPendingName, required, id, onMatch }: { name: string; label: string; options: Option[]; kind: "company" | "profession"; defaultId?: string; defaultPendingName?: string | null; required?: boolean; id?: string; onMatch?: (id: string | null) => void }) {
   const listId = useId();
   const inputId = id ?? `${listId}-input`;
   const initial = defaultPendingName ?? options.find((option) => option.id === defaultId)?.name ?? "";
@@ -18,6 +19,8 @@ export function CatalogPicker({ name, label, options, kind, defaultId, defaultPe
   const [active, setActive] = useState(0);
   const match = options.find((option) => catalogKey(option.name) === catalogKey(text));
   const typed = text.trim().length >= 2 && !match;
+  const matchId = match?.id ?? null;
+  useEffect(() => { onMatch?.(matchId); }, [matchId, onMatch]);
   const noun = kind === "company" ? "empresa" : "área";
   const placeholder = kind === "company" ? "Empresa não cadastrada" : "Área não cadastrada";
   const q = plain(text);
