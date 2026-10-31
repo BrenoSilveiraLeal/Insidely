@@ -8,20 +8,27 @@ import { parseDbDate, reportStatusLabel, shortDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAttendanceSummaries } from "@/lib/attendance";
+import { PaginationControls } from "@/components/pagination-controls";
 
 export const metadata = { title: "Denúncias" };
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+const PAGE_SIZE = 20;
+
+// Reports newest first, a page at a time; names, owners and attendance are read only for that page.
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const admin = await requireUser([Role.ADMIN]);
-  const data = await getAdminData();
-  const reports = data.reports.filter((report) => Boolean(report.targetUserId || report.bookingId));
+  const [data, params] = await Promise.all([getAdminData(), searchParams]);
+  const all = data.reports.filter((report) => Boolean(report.targetUserId || report.bookingId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const page = Math.min(Math.max(1, Number(params.page) || 1), Math.max(1, Math.ceil(all.length / PAGE_SIZE)));
+  const reports = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const [people, owners] = await Promise.all([getReportPeople(reports), getReportCaseOwners(reports.map((report) => report.id), admin.id)]);
   const moderation = await getRecentModeration();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reviewReports } = await (createSupabaseServiceClient() as any).from("ReviewReport").select("id, reason, reviewComment, reviewRating, professionalProfileId, createdAt").eq("status", "OPEN").order("createdAt", { ascending: false }).limit(50);
   const attendance = await getAttendanceSummaries(createSupabaseServiceClient(), reports.map((report) => report.bookingId).filter((id): id is string => Boolean(id)));
   return <DashboardShell mode="admin" title="Denúncias"><div className="list">{reports.map((report) => <div className="list-row" key={report.id}><div><strong>{report.category}</strong><p>{report.description}</p><small className="muted">Denunciante: {people.get(report.reporterId ?? "")?.name || "Conta removida"} · Denunciado: {report.targetUserId ? <a className="text-link" href={`/admin/usuarios/${report.targetUserId}`}>{people.get(report.targetUserId)?.name || "ver conta"}</a> : "—"} · {shortDate(parseDbDate(report.createdAt))}</small><br />{report.bookingId && attendance.get(report.bookingId) && <><small className="muted">{attendance.get(report.bookingId)}</small><br /></>}<span className="status">{reportStatusLabel(report.status)}</span></div><div className="case-open-cell"><CaseOpenButton reportId={report.id} open={report.status === "OPEN" || report.status === "IN_REVIEW"} owner={owners.get(report.id) ?? null}/></div></div>)}{!reports.length && <div className="panel"><h2>Fila vazia</h2><p className="muted">Não há denúncias abertas.</p></div>}</div>
+    <PaginationControls page={page} total={all.length} pageSize={PAGE_SIZE} basePath="/admin/denuncias"/>
     <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Avaliações denunciadas</span><h2>Comentários publicados nos perfis</h2><div className="list">{(reviewReports ?? []).map((item: { id: string; reason: string; reviewComment: string | null; reviewRating: number | null; professionalProfileId: string | null; createdAt: string }) => <div className="list-row" key={item.id}><div><strong>★ {item.reviewRating ?? "–"} · “{item.reviewComment || "sem comentário"}”</strong><p className="muted">Motivo da denúncia: {item.reason}</p><small className="muted">{shortDate(parseDbDate(item.createdAt))}{item.professionalProfileId && <> · <a className="text-link" href={`/profissional/${item.professionalProfileId}`} target="_blank" rel="noreferrer">ver perfil</a></>}</small></div><div className="verification-row-actions"><form action={resolveReviewReportAction.bind(null, item.id, "REMOVED")}><button className="button button-danger button-sm">Remover avaliação</button></form><form action={resolveReviewReportAction.bind(null, item.id, "KEPT")}><button className="button button-ghost button-sm">Manter</button></form></div></div>)}{!reviewReports?.length && <div className="panel muted">Nenhuma avaliação denunciada.</div>}</div></section>
     <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Chat · últimos 30 dias</span><h2>Mensagens bloqueadas pela moderação</h2><p className="muted">Tentativas de passar contato, combinar pagamento por fora ou usar linguagem ofensiva. Contas com várias tentativas merecem análise.</p><div className="list">{moderation.map((item) => <div className="list-row" key={item.userId}><div><strong><a className="text-link" href={`/admin/usuarios/${item.userId}`}>{item.name}</a></strong><p className="muted">{item.contact} de contato/pagamento por fora · {item.offensive} ofensivas · última em {shortDate(parseDbDate(item.lastAt))}</p><small className="muted">“{item.lastExcerpt}”</small></div><span className="status">{item.contact + item.offensive} tentativas</span></div>)}{!moderation.length && <div className="panel muted">Nenhuma mensagem bloqueada no período.</div>}</div></section>
   </DashboardShell>;

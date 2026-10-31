@@ -6,6 +6,7 @@ import { FlashMessage } from "@/components/flash-message";
 import { Role } from "@/lib/domain";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
+import { PaginationControls } from "@/components/pagination-controls";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const metadata = { title: "Casos" };
@@ -17,14 +18,15 @@ type Case = { key: string; kind: string; waiting?: string; title: string; detail
 type ClosedCase = { key: string; kind: string; outcome: string; title: string; detail: string; closedAt: string; href: string };
 const REVIEW_OUTCOME: Record<string, string> = { REMOVED: "Avaliação removida", KEPT: "Avaliação mantida" };
 const NOBODY = "ninguem";
+const PAGE_SIZE = 20;
 
 // One queue for everything that needs a person: open reports, reported reviews, disputes and
 // one-sided attendance (no-shows) of the last 14 days. Each case can be taken by an admin.
 // Filters: ?quem= (eu, a staff member's id or "ninguem"; repeatable) and ?estado=encerrados for the closed cases, which are
 // found through their CaseAssignment row (it stays after the case is closed). Support staff see only
 // support requests and reports (the other kinds are handled on admin-only pages).
-export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; quem?: string | string[]; estado?: string }> }) {
-  const { ok, erro, quem, estado } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; quem?: string | string[]; estado?: string; page?: string }> }) {
+  const { ok, erro, quem, estado, page: pageParam } = await searchParams;
   const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
   const isAdmin = admin.role === Role.ADMIN;
   const none = { data: [] };
@@ -90,6 +92,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     return `/admin/casos${params.size ? `?${params}` : ""}`;
   };
   const people = [{ value: "eu", label: "Você" }, ...(isAdmin ? admins.map((row) => ({ value: row.id, label: row.name ?? "Admin" })) : []), { value: NOBODY, label: "Sem responsável" }];
+  // The visible list (open or closed) a page at a time; the counters keep the full totals.
+  const listed = showClosed ? closed.length : open.length;
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), Math.max(1, Math.ceil(listed / PAGE_SIZE)));
+  const pageOf = <T,>(items: T[]) => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const pickedLabels = people.filter((person) => picked.includes(person.value)).map((person) => person.label);
   const ownerLabel = (key: string) => { const taken = owner.get(key); return taken ? (taken.id === admin.id ? "você" : taken.name) : null; };
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title="Casos">
@@ -112,16 +118,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       <Link className={`metric catalog-tab${showClosed ? "" : " is-active"}`} href={link({ estado: null })} aria-current={showClosed ? undefined : "page"}><span>Abertos</span><strong>{open.length}</strong></Link>
       <Link className={`metric catalog-tab${showClosed ? " is-active" : ""}`} href={link({ estado: "encerrados" })} aria-current={showClosed ? "page" : undefined}><span>Encerrados</span><strong>{closed.length}</strong></Link>
     </nav>
-    {showClosed ? <div className="list">{closed.map((item) => <div className="list-row case-row" key={item.key}>
+    {showClosed ? <><div className="list">{pageOf(closed).map((item) => <div className="list-row case-row" key={item.key}>
       <div><span className="status">{item.kind}</span> <span className="support-case-state is-closed">{item.outcome}</span> <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Encerrado em {shortDate(parseDbDate(item.closedAt))} · <strong className={`case-owner${owner.get(item.key)?.id === admin.id ? " is-me" : ""}`}>Responsável: {ownerLabel(item.key)}</strong></small></div>
       <div className="verification-row-actions"><Link className="button button-ghost button-sm" href={item.href}>Ver</Link></div>
-    </div>)}{!closed.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso encerrado</h2><p className="muted">{picked.length === 1 && picked[0] === NOBODY ? "Todo caso encerrado teve um responsável." : "Os casos encerrados aparecem aqui, do mais recente para o mais antigo."}</p></section>}</div> : <>
+    </div>)}{!closed.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso encerrado</h2><p className="muted">{picked.length === 1 && picked[0] === NOBODY ? "Todo caso encerrado teve um responsável." : "Os casos encerrados aparecem aqui, do mais recente para o mais antigo."}</p></section>}</div>
+    <PaginationControls page={page} total={closed.length} pageSize={PAGE_SIZE} basePath={link({ estado: "encerrados" })}/></> : <>
     <p className="muted">{open.length} {open.length === 1 ? "caso aberto" : "casos abertos"}, do mais antigo para o mais recente. Para abrir um caso, alguém precisa assumi-lo: o responsável fica registrado e é quem responde.</p>
-    <div className="list">{open.map((item) => { const taken = owner.get(item.key); return <div className="list-row case-row" key={item.key}>
+    <div className="list">{pageOf(open).map((item) => { const taken = owner.get(item.key); return <div className="list-row case-row" key={item.key}>
       <div><span className="status">{item.kind}</span> {item.waiting && <span className="support-case-state is-answered">{item.waiting}</span>} <strong>{item.title}</strong><p className="muted">{item.detail}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · {taken ? <strong className={`case-owner${taken.id === admin.id ? " is-me" : ""}`}>Responsável: {taken.id === admin.id ? "você" : taken.name}</strong> : "Ninguém assumiu ainda"}</small></div>
       <div className="verification-row-actions">{taken ? <><Link className="button button-dark button-sm" href={item.href}>Abrir</Link>{taken.id !== admin.id && isAdmin && <form action={assignCaseAction.bind(null, item.key, undefined)}><button className="button button-ghost button-sm">Assumir no lugar</button></form>}</> : <form action={assignCaseAction.bind(null, item.key, item.href)}><button className="button button-dark button-sm">Assumir e abrir</button></form>}</div>
 
     </div>; })}{!open.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">{who.size ? "Nenhum caso aberto com este filtro." : "Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino."}</p></section>}</div>
+    <PaginationControls page={page} total={open.length} pageSize={PAGE_SIZE} basePath={link({ estado: null })}/>
     </>}
     </div>
   </DashboardShell>;
