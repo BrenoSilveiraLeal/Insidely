@@ -40,6 +40,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .display { font-family: var(--display); letter-spacing: -.065em; line-height: .88; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: .76rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
 .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+/* Room between a panel's small heading and what follows it (lists, boxes, text). Stacks already have a gap. */
+.panel:not(.form-stack):not(.account-head) > .eyebrow + :not(h1, h2, h3) { margin-top: 14px; }
 .muted { color: var(--muted); }
 .section { padding: 104px 0; }
 .section-head { display: flex; justify-content: space-between; gap: 40px; align-items: end; margin-bottom: 40px; }
@@ -1294,6 +1296,16 @@ html { scroll-padding-top: 120px; }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
+.account-head { display: grid; gap: 14px; }
+.account-head-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.account-head-top h2 { margin: 0 0 4px; font: 850 clamp(1.5rem, 3vw, 2.2rem)/1 var(--display); letter-spacing: -.04em; }
+.account-head-top p { margin: 0; overflow-wrap: anywhere; }
+.account-head-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.account-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 0; }
+.account-stats > div { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.account-stats dt { color: var(--muted); font-size: .75rem; }
+.account-stats dd { margin: 4px 0 0; font: 800 1.4rem/1 var(--display); }
+.account-stats dd small { color: var(--muted); font-size: .8rem; font-weight: 600; }
 .case-filter { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .case-filter-menu { position: relative; }
 .case-filter-menu > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

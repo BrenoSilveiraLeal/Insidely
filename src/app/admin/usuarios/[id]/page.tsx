@@ -13,6 +13,7 @@ export const metadata = { title: "Usuário" };
 export const dynamic = "force-dynamic";
 
 const when = (value: string) => shortDate(parseDbDate(value));
+const ROLE_LABELS: Record<string, string> = { USER: "Cliente", CONSULTANT: "Consultor", ADMIN: "Administrador", SUPPORT: "Suporte" };
 // A recorded CPF access stays valid for 10 minutes.
 const revealWindowStart = () => new Date(Date.now() - 10 * 60_000).toISOString();
 
@@ -65,12 +66,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     {Number(query.falhas) > 0 && <p className="form-error" role="alert">{query.falhas} conversa(s) não puderam ser canceladas automaticamente. Cancele pela lista de consultas do consultor ou contate o suporte de pagamentos.</p>}
     <div className="profile-management-stack">
-      <section className="panel">
-        <span className="eyebrow">{user.role} · desde {when(user.createdAt)}{!user.auth_user_id && " · conta excluída"}</span>
-        <h2>{user.name}</h2>
-        <p className="muted">{user.email}</p>
-        {!isAdmin && <p>{bookings.count ?? 0} agendamentos como cliente · {reportRows.length} denúncias recebidas · {moderationRows.length} mensagens bloqueadas{average && ` · nota como cliente ${average} (${ratings.length})`}{reactivationCount > 0 && ` · reativada ${reactivationCount}x pelo mesmo CPF`}</p>}
-        <Link className="text-link" href="/admin/usuarios">Voltar para usuários</Link>
+      <p className="case-back"><Link className="text-link" href="/admin/usuarios">← Usuários</Link></p>
+      <section className="panel account-head">
+        <div className="account-head-top">
+          <div><h2>{user.name}</h2><p className="muted">{user.email}</p></div>
+          <div className="account-head-tags"><span className="status">{ROLE_LABELS[user.role] ?? user.role}</span>{!user.auth_user_id && <span className="status">Conta excluída</span>}</div>
+        </div>
+        <small className="muted">Conta criada em {new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }).format(parseDbDate(user.createdAt))}</small>
+        {/* Staff accounts do not book conversations: no customer numbers. */}
+        {!isAdmin && user.role !== Role.SUPPORT && <dl className="account-stats">
+          <div><dt>Agendamentos como cliente</dt><dd>{bookings.count ?? 0}</dd></div>
+          <div><dt>Denúncias recebidas</dt><dd>{reportRows.length}</dd></div>
+          <div><dt>Mensagens bloqueadas</dt><dd>{moderationRows.length}</dd></div>
+          <div><dt>Nota como cliente</dt><dd>{average ? <>{average.replace(".", ",")} <small>({ratings.length})</small></> : "—"}</dd></div>
+          {reactivationCount > 0 && <div><dt>Reativações pelo CPF</dt><dd>{reactivationCount}</dd></div>}
+        </dl>}
       </section>
 
       {service && <section className="panel form-stack" id="avaliacoes-suporte">
