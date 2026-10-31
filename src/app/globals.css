@@ -190,6 +190,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .side-nav { display: grid; gap: 6px; }
 .side-nav a { padding: 12px 14px; border-radius: 13px; color: #c3c7c0; font-weight: 700; font-size: .86rem; }
 .side-nav a:hover { background: #292c28; color: white; }
+/* A menu item with a count keeps the number beside its label, on the same line. */
+.side-nav a:has(.nav-badge) { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.side-nav a .nav-badge { flex: none; margin-left: 0; }
 .side-nav-section { display: grid; gap: 6px; }
 .side-nav-label { padding: 10px 14px 2px; color: #7f887f; font: 700 .66rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
 .side-nav-secondary { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
