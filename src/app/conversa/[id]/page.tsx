@@ -7,7 +7,7 @@ import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
 import { StartsIn } from "@/components/starts-in";
 import { PrepChecklist } from "@/components/prep-checklist";
-import { canSendBookingMessage, chatClosedReason, chatOpensAt, MESSAGE_QUESTION_LIMIT } from "@/lib/booking-policy";
+import { canSendBookingMessage, chatClosedReason, chatOpensAt } from "@/lib/booking-policy";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getBlockedBookingIds } from "@/lib/blocks";
 import { chatFeedbackText } from "@/lib/chat-moderation";
@@ -48,9 +48,9 @@ export default async function ConversationPage({ params, searchParams }: { param
   const blockedHere = (await getBlockedBookingIds(user.id, [id])).has(id);
   const isMessage = conversation.format === "MESSAGE";
   const customerMessages = isMessage ? conversation.messages.filter((message) => message.senderId === conversation.customerId).length : 0;
-  // In a message booking the customer's only message is the questions sent with the request; the
-  // consultant answers freely.
-  const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false && customerMessages >= MESSAGE_QUESTION_LIMIT;
+  // In a message booking the customer's messages are the questions sent with the request (up to
+  // MESSAGE_QUESTION_LIMIT, posted when paid); the consultant answers freely.
+  const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false;
   const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes) && !questionsUsedUp;
   const notOpenYet = conversation.status === "CONFIRMED" && chatNotOpenYet(startsAt);
   return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} canConsultant={user.role === Role.CONSULTANT}>
@@ -62,7 +62,7 @@ export default async function ConversationPage({ params, searchParams }: { param
       {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
       {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
       {isMessage && conversation.status === "CONFIRMED" && <section className="panel message-booking-bar">
-        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `Suas perguntas foram enviadas. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
+        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.` : `${customerMessages === 1 ? "Sua pergunta foi enviada" : `Suas ${customerMessages} perguntas foram enviadas`}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
         {!consultantMode && <form action={finishMessageBookingAction.bind(null, id)}><button className="button button-ghost button-sm">Minhas dúvidas foram respondidas</button></form>}
       </section>}
       <section className="panel conversation-panel">

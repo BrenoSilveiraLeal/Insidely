@@ -72,10 +72,10 @@ export function rescheduleDifferenceCents(newPriceCents: number, paidSubtotalCen
   return Math.max(0, newPriceCents - paidSubtotalCents);
 }
 
-// "Perguntas por mensagem": the chat opens when paid, for 48 hours. The customer's only message is the
-// questions written in the request (posted when paid); unanswered requests are refunded.
+// "Perguntas por mensagem": the chat opens when paid, for 48 hours. The customer's messages are the
+// questions written in the request (up to 5, posted when paid); unanswered requests are refunded.
 export const MESSAGE_WINDOW_MINUTES = 48 * 60;
-export const MESSAGE_QUESTION_LIMIT = 1;
+export const MESSAGE_QUESTION_LIMIT = 5;
 // Suggested price for the message format: 60% of the 30-minute video price.
 export function suggestedMessagePriceCents(price30Cents: number) {
   return Math.max(1000, Math.round(price30Cents * 0.6 / 100) * 100);

@@ -1296,6 +1296,12 @@ html { scroll-padding-top: 120px; }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
+.message-questions { display: grid; gap: 14px; }
+.message-question { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.message-question.is-skipped { opacity: .6; }
+.message-question.is-skipped .textarea { min-height: 0; height: 52px; resize: none; }
+.message-question-skip { font-size: .85rem; }
+.message-questions-count { margin: 0; font-size: .85rem; }
 .account-head { display: grid; gap: 14px; }
 .account-head-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .account-head-top h2 { margin: 0 0 4px; font: 850 clamp(1.5rem, 3vw, 2.2rem)/1 var(--display); letter-spacing: -.04em; }

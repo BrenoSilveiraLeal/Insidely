@@ -117,7 +117,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
           {/* The owner sees the profile as customers do, without booking it. */}
           {isOwner ? <p className="muted">Este é o seu perfil público: é assim que os clientes veem seus horários. Para mudar, use a sua agenda.</p> : availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
           {profile.messagePriceCents ? <div className="message-offer">
-            <div><strong><MessageSquareText size={16} aria-hidden="true"/> Prefere por mensagem?</strong><p className="muted">{money(profile.messagePriceCents)} · todas as perguntas de uma vez, respostas em até 48h ou o valor volta, sem horário marcado.</p></div>
+            <div><strong><MessageSquareText size={16} aria-hidden="true"/> Prefere por mensagem?</strong><p className="muted">{money(profile.messagePriceCents)} · até 5 perguntas, respostas em até 48h ou o valor volta, sem horário marcado.</p></div>
             {!isOwner && <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>}
           </div> : null}
           {!isOwner && <FavoriteButton profileId={profile.id} initialSaved={isFavorite}/>}

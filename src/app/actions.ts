@@ -1506,18 +1506,28 @@ export async function rateSupportCaseAction(reportId: string, formData: FormData
 // 20261101103000). Goes to the same checkout as a video conversation.
 export async function requestMessageBookingAction(profileId: string, _: string | undefined, formData: FormData) {
   await requireUser(undefined, { nextPath: `/agendar/${profileId}?formato=mensagem` });
-  const goals = String(formData.get("goals") || "").trim();
-  if (goals.length < 12) return "Conte em pelo menos 12 caracteres o que você quer perguntar.";
-  const moderation = moderateChatMessage(goals, { countScatteredDigits: false });
-  if (!moderation.allowed) return moderation.reason === "offensive" ? "O texto tem palavrões ou ofensas. Reescreva para continuar." : "O texto parece ter contato ou combinação por fora. As conversas acontecem pela Insidely.";
-  // create_message_booking is added by a migration beyond the generated types.
+  // Up to 5 questions (unused ones are not sent); each becomes its own chat message once paid.
+  const questions = formData.getAll("question").map((value) => String(value).trim()).filter(Boolean).slice(0, 5);
+  if (!questions.length) return "Escreva pelo menos uma pergunta.";
+  if (questions.some((question) => question.length < 5)) return "Cada pergunta precisa ter pelo menos 5 caracteres. Se não for usar uma delas, marque “Não vou usar esta pergunta”.";
+  for (const [index, question] of questions.entries()) {
+    const moderation = moderateChatMessage(question, { countScatteredDigits: false });
+    if (!moderation.allowed) return `Pergunta ${index + 1}: ${moderation.reason === "offensive" ? "o texto tem palavrões ou ofensas. Reescreva para continuar." : "o texto parece ter contato ou combinação por fora. As conversas acontecem pela Insidely."}`;
+  }
+  const goals = questions.length === 1 ? questions[0] : questions.map((question, index) => `${index + 1}. ${question}`).join("\n\n");
+  // create_message_booking is added by a migration beyond the generated types. With p_questions
+  // (migration 20261101110000); before it, the questions go joined as a single text.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bookingId, error } = await (await createSupabaseServerClient() as any).rpc("create_message_booking", { p_profile_id: profileId, p_topics: formData.getAll("topics").map(String), p_goals: goals });
+  const supabase = await createSupabaseServerClient() as any;
+  const topics = formData.getAll("topics").map(String);
+  let { data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions });
+  if (error?.message.includes("Could not find the function")) ({ data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals }));
   if (error || !bookingId) {
     const message = error?.message ?? "";
     if (message.includes("format_not_offered")) return "Este consultor não oferece perguntas por mensagem no momento.";
     if (message.includes("own_profile")) return "Você não pode fazer perguntas para o seu próprio perfil.";
     if (message.includes("blocked")) return "Não é possível conversar com este perfil.";
+    if (message.includes("invalid_questions")) return "Escreva de 1 a 5 perguntas, cada uma com pelo menos 5 caracteres.";
     return "Não foi possível criar o pedido agora. Tente novamente.";
   }
   revalidatePath("/dashboard/mensagens");
