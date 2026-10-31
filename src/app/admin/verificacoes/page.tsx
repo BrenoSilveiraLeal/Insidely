@@ -1,7 +1,6 @@
 import { FlashMessage } from "@/components/flash-message";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { reviewVerificationAction } from "@/app/actions";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { getAdminData } from "@/lib/queries";
@@ -24,9 +23,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
     <div className="list">{pending.map((v) => <div className="list-row" key={v.id}>
       <div><strong>{v.professionalProfile?.user?.name ?? "Perfil indisponível"}</strong><p>{v.professionalProfile?.headline ?? "Perfil profissional"} · {(v.professionalProfile?.experiences?.find((exp) => exp.id === (v as { experienceId?: string | null }).experienceId) ?? v.professionalProfile?.experiences?.[0])?.company?.name ?? "Empresa não informada"}</p><span className="status">{verificationMethodLabel(v.method)}</span></div>
       <div className="verification-row-actions">
-        {v.documents.length ? <Link className="button button-dark button-sm" href={`/admin/verificacoes/${v.id}`}>Ver comprovante</Link> : <span className="button button-ghost button-sm verification-no-file" aria-disabled="true" title="Esta solicitação não tem arquivo enviado">Sem arquivo</span>}
-        <form action={reviewVerificationAction.bind(null, v.id, "VERIFIED")}><button className="button button-accent button-sm">Aprovar</button></form>
-        <form action={reviewVerificationAction.bind(null, v.id, "REJECTED")}><button className="button button-ghost button-sm">Rejeitar</button></form>
+        {/* Approving or rejecting happens on the proof page, after looking at the file. */}
+        {v.documents.length ? <Link className="button button-dark button-sm" href={`/admin/verificacoes/${v.id}`}>Ver comprovante</Link> : <Link className="button button-ghost button-sm verification-no-file" href={`/admin/verificacoes/${v.id}`} title="Esta solicitação não tem arquivo enviado. Abra para recusar.">Sem arquivo</Link>}
       </div>
     </div>)}{!pending.length && <div className="panel">Fila vazia.</div>}</div>
   </DashboardShell>;
