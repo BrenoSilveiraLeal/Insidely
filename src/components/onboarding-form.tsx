@@ -1,4 +1,5 @@
 "use client";
+import { DateTextInput } from "@/components/masked-inputs";
 import { KeepValuesForm } from "@/components/keep-values-form";
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -114,23 +115,10 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 
 const BIO_MIN=30;
 
-// "mm/aaaa" typed as digits ("032021" shows 03/2021); the form sends one "YYYY-MM" value under
-// the given name. Simpler to read than the native month picker or two long lists.
+// Month and year typed as "mm/aaaa"; the form sends "YYYY-MM" (see readEmploymentPeriod).
 function MonthInput({id,name,label}:{id:string;name:string;label:string}){
-  const [text,setText]=useState("");
-  const [now]=useState(()=>new Date());
-  const digits=text.replace(/\D/g,"");
-  const month=Number(digits.slice(0,2)),year=Number(digits.slice(2,6));
-  const complete=digits.length===6;
-  const problem=!complete?null:month<1||month>12?"Mês inválido.":year<1960?"Ano inválido.":year*12+month>now.getFullYear()*12+now.getMonth()+1?"Esse mês ainda não chegou.":null;
-  return <div className="field">
-    <label htmlFor={id}>{label}</label>
-    <input className="input month-input" id={id} inputMode="numeric" placeholder="mm/aaaa" maxLength={7} required value={text} aria-invalid={problem?true:undefined}
-      pattern="(0[1-9]|1[0-2])/(19|20)\d{2}" title="Mês e ano, por exemplo 03/2021"
-      onChange={(event)=>{const d=event.target.value.replace(/\D/g,"").slice(0,6);setText(d.length>2?`${d.slice(0,2)}/${d.slice(2)}`:d);}}/>
-    {problem&&<small className="field-problem">{problem}</small>}
-    <input type="hidden" name={name} value={complete&&!problem?`${digits.slice(2,6)}-${digits.slice(0,2)}`:""}/>
-  </div>;
+  const [max]=useState(()=>new Date().toISOString().slice(0,7));
+  return <div className="field"><label htmlFor={id}>{label}</label><DateTextInput id={id} name={name} mode="month" max={max} required/></div>;
 }
 
 // Current or former employee, the period and what the person does or did there.

@@ -12,7 +12,7 @@ export function SuggestInput({ id, name, options, defaultValue = "", required, p
   const [active, setActive] = useState(0);
   const listId = useId();
   const q = plain(value);
-  const matches = open && q ? [...options.filter((option) => plain(option).startsWith(q)), ...options.filter((option) => !plain(option).startsWith(q) && plain(option).includes(q))].filter((option) => plain(option) !== q).slice(0, 8) : [];
+  const matches = open && q ? [...options.filter((option) => plain(option).startsWith(q)), ...options.filter((option) => !plain(option).startsWith(q) && plain(option).includes(q))].filter((option) => plain(option) !== q).slice(0, 4) : [];
   const pick = (option: string) => { setValue(option); setOpen(false); };
   return <div className="city-input suggest-input">
     <input className="input" id={id} name={name} value={value} required={required} placeholder={placeholder} autoComplete="off"

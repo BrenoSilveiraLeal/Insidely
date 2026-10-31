@@ -1,5 +1,6 @@
 "use client";
 
+import { DateTextInput, TimeTextInput } from "@/components/masked-inputs";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createRecurringAvailabilityAction, duplicateWeekAction, pauseProfileAction, resumeProfileAction } from "@/app/actions";
@@ -22,7 +23,7 @@ export function RecurringAvailability() {
     <form action={action} className="form-stack">
       <fieldset className="weekday-picker"><legend>Dias da semana</legend>{WEEKDAYS.map(([value, label]) => <label key={value}><input type="checkbox" name="weekday" value={value}/><span>{label}</span></label>)}</fieldset>
       <div className="profile-form-grid">
-        <label className="field"><span>Horário (Brasília)</span><input className="input" type="time" name="time" required step={900}/></label>
+        <label className="field"><span>Horário (Brasília)</span><TimeTextInput id="recurring-time" name="time" required/></label>
         <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue="30"><option value="30">30 minutos</option><option value="60">1 hora</option></select></label>
         <label className="field"><span>Por quantas semanas</span><select className="select" name="weeks" defaultValue="4">{[1, 2, 3, 4, 6, 8].map((weeks) => <option key={weeks} value={weeks}>{weeks} {weeks === 1 ? "semana" : "semanas"}</option>)}</select></label>
       </div>
@@ -67,7 +68,7 @@ export function PauseProfile({ pausedUntilLabel, paused, upcoming }: { paused: b
       {!confirming && <button className="button button-dark" type="button" onClick={() => setConfirming(true)}>Ativar pausa ou férias</button>}
     </div>
     {confirming && <form action={action} className="agenda-pause-confirm">
-      <label className="field agenda-pause-date"><span>Quando você volta?</span><input className="input" type="date" name="until" value={until} min={new Date(today).toISOString().slice(0, 10)} onChange={(event) => setUntil(event.target.value)}/><small className="muted">{returnLabel ? `O perfil volta sozinho no dia ${returnLabel}.` : "Sem data, o perfil fica pausado até você reativar."}</small></label>
+      <label className="field agenda-pause-date"><span>Quando você volta?</span><DateTextInput id="pause-until" name="until" min={new Date(today).toISOString().slice(0, 10)} onValue={setUntil}/><small className="muted">{returnLabel ? `O perfil volta sozinho no dia ${returnLabel}.` : "Sem data, o perfil fica pausado até você reativar."}</small></label>
       {blocking.length > 0 ? <div className="agenda-pause-note is-blocked" role="alert">
         <strong>{returnLabel ? `Não dá para pausar até ${returnLabel}` : "Não dá para pausar sem data de volta"}</strong>
         <p>{blocking.length === 1 ? "Você tem uma conversa marcada" : `Você tem ${blocking.length} conversas marcadas`} nesse período. Escolha {latestReturn && latestReturn.getTime() > today ? `uma volta até ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" }).format(latestReturn)}` : "outra data"} ou faça ou cancele {blocking.length === 1 ? "a conversa" : "as conversas"} antes. No cancelamento, o cliente recebe 100% de volta.</p>

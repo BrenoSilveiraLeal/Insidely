@@ -23,7 +23,7 @@ function suggest(cities: string[], query: string) {
     if (name.startsWith(q)) starts.push(city); else if (name.includes(q)) contains.push(city);
   }
   starts.sort((a, b) => Number(CAPITALS.has(b)) - Number(CAPITALS.has(a)));
-  return [...starts, ...contains].slice(0, 8);
+  return [...starts, ...contains].slice(0, 4);
 }
 
 // "Cidade, UF" with suggestions from the official list while typing; the value has to be one of them.

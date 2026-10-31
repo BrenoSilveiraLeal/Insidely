@@ -3,18 +3,17 @@
 import { CalendarPlus, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { DateTextInput, TimeTextInput } from "@/components/masked-inputs";
 import { createAvailabilityAction, createInstantAvailabilityAction, removeAvailabilityAction } from "@/app/actions";
-
-// Start times every 30 minutes, 06:00 to 23:30.
-const TIMES = Array.from({ length: 36 }, (_, index) => { const minutes = 360 + index * 30; return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${minutes % 60 ? "30" : "00"}`; });
 
 type Slot = { id: string; startsAt: string; endsAt: string; isBooked: boolean; label: string };
 
 export function AvailabilityManager({ slots }: { slots: Slot[] }) {
   const [state, action, pending] = useActionState(createAvailabilityAction, undefined);
   const [instantState, instantAction, instantPending] = useActionState(createInstantAvailabilityAction, undefined);
-  const dateInput = useRef<HTMLInputElement>(null);
-  const timeInput = useRef<HTMLSelectElement>(null);
+  const [day, setDay] = useState("");
+  const [time, setTime] = useState("");
+  const [todayIso] = useState(() => new Date().toISOString().slice(0, 10));
   const utcDateInput = useRef<HTMLInputElement>(null);
   const router = useRouter();
   // Removed slots disappear at once; the server confirms in the background.
@@ -36,7 +35,6 @@ export function AvailabilityManager({ slots }: { slots: Slot[] }) {
       </form>
       <form className="form-stack" action={action} onSubmit={(event) => {
         // Day and time are picked separately (no half-typed date); they become one instant here.
-        const day = dateInput.current?.value, time = timeInput.current?.value;
         if (!day || !time) { event.preventDefault(); return; }
         if (utcDateInput.current) utcDateInput.current.value = new Date(`${day}T${time}`).toISOString();
       }}>
@@ -44,18 +42,11 @@ export function AvailabilityManager({ slots }: { slots: Slot[] }) {
         <div className="availability-when">
           <div className="field">
             <label htmlFor="availability-day">Dia</label>
-            <input ref={dateInput} className="input" id="availability-day" type="date" required
-              onInvalid={(event) => event.currentTarget.setCustomValidity(event.currentTarget.validity.valueMissing ? "Escolha o dia no calendário." : "Complete o dia, o mês e o ano.")}
-              onInput={(event) => event.currentTarget.setCustomValidity("")}/>
+            <DateTextInput id="availability-day" name="availabilityDay" required min={todayIso} onValue={setDay}/>
           </div>
           <div className="field">
             <label htmlFor="availability-time">Horário</label>
-            <select ref={timeInput} className="select" id="availability-time" required defaultValue=""
-              onInvalid={(event) => event.currentTarget.setCustomValidity("Escolha o horário.")}
-              onChange={(event) => event.currentTarget.setCustomValidity("")}>
-              <option value="" disabled>Escolha</option>
-              {TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
-            </select>
+            <TimeTextInput id="availability-time" required onValue={setTime}/>
           </div>
         </div>
         <small className="muted">No seu fuso horário; o perfil exibe os horários de Brasília.</small>
