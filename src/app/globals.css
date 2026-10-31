@@ -191,8 +191,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .side-nav a { padding: 12px 14px; border-radius: 13px; color: #c3c7c0; font-weight: 700; font-size: .86rem; }
 .side-nav a:hover { background: #292c28; color: white; }
 /* A menu item with a count keeps the number beside its label, on the same line. */
-.side-nav a:has(.nav-badge) { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.side-nav a .nav-badge { flex: none; margin-left: 0; }
+/* The count sits in a fixed slot at the right edge, so the label never wraps or moves and every count lines up. */
+.side-nav a:has(.nav-badge) { position: relative; padding-right: 40px; white-space: nowrap; }
+.side-nav a .nav-badge { position: absolute; top: 50%; right: 12px; margin: 0; transform: translateY(-50%); }
 .side-nav-section { display: grid; gap: 6px; }
 .side-nav-label { padding: 10px 14px 2px; color: #7f887f; font: 700 .66rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
 .side-nav-secondary { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
@@ -1299,7 +1300,7 @@ html { scroll-padding-top: 120px; }
 .wallet-metrics { margin-bottom: 24px; }
 .case-back { margin: 0 0 22px; }
 .case-queue { display: grid; gap: 20px; }
-.nav-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px; border-radius: 999px; background: var(--mineral); color: var(--ink); font-size: .72rem; font-weight: 800; line-height: 1; vertical-align: middle; }
+.nav-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 8px; padding: 0 5px; border-radius: 999px; background: var(--mineral); color: var(--ink); font-size: .68rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; vertical-align: middle; }
 .cancel-slot-choice { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
 .cancel-slot-choice legend { margin-bottom: 6px; font-weight: 700; }
 .message-questions { display: grid; gap: 14px; }
