@@ -1674,3 +1674,10 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .month-year-error { color: #ffb4a3; font-size: .8rem; }
 .employment-more { margin: 0; padding: 12px 14px; border: 1px dashed rgba(247,242,232,.25); border-radius: 12px; font-size: .86rem; line-height: 1.5; color: #d6d8de; }
 .panel .employment-more { border-color: var(--line); color: var(--muted); }
+/* Sign-up: text areas match the dark inputs; "mm/aaaa" field and its inline problem. */
+.auth-form .textarea { background: #272a26; border-color: #454a43; color: var(--paper); }
+.auth-form .textarea::placeholder, .auth-form .input::placeholder { color: #8d9188; }
+.month-input { letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.field-problem { color: #ffb4a3; font-size: .8rem; }
+.panel .field-problem { color: var(--red); }
+.onboarding-step .profile-fields-group { gap: 16px; }

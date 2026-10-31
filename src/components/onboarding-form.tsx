@@ -37,18 +37,21 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
   const steps=useRef<(HTMLFieldSetElement|null)[]>([]);
   const top=useRef<HTMLDivElement>(null);
   const consultant=role==="CONSULTANT";
-  const titles=consultant?["Como você quer usar","Seu perfil profissional","Identificação"]:["Como você quer usar","Identificação"];
+  const titles=consultant?["Como você quer usar","Sua experiência","Seu perfil","Identificação"]:["Como você quer usar","Identificação"];
   const last=titles.length-1;
   // A server error about the profile sends the person back to the profile step until they move on.
-  const profileFix=consultant&&!!result?.text&&/^O campo "|confidencialidade/i.test(result.text)&&result.at>navAt;
-  const current=profileFix?1:Math.min(step,last);
+  // A server error about the experience or the profile sends the person back to that step.
+  const fixStep=!consultant||!result?.text||result.at<=navAt?null
+    :/^O campo "(Cargo|Empresa|Área ou profissão|O que você faz ou fazia na empresa)"|entrou|saiu|saída|entrada|faz ou fazia/i.test(result.text)?1
+    :/^O campo "|confidencialidade/i.test(result.text)?2:null;
+  const current=fixStep??Math.min(step,last);
   const go=(target:number)=>{ setStep(target); setNavAt(Date.now()); setStepError(null); requestAnimationFrame(()=>{ top.current?.scrollIntoView({behavior:"smooth",block:"start"}); steps.current[target]?.querySelector<HTMLElement>("h2")?.focus({preventScroll:true}); }); };
   const showError=(text:string)=>{ setStepError({text,at:Date.now()}); requestAnimationFrame(()=>top.current?.scrollIntoView({behavior:"smooth",block:"start"})); };
   const advance=()=>{
     const box=steps.current[current];
     const fields=box?.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>("input,select,textarea")??[];
     for(const field of fields){ if(!field.checkValidity()){ field.reportValidity(); return; } }
-    if(consultant&&current===1&&box){
+    if(consultant&&(current===1||current===2)&&box){
       const form=box.closest("form");
       const found=form?findUnsafeProfileText(PROFILE_TEXTS.map(([label,name])=>[label,new FormData(form).getAll(name).map(String).join(" ")])):null;
       if(found){ showError(unsafeProfileTextMessage(found)); return; }
@@ -86,10 +89,17 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
     </fieldset>
 
     {consultant&&<fieldset className="onboarding-step" hidden={current!==1} ref={(el)=>{steps.current[1]=el;}}>
-      <h2 tabIndex={-1}>Seu perfil profissional</h2>
-      <p className="onboarding-lead">É o que as pessoas veem antes de agendar com você. Tudo pode ser editado depois.</p>
-      <ConsultantProfileFields companies={companies} professions={professions} jobTitles={jobTitles}/>
+      <h2 tabIndex={-1}>Sua experiência</h2>
+      <p className="onboarding-lead">A empresa sobre a qual você vai conversar. Se foram várias, comece pela principal: dá para adicionar até 3 depois, no seu perfil.</p>
+      <ConsultantProfileFields part="experience" companies={companies} professions={professions} jobTitles={jobTitles}/>
       <div className="onboarding-nav"><button type="button" className="button button-ghost" onClick={()=>go(0)}><ArrowLeft size={17}/>Voltar</button><button type="button" className="button button-accent" onClick={advance}>Continuar<ArrowRight size={17}/></button></div>
+    </fieldset>}
+
+    {consultant&&<fieldset className="onboarding-step" hidden={current!==2} ref={(el)=>{steps.current[2]=el;}}>
+      <h2 tabIndex={-1}>Seu perfil</h2>
+      <p className="onboarding-lead">É o que as pessoas leem antes de agendar. Tudo pode ser editado depois.</p>
+      <ConsultantProfileFields part="profile" companies={companies} professions={professions} jobTitles={jobTitles}/>
+      <div className="onboarding-nav"><button type="button" className="button button-ghost" onClick={()=>go(1)}><ArrowLeft size={17}/>Voltar</button><button type="button" className="button button-accent" onClick={advance}>Continuar<ArrowRight size={17}/></button></div>
     </fieldset>}
 
     <fieldset className="onboarding-step" hidden={current!==last} ref={(el)=>{steps.current[last]=el;}}>
@@ -104,60 +114,64 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 
 const BIO_MIN=30;
 
-const MONTH_NAMES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-
-// Month and year as two plain selects (the native month picker is hard to read on the dark panel).
-// The form still sends one "YYYY-MM" value under the given name.
-function MonthYearField({id,name,label}:{id:string;name:string;label:string}){
+// "mm/aaaa" typed as digits ("032021" shows 03/2021); the form sends one "YYYY-MM" value under
+// the given name. Simpler to read than the native month picker or two long lists.
+function MonthInput({id,name,label}:{id:string;name:string;label:string}){
+  const [text,setText]=useState("");
   const [now]=useState(()=>new Date());
-  const [month,setMonth]=useState(""),[year,setYear]=useState("");
-  const years=Array.from({length:now.getFullYear()-1969},(_,index)=>String(now.getFullYear()-index));
-  const future=year===String(now.getFullYear())&&Number(month)>now.getMonth()+1;
-  return <div className="field month-year">
-    <span className="field-label-text" id={`${id}-label`}>{label}</span>
-    <div className="month-year-row" role="group" aria-labelledby={`${id}-label`}>
-      <select className="select" id={id} aria-label={`${label}: mês`} value={month} required onChange={(event)=>setMonth(event.target.value)}><option value="" disabled>Mês</option>{MONTH_NAMES.map((label,index)=><option key={label} value={String(index+1).padStart(2,"0")}>{label}</option>)}</select>
-      <select className="select" aria-label={`${label}: ano`} value={year} required onChange={(event)=>setYear(event.target.value)}><option value="" disabled>Ano</option>{years.map((value)=><option key={value} value={value}>{value}</option>)}</select>
-    </div>
-    {future&&<small className="month-year-error">Escolha um mês que já passou.</small>}
-    <input type="hidden" name={name} value={month&&year&&!future?`${year}-${month}`:""}/>
+  const digits=text.replace(/\D/g,"");
+  const month=Number(digits.slice(0,2)),year=Number(digits.slice(2,6));
+  const complete=digits.length===6;
+  const problem=!complete?null:month<1||month>12?"Mês inválido.":year<1960?"Ano inválido.":year*12+month>now.getFullYear()*12+now.getMonth()+1?"Esse mês ainda não chegou.":null;
+  return <div className="field">
+    <label htmlFor={id}>{label}</label>
+    <input className="input month-input" id={id} inputMode="numeric" placeholder="mm/aaaa" maxLength={7} required value={text} aria-invalid={problem?true:undefined}
+      pattern="(0[1-9]|1[0-2])/(19|20)\d{2}" title="Mês e ano, por exemplo 03/2021"
+      onChange={(event)=>{const d=event.target.value.replace(/\D/g,"").slice(0,6);setText(d.length>2?`${d.slice(0,2)}/${d.slice(2)}`:d);}}/>
+    {problem&&<small className="field-problem">{problem}</small>}
+    <input type="hidden" name={name} value={complete&&!problem?`${digits.slice(2,6)}-${digits.slice(0,2)}`:""}/>
   </div>;
 }
 
-// Current or former employee, the period and what the person does or did there. Former employees
-// are welcome: they usually speak more freely about the company.
+// Current or former employee, the period and what the person does or did there.
 function EmploymentFields(){
   const [status,setStatus]=useState<"current"|"former">("current");
   return <fieldset className="employment-fields">
-    <legend>Você ainda trabalha nessa empresa?</legend>
+    <legend>Você ainda trabalha lá?</legend>
     <div className="employment-choice" role="radiogroup">
-      <label className={status==="current"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="current" checked={status==="current"} onChange={()=>setStatus("current")}/>Sim, trabalho lá atualmente</label>
+      <label className={status==="current"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="current" checked={status==="current"} onChange={()=>setStatus("current")}/>Sim, trabalho lá</label>
       <label className={status==="former"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="former" checked={status==="former"} onChange={()=>setStatus("former")}/>Não, já saí</label>
     </div>
     <div className="profile-fields-row">
-      <MonthYearField id="startedAt" name="startedAt" label="Entrei em"/>
-      {status==="former"&&<MonthYearField id="endedAt" name="endedAt" label="Saí em"/>}
+      <MonthInput id="startedAt" name="startedAt" label="Entrei em"/>
+      {status==="former"&&<MonthInput id="endedAt" name="endedAt" label="Saí em"/>}
     </div>
-    <div className="field"><label htmlFor="experienceSummary">{status==="former"?"O que você fazia lá":"O que você faz lá"}</label><textarea className="textarea" id="experienceSummary" name="experienceSummary" rows={3} minLength={15} maxLength={300} required placeholder={status==="former"?"Ex.: Cuidava do atendimento a lojistas e de relatórios mensais do time de vendas.":"Ex.: Cuido do atendimento a lojistas e dos relatórios mensais do time de vendas."}/></div>
-    <p className="employment-note">{status==="former"?"Ótimo: quem já saiu costuma falar com mais liberdade. Quem agenda vai ver de que época é a sua visão.":"Por padrão, seu nome e sua foto não aparecem no perfil. Em Privacidade, você também pode esconder o nome da empresa e mostrar só a área."}</p>
+    <div className="field"><label htmlFor="experienceSummary">{status==="former"?"O que você fazia lá":"O que você faz lá"}</label><textarea className="textarea" id="experienceSummary" name="experienceSummary" rows={2} minLength={15} maxLength={300} required placeholder="Ex.: Atendimento a lojistas e relatórios do time de vendas."/></div>
+    <small className="muted">{status==="former"?"Quem já saiu costuma falar com mais liberdade. O perfil mostra a época em que você esteve lá.":"Seu nome e sua foto não aparecem no perfil por padrão."}</small>
   </fieldset>;
 }
 
-// Also used by the "become a consultant" page, which adds a profile to an existing customer account.
-export function ConsultantProfileFields({companies,professions,jobTitles=[]}:{companies:Option[];professions:Option[];jobTitles?:string[]}){
+// Also used by the "become a consultant" page (both parts on one page). In the sign-up steps,
+// "experience" and "profile" are shown one at a time.
+export function ConsultantProfileFields({companies,professions,jobTitles=[],part}:{companies:Option[];professions:Option[];jobTitles?:string[];part?:"experience"|"profile"}){
   const [bioLength,setBioLength]=useState(0);
-  return <div className="profile-fields">
-    <div className="profile-fields-group">
-      <div className="field"><label htmlFor="headline">Título do perfil</label><input className="input" id="headline" name="headline" placeholder="Ex.: Product Designer em fintech" required/><small className="muted">Uma frase curta que aparece embaixo do seu nome.</small></div>
-      <div className="field"><label htmlFor="title">Cargo atual ou mais recente</label><SuggestInput id="title" name="title" options={jobTitles} required placeholder="Ex.: Analista de Produto Pleno"/></div>
-      <CatalogPicker id="companyId" name="companyId" label="Empresa" kind="company" options={companies} required/>
-      <CatalogPicker id="professionId" name="professionId" label="Área ou profissão" kind="profession" options={professions} required/>
-      <p className="employment-more">Trabalhou em mais de uma empresa? Comece pela principal. Depois do cadastro, em <strong>Perfil e verificação</strong>, você pode adicionar até 3 empresas, atuais ou anteriores, e aparecer na busca de cada uma.</p>
-      <EmploymentFields/>
-      <div className="field"><label htmlFor="location">Cidade onde você mora</label><CityInput id="location" name="location" required/></div>
+  const experience=<div className="profile-fields-group">
+    <CatalogPicker id="companyId" name="companyId" label="Empresa" kind="company" options={companies} required/>
+    <div className="profile-fields-row">
+      <CatalogPicker id="professionId" name="professionId" label="Área" kind="profession" options={professions} required/>
+      <div className="field"><label htmlFor="title">Cargo</label><SuggestInput id="title" name="title" options={jobTitles} required placeholder="Ex.: Analista de Produto"/></div>
     </div>
-    <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={5} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Conte em poucas frases o que você vive no dia a dia e sobre o que pode conversar. Ex.: Trabalhei 4 anos com produto em fintechs. Posso contar como era a rotina do time, como funciona o processo seletivo e o que eu gostaria de ter sabido antes de entrar."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo. Quanto mais concreto, mais fácil para quem vai agendar.":`Pelo menos ${BIO_MIN} caracteres · faltam ${BIO_MIN-bioLength}`}</small></div>
-    <div className="field"><label htmlFor="price30">Quanto você quer receber por conversa de 30 min (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/><small className="muted">É o valor que você recebe; a taxa da Insidely é somada no pagamento do cliente. Dá para mudar depois.</small></div>
-    <label className="check-row"><input name="confidentiality" type="checkbox" required/><span><strong>Confidencialidade:</strong> não vou revelar segredos da empresa, dados internos, informações de clientes ou de colegas. Falo apenas da minha experiência.</span></label>
-  </div>
+    <EmploymentFields/>
+  </div>;
+  const profile=<div className="profile-fields-group">
+    <div className="field"><label htmlFor="headline">Título do perfil</label><input className="input" id="headline" name="headline" placeholder="Ex.: Product Designer em fintech" required/></div>
+    <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={4} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Sobre o que você pode conversar? Ex.: Posso contar como era a rotina do time, o processo seletivo e o que eu gostaria de ter sabido antes."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo.":`Faltam ${BIO_MIN-bioLength} caracteres`}</small></div>
+    <div className="profile-fields-row">
+      <div className="field"><label htmlFor="location">Cidade</label><CityInput id="location" name="location" required/></div>
+      <div className="field"><label htmlFor="price30">Valor por 30 min (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/></div>
+    </div>
+    <small className="muted">O valor é o que você recebe; a taxa da Insidely é somada ao preço do cliente.</small>
+    <label className="check-row"><input name="confidentiality" type="checkbox" required/><span>Não vou revelar segredos da empresa, dados internos ou informações de clientes e colegas. Falo só da minha experiência.</span></label>
+  </div>;
+  return <div className="profile-fields">{part!=="profile"&&experience}{part!=="experience"&&profile}</div>;
 }
