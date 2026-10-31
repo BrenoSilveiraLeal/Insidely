@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { disputeBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
+import { confirmMessageAnswersAction, disputeBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
 import { ChatMessageForm } from "@/components/chat-message-form";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -90,14 +90,19 @@ export default async function ConversationPage({ params, searchParams }: { param
             : <small className="muted">Responda a última pergunta para concluir.</small>)}
       </section>}
       {canContest && contestUntil && <section className="panel form-stack message-contest">
-        <div><strong>O consultor finalizou o atendimento.</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Se as respostas não responderam às suas perguntas, conteste até lá: o suporte analisa a conversa e, se você tiver razão, o valor volta para você.</p></div>
+        <div><strong>O consultor finalizou o atendimento. Suas perguntas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
         {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}
         {query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente de novo.</p>}
-        <details><summary className="button button-ghost button-sm">As respostas não responderam minhas perguntas</summary>
-          <form action={disputeBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={`/conversa/${id}`}/><textarea className="textarea" name="description" rows={3} minLength={20} maxLength={2000} required placeholder="Ex.: A pergunta 2 foi respondida só com “depende” e a 3 não foi respondida."/><button className="button button-dark button-sm">Enviar contestação</button></form>
-        </details>
+        <div className="policy-actions">
+          <form action={confirmMessageAnswersAction.bind(null, id)}><button className="button button-accent button-sm">Sim, foram respondidas</button></form>
+          <details className="policy-report"><summary className="button button-ghost button-sm">Não foram respondidas</summary>
+            <form action={disputeBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={`/conversa/${id}`}/><p className="muted">O suporte analisa a conversa e decide: se as perguntas não foram respondidas, ou foram só em parte, você recebe o valor de volta, todo ou em parte.</p><textarea className="textarea" name="description" rows={3} aria-label="O que ficou sem resposta" minLength={20} maxLength={2000} required placeholder="Ex.: A pergunta 2 foi respondida só com “depende” e a 3 não foi respondida."/><button className="button button-dark button-sm">Enviar ao suporte</button></form>
+          </details>
+        </div>
+        <small className="muted">Confirmar encerra o pedido e libera o pagamento ao consultor. Não dá para desfazer.</small>
       </section>}
       {isMessage && query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação enviada. O suporte vai analisar a conversa e você recebe o resultado por notificação.</p>}
+      {isMessage && !consultantMode && conversation.status === "DISPUTED" && query.contestacao !== "ok" && <p className="form-feedback" role="status">Sua contestação está com o suporte. O valor continua retido até a análise, e você recebe o resultado por notificação.</p>}
       <section className="panel conversation-panel">
         <RealtimeMessageThread key={conversation.conversationId} blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages} systemNotice={isMessage ? (consultantMode ? `Este é um pedido de “Perguntas por mensagem”, pago para ser respondido aqui no chat, não por vídeo. O cliente já escreveu ${conversation.questionsTotal > 1 ? `${conversation.questionsTotal} perguntas` : "a pergunta"}${conversation.questionsTotal > 1 ? ", e a Insidely envia uma de cada vez: responda à vontade e, quando terminar, clique em “Enviar próxima pergunta”" : ""}. O cliente não envia outras mensagens. Responda até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; depois da última resposta, clique em “Concluir respostas” e finalize o atendimento. Sem nenhuma resposta no prazo, o valor volta para o cliente.` : `Este é um pedido de “Perguntas por mensagem”. A Insidely envia ${conversation.questionsTotal > 1 ? "suas perguntas ao consultor uma de cada vez: a próxima vai quando ele terminar de responder a anterior" : "sua pergunta ao consultor"}. Você só acompanha por aqui; as respostas chegam até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`) : conversation.goals ? `${consultantMode ? "O que o cliente quer conversar" : "O que você quer conversar"}: “${conversation.goals}”` : undefined} closingNotice={isMessage && conversation.status === "CONFIRMED" ? (consultantMode ? `Todas as perguntas foram respondidas. Se não tiver mais nada a acrescentar, clique em “Finalizar atendimento”: o chat é encerrado e o valor fica retido por 24 horas antes do repasse.` : `O consultor respondeu todas as suas perguntas. Quando ele finalizar o atendimento, você terá 24 horas para contestar se alguma resposta não tratou do que você perguntou.`) : undefined}/>
         {query.mensagem && <p className={`${query.mensagem === "encerrada" || query.mensagem === "finalizada" ? "form-feedback" : "form-error"} chat-feedback`} role="alert">{chatFeedbackText(query.mensagem)}</p>}

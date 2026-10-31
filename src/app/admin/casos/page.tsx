@@ -102,7 +102,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const ownerLabel = (key: string) => { const taken = owner.get(key); return taken ? (taken.id === admin.id ? "você" : taken.name) : null; };
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title="Casos">
     {erro === "assumir" && <FlashMessage param="erro">Esse caso ainda não tem responsável. Use “Assumir e abrir” para abri-lo.</FlashMessage>}
-    {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : ok === "devolvido" ? "Contestação decidida: o valor foi devolvido ao cliente." : ok === "liberado" ? "Contestação decidida: o valor segue para o consultor." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
+    {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : ok === "devolvido" ? "Contestação decidida: o valor foi devolvido ao cliente." : ok === "parcial" ? "Contestação decidida: parte do valor foi devolvida ao cliente e o restante segue para o consultor." : ok === "liberado" ? "Contestação decidida: o valor segue para o consultor." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
     <div className="case-queue">
     <div className="case-filter">
       {/* Keyed by the filter, so the menu closes after "Aplicar". next/form navigates without a full reload. */}

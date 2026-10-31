@@ -629,7 +629,7 @@ export async function removeAvailabilityAction(id: string) { await requireUser([
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await confirmConversationAction(id); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
-export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
+export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } if (ok) after(() => notifyDisputeStaff(id, description)); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; const commentCheck = comment.trim() ? moderateChatMessage(comment, { countScatteredDigits: false }) : { allowed: true as const }; if (!commentCheck.allowed) return { status: "error", message: reviewTextError(commentCheck.reason) }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment.trim().slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
 export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
@@ -1362,16 +1362,19 @@ export async function resolveDisputeAction(bookingId: string, formData: FormData
   const back = `/admin/casos/contestacao/${bookingId}`;
   const decision = String(formData.get("decision") || "");
   const note = String(formData.get("note") || "").trim().slice(0, 500);
-  if (!["REFUND", "RELEASE"].includes(decision)) redirect(`${back}?erro=1`);
+  if (!["REFUND", "PARTIAL", "RELEASE"].includes(decision)) redirect(`${back}?erro=1`);
   if (note.length < 10) redirect(`${back}?erro=nota`);
+  // "Devolver parte": the amount in reais typed by staff ("25", "25,50" or "25.50"; no thousands separator).
+  const refundCents = decision === "PARTIAL" ? Math.round(Number(String(formData.get("refund") || "").trim().replace(",", ".")) * 100) : 0;
+  if (decision === "PARTIAL" && !(refundCents > 0)) redirect(`${back}?erro=valor`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: owner } = await (createSupabaseServiceClient() as any).from("CaseAssignment").select("adminUserId").eq("caseKey", `dispute:${bookingId}`).maybeSingle();
   if (owner?.adminUserId !== staff.id) redirect(`${back}?erro=responsavel`);
-  try { await resolveDispute({ bookingId, decision: decision as "REFUND" | "RELEASE", staffUserId: staff.id, note, warnConsultant: formData.get("warn") === "on" }); }
-  catch (error) { console.error("dispute_resolution_failed", { bookingId, error }); redirect(`${back}?erro=${error instanceof Error && error.message.includes("já foi decidida") ? "decidida" : "1"}`); }
+  try { await resolveDispute({ bookingId, decision: decision as "REFUND" | "PARTIAL" | "RELEASE", staffUserId: staff.id, note, warnConsultant: formData.get("warn") === "on", refundCents }); }
+  catch (error) { console.error("dispute_resolution_failed", { bookingId, error }); const message = error instanceof Error ? error.message : ""; redirect(`${back}?erro=${message.includes("já foi decidida") ? "decidida" : message.includes("invalid_partial_amount") ? "valor" : message.includes("partial_refund_unavailable") ? "parcial" : "1"}`); }
   after(() => logAdminAction(staff.id, "resolve_dispute", null, `${decision} ${bookingId}`));
   revalidatePath("/admin/casos"); revalidatePath(back); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
-  redirect(`/admin/casos?ok=${decision === "REFUND" ? "devolvido" : "liberado"}`);
+  redirect(`/admin/casos?ok=${decision === "REFUND" ? "devolvido" : decision === "PARTIAL" ? "parcial" : "liberado"}`);
 }
 
 // Web push: a device that allowed notifications.
@@ -1547,6 +1550,19 @@ export async function requestMessageBookingAction(profileId: string, _: string |
   redirect(`/checkout/${bookingId}`);
 }
 
+// After the consultant finished a message booking, the customer confirms the questions were answered:
+// final (it cannot be undone), the held amount goes to the consultant. Otherwise they contest
+// (disputeBookingAction), which opens a case for support.
+export async function confirmMessageAnswersAction(bookingId: string) {
+  const user = await requireUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: booking } = await (createSupabaseServiceClient() as any).from("Booking").select("customerId, format, status").eq("id", bookingId).maybeSingle();
+  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.status !== "AWAITING_CONFIRMATION") redirect(`/conversa/${bookingId}`);
+  try { await confirmConversationAction(bookingId); } catch (error) { console.error("message_confirm_failed", { bookingId, error }); redirect(`/conversa/${bookingId}?mensagem=erro`); }
+  revalidatePath(`/conversa/${bookingId}`);
+  redirect(`/conversa/${bookingId}?mensagem=encerrada`);
+}
+
 // The consultant releases the next question once they finished answering the current one (migration
 // 20261101115000: a reply alone, such as a greeting, no longer releases it).
 export async function sendNextQuestionAction(bookingId: string) {
@@ -1622,6 +1638,16 @@ async function linkVerificationExperience(formData: FormData) {
   const { data: experience } = await supabase.from("EmploymentExperience").select("id").eq("id", experienceId).eq("professionalProfileId", profile.id).maybeSingle();
   if (!experience) return;
   await supabase.from("Verification").update({ experienceId }).eq("professionalProfileId", profile.id).eq("status", "PENDING").then(() => undefined, () => undefined);
+}
+
+// A new contest goes to the support queue (Casos): every admin and support staff member is told.
+async function notifyDisputeStaff(bookingId: string, description: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const { data: staff } = await supabase.from("User").select("id").in("role", ["ADMIN", "SUPPORT"]);
+  const createdAt = new Date().toISOString();
+  const rows = ((staff ?? []) as { id: string }[]).map((person) => ({ id: crypto.randomUUID(), userId: person.id, title: "Nova contestação para analisar", body: description.slice(0, 300), href: `/admin/casos/contestacao/${bookingId}`, createdAt }));
+  if (rows.length) await supabase.from("Notification").insert(rows);
 }
 
 // The admin who took the case is notified; with nobody assigned yet, every admin is.

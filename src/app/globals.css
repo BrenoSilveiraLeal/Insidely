@@ -1927,3 +1927,12 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .policy-report > form { width: 100%; gap: 8px; }
 .policy-report .textarea { min-height: 0; background: var(--paper); }
 .appointment-card-footnote { margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; line-height: 1.45; }
+/* Contest decision: the optional partial refund sits between the note and the two full decisions. */
+.dispute-partial { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; }
+.dispute-partial-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dispute-partial-row .input { width: 140px; }
+/* The chat scrolls with the same thin bar as the side menu (no arrows or grey track), dark on the light chat. */
+.conversation-thread { scrollbar-width: thin; scrollbar-color: rgba(23,32,51,.22) transparent; }
+.conversation-thread::-webkit-scrollbar { width: 6px; }
+.conversation-thread::-webkit-scrollbar-track { background: transparent; }
+.conversation-thread::-webkit-scrollbar-thumb { background: rgba(23,32,51,.22); border-radius: 999px; }

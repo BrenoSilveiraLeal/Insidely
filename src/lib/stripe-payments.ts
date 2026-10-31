@@ -136,7 +136,12 @@ export async function releaseBookingTransfer(bookingId: string) {
   const safetyDeadlineReached = new Date(autoReleaseAt).getTime() <= Date.now();
   if (!bothParticipantsConfirmed && !safetyDeadlineReached) return false;
   if (!professional?.stripeAccountId) throw new Error("Conta Stripe do consultor ausente.");
-  const amount = Number(booking.totalCents) - Number(booking.feeCents);
+  // After a partial refund decided by support, the consultant receives the share that was not given back.
+  // Read on its own so transfers keep working before migration 20261101120000 adds the column.
+  const { data: refundRow } = await supabase.from("Booking").select("refundedCents").eq("id", booking.id).maybeSingle();
+  const total = Number(booking.totalCents);
+  const refunded = Number((refundRow as { refundedCents?: number } | null)?.refundedCents ?? 0);
+  const amount = Math.round((total - Number(booking.feeCents)) * (total - refunded) / total);
   if (amount <= 0) throw new Error("Valor de repasse inválido.");
   const idempotencyKey = `insidely-transfer-${booking.id}`;
   const { data: previousAttempt, error: previousAttemptError } = await supabase.from("TransferAttempt").select("id, attemptCount").eq("idempotencyKey", idempotencyKey).maybeSingle();
