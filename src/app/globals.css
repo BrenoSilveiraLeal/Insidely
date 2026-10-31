@@ -1743,3 +1743,18 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .topic-idea.is-picked { border-style: solid; border-color: var(--ink); background: var(--paper-2); }
 .settings-moved { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
 .settings-moved p { margin: 4px 0 0; }
+/* Checkout after payment: success heading, three short facts, two actions. */
+.checkout-success { display: flex; gap: 14px; align-items: center; margin: 6px 0 18px; }
+.checkout-success h2 { margin: 0; }
+.checkout-success p { margin: 4px 0 0; }
+.checkout-success-icon { display: grid; flex: none; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #7ecfc4; color: #163029; }
+.checkout-done { display: grid; gap: 18px; }
+.checkout-facts { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.checkout-facts li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.checkout-facts li:first-child { border-top: 1px solid var(--line); }
+.checkout-facts li > svg { flex: none; margin-top: 2px; color: var(--muted); }
+.checkout-facts li > div { display: grid; gap: 4px; justify-items: start; }
+.checkout-facts strong { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.checkout-facts span { font-weight: 600; }
+.checkout-facts .button { margin-top: 4px; }
+.checkout-actions { display: grid; gap: 8px; }
