@@ -1624,3 +1624,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
    card grows and the others keep their own height instead of stretching along. */
 .two-columns:has(details[open]) .two-columns-item:not(:has(details[open])) { align-self: start; }
 .two-columns:has(details[open]) .two-columns-item:not(:has(details[open])) > * { flex: none; }
+/* File picker on one line: button, chosen file, and the format hint pushed to the right. */
+.file-picker { padding: 10px 12px; gap: 8px 12px; }
+.file-picker small { flex-basis: auto; margin-left: auto; font-size: .78rem; }
+@media (max-width: 620px) { .file-picker small { flex-basis: 100%; margin-left: 0; } }
