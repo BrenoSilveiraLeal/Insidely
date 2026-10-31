@@ -1667,3 +1667,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   .question-list article { min-height: clamp(110px, 8vw, 150px); }
   .question-list p { font-size: clamp(1.3rem, 1.9vw, 2.3rem); }
 }
+/* Month + year selects (consultant sign-up period). */
+.month-year { display: grid; gap: 8px; }
+.field-label-text { font-weight: 700; }
+.month-year-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
+.month-year-error { color: #ffb4a3; font-size: .8rem; }

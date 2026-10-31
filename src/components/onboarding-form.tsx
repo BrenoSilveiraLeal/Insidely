@@ -103,13 +103,31 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 }
 
 const BIO_MIN=30;
-const thisMonth=()=>{const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;};
+
+const MONTH_NAMES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+// Month and year as two plain selects (the native month picker is hard to read on the dark panel).
+// The form still sends one "YYYY-MM" value under the given name.
+function MonthYearField({id,name,label}:{id:string;name:string;label:string}){
+  const [now]=useState(()=>new Date());
+  const [month,setMonth]=useState(""),[year,setYear]=useState("");
+  const years=Array.from({length:now.getFullYear()-1969},(_,index)=>String(now.getFullYear()-index));
+  const future=year===String(now.getFullYear())&&Number(month)>now.getMonth()+1;
+  return <div className="field month-year">
+    <span className="field-label-text" id={`${id}-label`}>{label}</span>
+    <div className="month-year-row" role="group" aria-labelledby={`${id}-label`}>
+      <select className="select" id={id} aria-label={`${label}: mês`} value={month} required onChange={(event)=>setMonth(event.target.value)}><option value="" disabled>Mês</option>{MONTH_NAMES.map((label,index)=><option key={label} value={String(index+1).padStart(2,"0")}>{label}</option>)}</select>
+      <select className="select" aria-label={`${label}: ano`} value={year} required onChange={(event)=>setYear(event.target.value)}><option value="" disabled>Ano</option>{years.map((value)=><option key={value} value={value}>{value}</option>)}</select>
+    </div>
+    {future&&<small className="month-year-error">Escolha um mês que já passou.</small>}
+    <input type="hidden" name={name} value={month&&year&&!future?`${year}-${month}`:""}/>
+  </div>;
+}
 
 // Current or former employee, the period and what the person does or did there. Former employees
 // are welcome: they usually speak more freely about the company.
 function EmploymentFields(){
   const [status,setStatus]=useState<"current"|"former">("current");
-  const [max]=useState(thisMonth);
   return <fieldset className="employment-fields">
     <legend>Você ainda trabalha nessa empresa?</legend>
     <div className="employment-choice" role="radiogroup">
@@ -117,8 +135,8 @@ function EmploymentFields(){
       <label className={status==="former"?"is-selected":undefined}><input type="radio" name="employmentStatus" value="former" checked={status==="former"} onChange={()=>setStatus("former")}/>Não, já saí</label>
     </div>
     <div className="profile-fields-row">
-      <div className="field"><label htmlFor="startedAt">Entrei em</label><input className="input" id="startedAt" name="startedAt" type="month" max={max} required/></div>
-      {status==="former"&&<div className="field"><label htmlFor="endedAt">Saí em</label><input className="input" id="endedAt" name="endedAt" type="month" max={max} required/></div>}
+      <MonthYearField id="startedAt" name="startedAt" label="Entrei em"/>
+      {status==="former"&&<MonthYearField id="endedAt" name="endedAt" label="Saí em"/>}
     </div>
     <div className="field"><label htmlFor="experienceSummary">{status==="former"?"O que você fazia lá":"O que você faz lá"}</label><textarea className="textarea" id="experienceSummary" name="experienceSummary" rows={3} minLength={15} maxLength={300} required placeholder={status==="former"?"Ex.: Cuidava do atendimento a lojistas e de relatórios mensais do time de vendas.":"Ex.: Cuido do atendimento a lojistas e dos relatórios mensais do time de vendas."}/></div>
     <p className="employment-note">{status==="former"?"Ótimo: quem já saiu costuma falar com mais liberdade. Quem agenda vai ver de que época é a sua visão.":"Por padrão, seu nome e sua foto não aparecem no perfil. Em Privacidade, você também pode esconder o nome da empresa e mostrar só a área."}</p>
