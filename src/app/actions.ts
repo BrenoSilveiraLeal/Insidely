@@ -1553,6 +1553,18 @@ export async function finishMessageBookingAction(bookingId: string) {
   redirect(`/conversa/${bookingId}?mensagem=encerrada`);
 }
 
+// The consultant releases the next question once they finished answering the current one (migration
+// 20261101115000: a reply alone, such as a greeting, no longer releases it).
+export async function sendNextQuestionAction(bookingId: string) {
+  await requireUser([Role.CONSULTANT]);
+  const back = `/conversa/${bookingId}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (await createSupabaseServerClient() as any).rpc("send_next_message_question", { p_booking_id: bookingId });
+  if (error) redirect(`${back}?mensagem=${error.message.includes("not_answered") ? "responda-antes" : "erro"}`);
+  revalidatePath(back);
+  redirect(back);
+}
+
 // The consultant finishes a message booking once the last question is answered: the chat closes,
 // the consultant's confirmation is recorded and the amount stays held 24 hours, during which the
 // customer can contest; with no contest it is released (autoReleaseAt).

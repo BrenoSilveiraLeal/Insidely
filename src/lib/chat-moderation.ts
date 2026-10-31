@@ -145,6 +145,8 @@ export function chatFeedbackText(code: string) {
   if (code === "ofensiva") return "Mensagem bloqueada: palavrões, ofensas e ameaças não são permitidos. Tentativas repetidas são analisadas pela equipe e podem levar ao bloqueio da conta.";
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";
   if (code === "fechado") return "O chat desta conversa não está aberto agora.";
+  if (code === "responda-antes") return "Responda a pergunta atual antes de liberar a próxima.";
+  if (code === "finalizada") return "Atendimento finalizado. O valor fica retido por 24 horas para o cliente conferir as respostas e depois segue para o seu repasse.";
   if (code === "encerrada") return "Pedido encerrado. Obrigado! Agora você pode avaliar a conversa em Avaliações.";
   if (code === "limite-perguntas") return "Suas perguntas já foram enviadas neste pedido. Aguarde as respostas do consultor ou faça um novo pedido.";
   if (code === "erro") return "Não foi possível enviar a mensagem agora. Tente novamente.";
