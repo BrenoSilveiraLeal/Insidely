@@ -92,6 +92,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title="Casos">
     {erro === "assumir" && <FlashMessage param="erro">Esse caso ainda não tem responsável. Use “Assumir e abrir” para abri-lo.</FlashMessage>}
     {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
+    <div className="case-queue">
     <nav className="case-filter" aria-label="Responsável">{people.map((person) => { const active = (quem || null) === person.value; return <Link key={person.value ?? "todos"} className={`button button-sm ${active ? "button-dark" : "button-ghost"}`} href={link({ quem: person.value })} aria-current={active ? "page" : undefined}>{person.label}</Link>; })}</nav>
     <nav className="catalog-counters catalog-tabs" aria-label="Estado dos casos">
       <Link className={`metric catalog-tab${showClosed ? "" : " is-active"}`} href={link({ estado: null })} aria-current={showClosed ? undefined : "page"}><span>Abertos</span><strong>{open.length}</strong></Link>
@@ -108,5 +109,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
 
     </div>; })}{!open.length && <section className="panel catalog-empty"><span className="catalog-empty-icon" aria-hidden="true">✓</span><h2>Nenhum caso aberto</h2><p className="muted">{who ? "Nenhum caso aberto com este filtro." : "Denúncias, avaliações denunciadas, contestações e faltas aparecem aqui assim que surgirem, e chegam também no sino."}</p></section>}</div>
     </>}
+    </div>
   </DashboardShell>;
 }
