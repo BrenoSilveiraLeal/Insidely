@@ -1758,3 +1758,21 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .checkout-facts span { font-weight: 600; }
 .checkout-facts .button { margin-top: 4px; }
 .checkout-actions { display: grid; gap: 8px; }
+/* Editar perfil: three numbered sections, experiences as cards added on demand. */
+.professional-edit-panel > h2 { margin: 0; font: 850 clamp(1.6rem, 2.6vw, 2.2rem)/1.05 var(--display); letter-spacing: -.04em; }
+.professional-edit-panel > p { margin: 6px 0 0; }
+.profile-edit-form { display: grid; gap: 22px; margin-top: 22px; }
+.profile-edit-section { display: grid; gap: 14px; padding-top: 20px; border-top: 1px solid var(--line); }
+.profile-edit-section h3 { display: flex; gap: 10px; align-items: center; margin: 0; font: 850 1.15rem/1.2 var(--display); }
+.profile-edit-section h3 span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: .8rem; }
+.profile-edit-more > summary { cursor: pointer; color: var(--muted); font-weight: 700; font-size: .9rem; }
+.profile-edit-more[open] > summary { margin-bottom: 12px; }
+.profile-edit-more { display: grid; gap: 12px; }
+.experience-card { display: grid; gap: 12px; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.5); }
+.experience-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.experience-card legend { float: left; padding: 0; font-weight: 800; }
+.experience-remove { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: .78rem; font-weight: 700; cursor: pointer; }
+.experience-remove:hover { border-color: var(--red); color: var(--red); }
+.experience-add { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 1.5px dashed var(--line); border-radius: 16px; background: transparent; color: var(--ink); font-weight: 800; cursor: pointer; }
+.experience-add:hover { border-color: var(--ink); background: var(--paper); }
+.profile-edit-actions { display: flex; justify-content: flex-end; }
