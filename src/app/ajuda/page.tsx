@@ -22,7 +22,7 @@ const sections: { title: string; icon: LucideIcon; items: [string, string][] }[]
   ] },
   { title: "Para consultores", icon: BriefcaseBusiness, items: [
     ["Como recebo?", "O valor fica retido até a conversa acontecer e é liberado quando vocês dois confirmam (ou 24 horas depois do fim, sem contestação), já sem a taxa da plataforma. Acompanhe em Ganhos."],
-    ["Como ganho o selo de vínculo verificado?", "Em Perfil e verificação, envie uma foto ou PDF do crachá, da folha de ponto ou holerite, ou da carteira de trabalho digital. A equipe confere e aprova."],
+    ["Como ganho o selo de vínculo verificado?", "Em Editar perfil, envie uma foto ou PDF do crachá, da folha de ponto ou holerite, ou da carteira de trabalho digital. A equipe confere e aprova."],
     ["Posso tirar férias?", "Sim. Na Agenda, use “Pausa ou férias”. Antes, faça ou cancele as conversas marcadas no período; no cancelamento o cliente recebe 100% de volta."],
   ] },
   { title: "Conta e segurança", icon: ShieldCheck, items: [

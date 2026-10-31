@@ -24,7 +24,7 @@ export async function getProfileCompleteness(userId: string): Promise<{ percent:
     { label: "Foto de capa", detail: "A imagem grande no topo do seu perfil público (diferente da foto de perfil).", done: Boolean(cover?.image), href: "/consultor/perfil" },
     { label: "Apresentação", detail: bioLength >= 120 ? "Pronta." : `${bioLength} de 120 caracteres: conte mais sobre o que você pode contextualizar.`, done: bioLength >= 120, href: "/consultor/perfil" },
     { label: "Horários livres", detail: "Pelo menos um horário livre na agenda.", done: (freeSlots ?? 0) > 0, href: "/consultor/agenda" },
-    { label: "Vínculo verificado", detail: "Envie o comprovante (crachá, holerite ou carteira de trabalho) em Perfil e verificação.", done: profile.verificationStatus === "VERIFIED", href: "/consultor/perfil" },
+    { label: "Vínculo verificado", detail: "Envie o comprovante (crachá, holerite ou carteira de trabalho) em Editar perfil.", done: profile.verificationStatus === "VERIFIED", href: "/consultor/perfil" },
     { label: "Mensagem de boas-vindas", detail: "O texto enviado no chat quando alguém agenda com você.", done: Boolean(profile.welcomeMessage), href: "/consultor/perfil" },
     { label: "Sobre a sua área", detail: "Faixa salarial, uma coisa boa e uma difícil da rotina.", done: Boolean(profile.salaryRange || profile.areaPro), href: "/consultor/perfil" },
   ];

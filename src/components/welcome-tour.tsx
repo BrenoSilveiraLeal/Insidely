@@ -13,8 +13,8 @@ const STEPS = {
   consultant: [
     ["Bem-vindo, consultor!", "Você compartilha sua experiência e recebe por cada conversa. Este painel mostra seus pedidos, sua agenda e seus ganhos."],
     ["Abra sua agenda", "Em Agenda, crie horários avulsos ou recorrentes. Sem horários livres, ninguém consegue agendar com você."],
-    ["Trabalhou em mais de uma empresa?", "Em Perfil e verificação você pode cadastrar até 3 experiências, atuais ou anteriores. Assim seu perfil aparece na busca de cada uma dessas empresas."],
-    ["Ganhe confiança", "Também em Perfil e verificação, complete seu perfil e envie o comprovante de vínculo para ganhar o selo. Vale crachá, holerite, carteira de trabalho ou termo de rescisão."],
+    ["Trabalhou em mais de uma empresa?", "Em Editar perfil você pode cadastrar até 3 experiências, atuais ou anteriores. Assim seu perfil aparece na busca de cada uma dessas empresas."],
+    ["Ganhe confiança", "Também em Editar perfil, complete seu perfil e envie o comprovante de vínculo para ganhar o selo. Vale crachá, holerite, carteira de trabalho ou termo de rescisão."],
     ["Atenda e receba", "As conversas chegam em Consultas e mensagens. O valor é liberado em Ganhos depois que a conversa acontece."],
   ],
 } as const;

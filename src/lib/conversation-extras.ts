@@ -3,7 +3,7 @@ import { sendTransactionalEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 
 // The consultant's welcome message, posted in the chat on their behalf as soon as a payment is
-// confirmed. Written once in "Perfil e verificação" and checked by the chat filter when saved.
+// confirmed. Written once in "Editar perfil" and checked by the chat filter when saved.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function postWelcomeMessage(supabase: any, bookingId: string) {
   const { data: booking } = await supabase.from("Booking").select("customerId, professionalProfileId").eq("id", bookingId).maybeSingle();

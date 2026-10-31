@@ -7,7 +7,7 @@ import { AdminNotifications } from "@/components/admin-notifications";
 
 const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/agendamentos", "Agendamentos"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
-  consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Perfil e verificação"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
+  consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Agenda"], ["/consultor/consultas", "Consultas e mensagens"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Editar perfil"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
   admin: [["/admin", "Visão geral"], ["/admin/casos", "Casos"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/historias", "Histórias"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"], ["/admin/registro", "Registro de ações"], ["/admin/status", "Status do sistema"], ["/dashboard/configuracoes", "Conta e segurança"]],
 } as const;
 
@@ -18,8 +18,9 @@ export function DashboardShell({ mode, title, children, profileId, notifications
   return <main className="dash"><RememberDashboardMode mode={mode}/><div className="dash-shell"><aside className="sidebar"><Link className="brand" href="/">insidely<span className="brand-dot">.</span></Link><DashboardNavToggle><nav className={`side-nav side-nav-${mode}`}>
     {mode === "consultant" ? <>
       <div className="side-nav-section"><span className="side-nav-label">Trabalho</span>{menus.consultant.slice(0, 4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
-      <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span>{menus.consultant.slice(4).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</div>
-      <div className="side-nav-footer"><Link className="side-nav-profile" href={profileHref}>Visualizar seu perfil</Link><Link href="/dashboard/favoritos?context=consultant">Meus favoritos</Link><Link href="/dashboard">Modo cliente</Link><Link href="/dashboard/suporte">Suporte</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form></div>
+      <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Meu perfil</span><Link href="/consultor/perfil">Editar perfil</Link><Link href="/consultor/privacidade">Privacidade do perfil</Link><Link href={profileHref}>Ver meu perfil público</Link></div>
+      <div className="side-nav-section side-nav-secondary"><span className="side-nav-label">Conta</span><Link href="/dashboard/configuracoes?context=consultant">Conta e segurança</Link><Link href="/dashboard/favoritos?context=consultant">Meus favoritos</Link><Link href="/dashboard/suporte">Suporte</Link></div>
+      <div className="side-nav-footer"><Link href="/dashboard">Modo cliente</Link><Link href="/buscar">Ver plataforma</Link><form action={logoutAction}><button className="side-nav-logout" type="submit">Sair</button></form></div>
     </> : <>
       {menus[mode].map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
       {canClient && <Link href="/dashboard">Modo cliente</Link>}{canConsultant && mode === "user" && <Link href="/consultor">Modo consultor</Link>}{!canConsultant && mode === "user" && <Link href="/dashboard/virar-consultor">Virar consultor</Link>}

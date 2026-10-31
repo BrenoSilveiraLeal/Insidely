@@ -759,7 +759,7 @@ export async function reviewVerificationAction(id: string, decision: "VERIFIED" 
     const supabase = createSupabaseServiceClient() as any;
     const { data: verification } = await supabase.from("Verification").update({ adminNotes: reason, updatedAt: new Date().toISOString() }).eq("id", id).select("professionalProfileId").maybeSingle();
     const { data: profile } = verification ? await supabase.from("ProfessionalProfile").select("userId").eq("id", verification.professionalProfileId).maybeSingle() : { data: null };
-    if (profile) await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: profile.userId, title: "Motivo da recusa do comprovante", body: `${reason} Você pode enviar outro comprovante em Perfil e verificação.`, href: "/consultor/perfil", createdAt: new Date().toISOString() });
+    if (profile) await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: profile.userId, title: "Motivo da recusa do comprovante", body: `${reason} Você pode enviar outro comprovante em Editar perfil.`, href: "/consultor/perfil", createdAt: new Date().toISOString() });
   }
   revalidatePath("/admin/verificacoes"); revalidatePath("/admin"); revalidatePath("/consultor/perfil"); revalidatePath("/buscar"); revalidatePath("/profissional/[id]", "page");
   redirect(`/admin/verificacoes?ok=${decision === "VERIFIED" ? "aprovado" : "recusado"}`);

@@ -1741,3 +1741,5 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .topic-idea { padding: 6px 12px; border: 1px dashed var(--line); border-radius: 999px; background: transparent; color: var(--ink); font-size: .8rem; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s; }
 .topic-idea:hover { border-color: var(--ink); }
 .topic-idea.is-picked { border-style: solid; border-color: var(--ink); background: var(--paper-2); }
+.settings-moved { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+.settings-moved p { margin: 4px 0 0; }
