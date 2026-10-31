@@ -1,4 +1,5 @@
 import { TwoColumns } from "@/components/two-columns";
+import { compareBookingsForList } from "@/lib/booking-policy";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
 import Link from "next/link";
 import { CalendarClock, CalendarX2, ChevronDown } from "lucide-react";
@@ -25,7 +26,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   // Opening the page counts its notifications as seen (the menu count goes away).
   await markPageNotificationsRead(user.id, "/dashboard/agendamentos");
   const dashboard = await getViewerDashboard(user.id);
-  const shown = paginate(dashboard?.customerBookings ?? [], query.page, 12);
+  const shown = paginate([...(dashboard?.customerBookings ?? [])].sort(compareBookingsForList), query.page, 12);
   // Self-bookings (a consultant testing their own profile) cannot be reviewed.
   const supabase = await createSupabaseServerClient();
   const { data: ownProfile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();

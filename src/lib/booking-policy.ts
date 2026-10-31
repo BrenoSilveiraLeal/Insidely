@@ -80,3 +80,14 @@ export const MESSAGE_QUESTION_LIMIT = 5;
 export function suggestedMessagePriceCents(price30Cents: number) {
   return Math.max(1000, Math.round(price30Cents * 0.6 / 100) * 100);
 }
+
+// Order of conversation lists: message requests in progress first (urgent), then conversations still
+// to happen or to settle, nearest first, then finished ones (completed, cancelled, expired, no-show),
+// most recent first. The consultant's list does the same in get_consultant_bookings.
+const STILL_ACTIVE = ["PENDING_PAYMENT", "CONFIRMED", "IN_PROGRESS", "AWAITING_CONFIRMATION", "DISPUTED"];
+export function compareBookingsForList(a: { status: string; format?: string; startsAt: Date }, b: { status: string; format?: string; startsAt: Date }) {
+  const group = (item: typeof a) => item.format === "MESSAGE" && item.status === "CONFIRMED" ? 0 : STILL_ACTIVE.includes(item.status) ? 1 : 2;
+  const byGroup = group(a) - group(b);
+  if (byGroup) return byGroup;
+  return group(a) < 2 ? a.startsAt.getTime() - b.startsAt.getTime() : b.startsAt.getTime() - a.startsAt.getTime();
+}

@@ -1,4 +1,5 @@
 import { TwoColumns } from "@/components/two-columns";
+import { compareBookingsForList } from "@/lib/booking-policy";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { ConversationLink } from "@/components/conversation-link";
 import { getUnreadCounts } from "@/lib/conversations";
@@ -32,7 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
   // Opening the page counts its notifications as seen (the menu count goes away).
   await markPageNotificationsRead(user.id, "/dashboard/mensagens");
   const dashboard = await getViewerDashboard(user.id);
-  const requests = dashboard?.customerBookings ?? [];
+  const requests = [...(dashboard?.customerBookings ?? [])].sort(compareBookingsForList);
   // A consultant test-booking their own profile has nobody to report.
   const { data: ownProfile } = await (await createSupabaseServerClient()).from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const ownProfileId = ownProfile?.id;
