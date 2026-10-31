@@ -69,7 +69,7 @@ export default async function ConversationPage({ params, searchParams }: { param
   // customer gets the same choice as after a finish: answered, or contest. The amount stays held 24
   // hours after the deadline, as releaseBookingTransfer does.
   const answersUntil = new Date(startsAt.getTime() + conversation.durationMinutes * 60_000);
-  const deadlinePassed = Date.now() > answersUntil.getTime();
+  const deadlinePassed = !isFuture(answersUntil);
   const unfinishedPastDeadline = isMessage && conversation.status === "CONFIRMED" && deadlinePassed;
   const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : unfinishedPastDeadline ? new Date(answersUntil.getTime() + 24 * 60 * 60_000) : null;
   const canContest = isMessage && !consultantMode && (conversation.status === "AWAITING_CONFIRMATION" || unfinishedPastDeadline) && isFuture(contestUntil);
