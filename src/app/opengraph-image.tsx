@@ -5,5 +5,5 @@ export const size = shareCardSize;
 export const contentType = shareCardType;
 
 export default function Image() {
-  return shareCard({ eyebrow: "A realidade antes da decisão", title: "Converse com quem vive a empresa por dentro.", subtitle: "Profissionais verificados contam a rotina real de empresas e profissões." });
+  return shareCard({ eyebrow: "A realidade antes da decisão", title: "Converse com quem vive ou viveu a empresa por dentro.", subtitle: "Profissionais verificados contam a rotina real de empresas e profissões." });
 }

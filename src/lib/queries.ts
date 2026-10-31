@@ -59,13 +59,13 @@ export async function getPublicCompaniesPage(page=1){const size=25,from=(Math.ma
 export async function getPublicProfessionsPage(page=1){const size=25,from=(Math.max(1,page)-1)*size;const{data,count:total,error}=await createSupabasePublicClient().from("public_profession_cards").select("*",{count:"exact"}).not("id","in",`(${[...UNLISTED_IDS].join(",")})`).order("name").range(from,from+size-1);if(error)throw new Error(error.message);return{items:(data??[]).map(profession),total:total??0,page,pageSize:size}}
 export async function getPublicRealityChecks(){const{data,error}=await createSupabasePublicClient().from("RealityCheck").select("*, profession:Profession(*)");if(error)throw new Error(error.message);return data??[]}
 async function searchProfessionalsBase(params:{q?:string;company?:string;profession?:string;mode?:string;location?:string;page?:number},pageSize=24):Promise<Paginated<PublicProfile>>{const page=Math.max(1,params.page??1);const{data,error}=await createSupabasePublicClient().rpc("search_public_profiles",{p_query:params.q?.trim()||undefined,p_company_slug:params.company||undefined,p_profession_slug:params.profession||undefined,p_work_mode:params.mode||undefined,p_location:params.location?.trim()||undefined,p_limit:pageSize,p_offset:(page-1)*pageSize});if(error)throw new Error(`Supabase search failed: ${error.message}`);const rows=Array.isArray(data)?data:[];return{items:rows.map(item=>profileFromJson(object(item).profile)).filter(x=>x.id),total:rows.length?number(object(rows[0]).total_count):0,page,pageSize}}
-export type SearchFilters = { q?: string; company?: string; profession?: string; mode?: string; location?: string; page?: number; maxPrice?: string; minRating?: string; week?: string; seniority?: string; sort?: string };
+export type SearchFilters = { q?: string; company?: string; profession?: string; mode?: string; location?: string; page?: number; maxPrice?: string; minRating?: string; week?: string; seniority?: string; sort?: string; vinculo?: string };
 // Price, rating, "free this week", seniority and sorting by rating are applied after the database
 // search (search_public_profiles has no such parameters). With few hundred profiles, reading them all
 // once is cheap; pagination then happens here.
 export async function searchProfessionalsPage(params: SearchFilters): Promise<Paginated<PublicProfile>> {
   const maxPrice = Number(params.maxPrice) * 100, minRating = Number(params.minRating);
-  const advanced = Boolean(maxPrice || minRating || params.week || params.seniority || params.sort === "nota");
+  const advanced = Boolean(maxPrice || minRating || params.week || params.seniority || params.sort === "nota" || params.vinculo === "atual" || params.vinculo === "ex");
   if (!advanced) return searchProfessionalsBase(params);
   const page = Math.max(1, params.page ?? 1), pageSize = 24;
   const all = (await searchProfessionalsBase({ ...params, page: 1 }, 500)).items;
@@ -75,7 +75,10 @@ export async function searchProfessionalsPage(params: SearchFilters): Promise<Pa
     (!maxPrice || item.price30Cents <= maxPrice) &&
     (!minRating || rating(item) >= minRating) &&
     (!params.week || item.availability.some((slot) => !slot.isBooked && slot.startsAt.getTime() <= weekEnd && slot.endsAt.getTime() > Date.now())) &&
-    (!params.seniority || item.seniority === params.seniority));
+    (!params.seniority || item.seniority === params.seniority) &&
+    // "atual": someone who works there now; "ex": someone who already left (any listed experience).
+    (params.vinculo !== "atual" || item.experiences.some((exp) => exp.isCurrent !== false)) &&
+    (params.vinculo !== "ex" || item.experiences.some((exp) => exp.isCurrent === false)));
   if (params.sort === "nota") filtered.sort((a, b) => rating(b) - rating(a) || b.reviews.length - a.reviews.length);
   return { items: filtered.slice((page - 1) * pageSize, page * pageSize), total: filtered.length, page, pageSize };
 }

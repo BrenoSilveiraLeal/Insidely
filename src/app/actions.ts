@@ -793,7 +793,7 @@ export async function resolveCatalogRequestAction(formData: FormData) {
     for (let attempt = 2; (await supabase.from(table).select("id").eq("slug", slug).maybeSingle()).data; attempt++) slug = `${catalogSlug(targetName)}-${attempt}`;
     targetId = crypto.randomUUID();
     const row = kind === "COMPANY"
-      ? { id: targetId, slug, name: targetName, sector: group, description: `Conheça a rotina de quem trabalha na ${targetName}.`, logoText: targetName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(), color: "#172033", location: "Brasil", createdAt: now, updatedAt: now }
+      ? { id: targetId, slug, name: targetName, sector: group, description: `Conheça a rotina de quem trabalha ou já trabalhou na ${targetName}.`, logoText: targetName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(), color: "#172033", location: "Brasil", createdAt: now, updatedAt: now }
       : { id: targetId, slug, name: targetName, category: group, description: `Converse com quem atua em ${targetName}.`, accent: "#f2c45d", createdAt: now, updatedAt: now };
     const { error } = await supabase.from(table).insert(row);
     if (error) redirect(`/admin/catalogo?tipo=${tab}&erro=${encodeURIComponent(`Não foi possível criar: ${error.message}`)}`);

@@ -3,7 +3,8 @@ import { consumeQuota } from "@/lib/auth-email-throttle";
 
 // Daily scan for accounts that deserve a look, sent to the admins' bell (at most once a week per
 // account): several reports, repeated blocked chat messages, being blocked by several people or a
-// poor rating as a customer.
+// poor rating as a customer, or booking several consultants of the same company in a short time
+// (someone may be checking, for an employer, what its current or former employees say).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function flagSuspiciousAccounts(supabase: any, now = new Date()) {
   const month = new Date(now.getTime() - 30 * 24 * 60 * 60_000).toISOString();
@@ -23,6 +24,27 @@ export async function flagSuspiciousAccounts(supabase: any, now = new Date()) {
   const ratings = new Map<string, number[]>();
   for (const row of (feedback ?? []) as { customerId: string; rating: number }[]) ratings.set(row.customerId, [...(ratings.get(row.customerId) ?? []), row.rating]);
   for (const [userId, list] of ratings) { const average = list.reduce((a, b) => a + b, 0) / list.length; if (list.length >= 3 && average < 2.5) add(userId, `nota ${average.toFixed(1)} como cliente`); }
+  // Same customer, 3+ different consultants who list the same company, booked in 30 days.
+  const { data: recent } = await supabase.from("Booking").select("customerId, professionalProfileId").gte("createdAt", month).not("status", "in", "(CANCELLED,EXPIRED)");
+  const profileIds = [...new Set(((recent ?? []) as { professionalProfileId: string }[]).map((row) => row.professionalProfileId))];
+  if (profileIds.length) {
+    const { data: jobs } = await supabase.from("EmploymentExperience").select("professionalProfileId, company:Company(id, name)").in("professionalProfileId", profileIds);
+    const companiesOf = new Map<string, { id: string; name: string }[]>();
+    for (const job of (jobs ?? []) as { professionalProfileId: string; company: { id: string; name: string } | { id: string; name: string }[] | null }[]) {
+      const company = Array.isArray(job.company) ? job.company[0] : job.company;
+      if (company) companiesOf.set(job.professionalProfileId, [...(companiesOf.get(job.professionalProfileId) ?? []), company]);
+    }
+    const seen = new Map<string, { name: string; profiles: Set<string> }>();
+    for (const row of (recent ?? []) as { customerId: string; professionalProfileId: string }[]) {
+      for (const company of companiesOf.get(row.professionalProfileId) ?? []) {
+        const key = `${row.customerId}|${company.id}`;
+        const entry = seen.get(key) ?? { name: company.name, profiles: new Set<string>() };
+        entry.profiles.add(row.professionalProfileId);
+        seen.set(key, entry);
+      }
+    }
+    for (const [key, entry] of seen) if (entry.profiles.size >= 3) add(key.split("|")[0], `agendou com ${entry.profiles.size} consultores da ${entry.name} em 30 dias`);
+  }
   if (!reasons.size) return 0;
   const { data: admins } = await supabase.from("User").select("id").eq("role", "ADMIN");
   const { data: users } = await supabase.from("User").select("id, name").in("id", [...reasons.keys()]);

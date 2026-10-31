@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 const STEPS = {
   customer: [
-    ["Bem-vindo à Insidely!", "Aqui você conversa com quem vive a rotina de uma empresa ou profissão antes de tomar uma decisão de carreira."],
+    ["Bem-vindo à Insidely!", "Aqui você conversa com quem vive ou já viveu a rotina de uma empresa ou profissão antes de tomar uma decisão de carreira."],
     ["Encontre alguém", "Em “Ver plataforma”, busque por empresa, profissão, preço ou nota, e abra o perfil de quem você quer ouvir."],
     ["Agende e pague", "Escolha um horário livre e conte o que quer conversar. Depois do pagamento, a conversa aparece em Agendamentos e Mensagens."],
     ["No dia da conversa", "O link da sala abre no horário marcado. Depois, avalie a conversa em Avaliações. Dúvidas? Veja a Central de ajuda."],
