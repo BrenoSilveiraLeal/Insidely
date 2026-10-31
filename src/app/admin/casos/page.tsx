@@ -23,8 +23,8 @@ const PAGE_SIZE = 20;
 // One queue for everything that needs a person: open reports, reported reviews, disputes and
 // one-sided attendance (no-shows) of the last 14 days. Each case can be taken by an admin.
 // Filters: ?quem= (eu, a staff member's id or "ninguem"; repeatable) and ?estado=encerrados for the closed cases, which are
-// found through their CaseAssignment row (it stays after the case is closed). Support staff see only
-// support requests and reports (the other kinds are handled on admin-only pages).
+// found through their CaseAssignment row (it stays after the case is closed). Support staff see
+// support requests, reports and contested conversations (the other kinds are on admin-only pages).
 export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; quem?: string | string[]; estado?: string; page?: string }> }) {
   const { ok, erro, quem, estado, page: pageParam } = await searchParams;
   const admin = await requireUser([Role.ADMIN, Role.SUPPORT]);
@@ -36,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const [{ data: reports }, { data: reviewReports }, { data: disputes }, { data: checked }, { data: assignments }, { data: adminRows }] = await Promise.all([
     supabase.from("Report").select("id, category, description, targetUserId, bookingId, status, createdAt").in("status", ["OPEN", "IN_REVIEW"]).order("createdAt"),
     isAdmin ? supabase.from("ReviewReport").select("id, reason, reviewComment, createdAt").eq("status", "OPEN").order("createdAt") : none,
-    isAdmin ? supabase.from("Booking").select("id, customerId, disputedAt, updatedAt").eq("status", "DISPUTED").order("updatedAt") : none,
+    supabase.from("Booking").select("id, customerId, disputedAt, updatedAt").eq("status", "DISPUTED").order("updatedAt"),
     !isAdmin ? none : supabase.from("Booking").select("id, customerId, startsAt, professionalProfile:ProfessionalProfile(userId)").not("noShowCheckedAt", "is", null).gte("startsAt", since).in("status", ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"]),
     supabase.from("CaseAssignment").select("caseKey, adminUserId, admin:User(name)"),
     supabase.from("User").select("id, name").in("role", ["ADMIN", "SUPPORT"]).not("auth_user_id", "is", null).order("name"),
@@ -44,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const cases: Case[] = [
     ...((reports ?? []) as { id: string; category: string; description: string; targetUserId: string | null; bookingId: string | null; status: string; createdAt: string }[]).map((item) => ({ key: `report:${item.id}`, kind: item.targetUserId || item.bookingId ? "Denúncia" : "Suporte", waiting: item.status === "IN_REVIEW" ? "Aguardando a pessoa" : undefined, title: item.category, detail: item.description, createdAt: item.createdAt, href: `/admin/casos/relato/${item.id}` })),
     ...((reviewReports ?? []) as { id: string; reason: string; reviewComment: string | null; createdAt: string }[]).map((item) => ({ key: `review:${item.id}`, kind: "Avaliação denunciada", title: `“${item.reviewComment ?? "sem comentário"}”`, detail: item.reason, createdAt: item.createdAt, href: "/admin/denuncias" })),
-    ...((disputes ?? []) as { id: string; customerId: string; disputedAt: string | null; updatedAt: string }[]).map((item) => ({ key: `dispute:${item.id}`, kind: "Contestação", title: `Conversa ${item.id.slice(0, 8)}`, detail: "Pagamento retido até a decisão do suporte.", createdAt: item.disputedAt ?? item.updatedAt, href: `/admin/usuarios/${item.customerId}` })),
+    ...((disputes ?? []) as { id: string; customerId: string; disputedAt: string | null; updatedAt: string }[]).map((item) => ({ key: `dispute:${item.id}`, kind: "Contestação", title: `Conversa ${item.id.slice(0, 8)}`, detail: "Pagamento retido até a decisão do suporte.", createdAt: item.disputedAt ?? item.updatedAt, href: `/admin/casos/contestacao/${item.id}` })),
   ];
   const checkedRows = (checked ?? []) as { id: string; customerId: string; startsAt: string; professionalProfile: { userId: string } | { userId: string }[] | null }[];
   if (checkedRows.length) {
@@ -70,7 +70,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
 
   // Closed cases always had someone responsible, so "Sem responsável" alone finds none.
   const openKeys = new Set(cases.map((item) => item.key));
-  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && matches(key) && (isAdmin || (key.startsWith("report:") && owner.get(key)?.id === admin.id)));
+  const closedKeys = [...owner.keys()].filter((key) => !openKeys.has(key) && matches(key) && (isAdmin || ((key.startsWith("report:") || key.startsWith("dispute:")) && owner.get(key)?.id === admin.id)));
   const ids = (prefix: string) => closedKeys.filter((key) => key.startsWith(`${prefix}:`)).map((key) => key.slice(prefix.length + 1));
   const reportIds = ids("report"), reviewIds = ids("review"), disputeIds = new Set(ids("dispute")), bookingIds = [...disputeIds, ...ids("noshow")];
   const [{ data: oldReports }, { data: oldReviews }, { data: oldBookings }] = await Promise.all([
@@ -83,7 +83,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   for (const item of (oldReviews ?? []) as { id: string; reason: string; reviewComment: string | null; status: string; resolvedAt: string | null; createdAt: string }[]) closed.push({ key: `review:${item.id}`, kind: "Avaliação denunciada", outcome: REVIEW_OUTCOME[item.status] ?? "Encerrado", title: `“${item.reviewComment ?? "sem comentário"}”`, detail: item.reason, closedAt: item.resolvedAt ?? item.createdAt, href: "/admin/denuncias" });
   for (const item of (oldBookings ?? []) as { id: string; customerId: string; startsAt: string; updatedAt: string }[]) {
     const dispute = disputeIds.has(item.id);
-    closed.push({ key: `${dispute ? "dispute" : "noshow"}:${item.id}`, kind: dispute ? "Contestação" : "Falta", outcome: dispute ? "Decidida" : "Encerrada", title: `Conversa de ${shortDate(parseDbDate(item.startsAt))}`, detail: dispute ? "Contestação já decidida." : "Falta já tratada.", closedAt: item.updatedAt, href: `/admin/usuarios/${item.customerId}` });
+    closed.push({ key: `${dispute ? "dispute" : "noshow"}:${item.id}`, kind: dispute ? "Contestação" : "Falta", outcome: dispute ? "Decidida" : "Encerrada", title: `Conversa de ${shortDate(parseDbDate(item.startsAt))}`, detail: dispute ? "Contestação já decidida." : "Falta já tratada.", closedAt: item.updatedAt, href: dispute ? `/admin/casos/contestacao/${item.id}` : `/admin/usuarios/${item.customerId}` });
   }
   closed.sort((a, b) => b.closedAt.localeCompare(a.closedAt));
 
@@ -102,7 +102,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const ownerLabel = (key: string) => { const taken = owner.get(key); return taken ? (taken.id === admin.id ? "você" : taken.name) : null; };
   return <DashboardShell mode={isAdmin ? "admin" : "support"} title="Casos">
     {erro === "assumir" && <FlashMessage param="erro">Esse caso ainda não tem responsável. Use “Assumir e abrir” para abri-lo.</FlashMessage>}
-    {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
+    {ok && <FlashMessage key={ok}>{ok === "arquivado" ? "Caso arquivado. A resposta foi enviada para quem abriu." : ok === "devolvido" ? "Contestação decidida: o valor foi devolvido ao cliente." : ok === "liberado" ? "Contestação decidida: o valor segue para o consultor." : "Caso resolvido. A resposta foi enviada para quem abriu."}</FlashMessage>}
     <div className="case-queue">
     <div className="case-filter">
       {/* Keyed by the filter, so the menu closes after "Aplicar". next/form navigates without a full reload. */}

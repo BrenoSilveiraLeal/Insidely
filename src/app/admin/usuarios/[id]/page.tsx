@@ -62,7 +62,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const service = user.role === Role.ADMIN || user.role === Role.SUPPORT ? await getStaffRatings(user.id) : null;
 
   return <DashboardShell mode="admin" title={user.name}>
-    {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
+    {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "banida" ? "Advertência registrada. Era a 3ª suspensão: a conta foi banida." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     {Number(query.falhas) > 0 && <p className="form-error" role="alert">{query.falhas} conversa(s) não puderam ser canceladas automaticamente. Cancele pela lista de consultas do consultor ou contate o suporte de pagamentos.</p>}
     <div className="profile-management-stack">

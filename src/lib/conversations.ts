@@ -7,6 +7,8 @@ export type ConversationView = {
   customerId: string; consultantId: string; viewerIsConsultant: boolean; otherName: string; messages: ConversationMessage[];
   // "Perguntas por mensagem": questions in the request and how many were sent so far (one at a time).
   questionsTotal: number; questionsSent: number;
+  // When the held amount is released if nobody contests (set when the consultant finishes).
+  autoReleaseAt: string | null;
 };
 
 // Conversation tables are read with the service role after checking that the viewer is one of the
@@ -16,7 +18,7 @@ const service = () => createSupabaseServiceClient() as any;
 
 export async function getConversationForParticipant(bookingId: string, userId: string): Promise<ConversationView | null> {
   const supabase = service();
-  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId, questions, questionsSent").eq("id", bookingId).maybeSingle();
+  const { data: booking } = await supabase.from("Booking").select("id, status, format, startsAt, durationMinutes, meetingUrl, customerId, professionalProfileId, questions, questionsSent, autoReleaseAt").eq("id", bookingId).maybeSingle();
   if (!booking) return null;
   const [{ data: profile }, { data: conversation }] = await Promise.all([
     supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle(),
@@ -29,7 +31,7 @@ export async function getConversationForParticipant(bookingId: string, userId: s
     supabase.from("Message").select("id, body, senderId, createdAt, readAt, automatic").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
     viewerIsConsultant ? customerName(supabase, booking.customerId) : consultantPublicName(supabase, booking.professionalProfileId),
   ]);
-  return { questionsTotal: Array.isArray(booking.questions) ? booking.questions.length : 0, questionsSent: Number(booking.questionsSent ?? 0), bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
+  return { autoReleaseAt: booking.autoReleaseAt ?? null, questionsTotal: Array.isArray(booking.questions) ? booking.questions.length : 0, questionsSent: Number(booking.questionsSent ?? 0), bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
