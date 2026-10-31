@@ -3,6 +3,7 @@ import { DateTextInput } from "@/components/masked-inputs";
 import { CityInput } from "@/components/city-input";
 import { SuggestInput } from "@/components/suggest-input";
 import { KeepValuesForm } from "@/components/keep-values-form";
+import { TimedMessage } from "@/components/timed-message";
 import { BriefcaseBusiness, ChevronDown, Plus, Trash2, Upload, UserRound, Wallet } from "lucide-react";
 import { EditBox } from "@/components/edit-box";
 import { useActionState, useState } from "react";
@@ -55,7 +56,9 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
   const [dirty,setDirty]=useState(false);
   // A save that just finished well clears it (state adjusted while rendering, not in an effect).
   const [wasPending,setWasPending]=useState(pending);
-  if(pending!==wasPending){setWasPending(pending);if(!pending&&message?.startsWith("Perfil profissional atualizado"))setDirty(false);}
+  // Each finished save shows a short-lived "saved" notice where the pill was (savedAt keys it).
+  const [savedAt,setSavedAt]=useState(0);
+  if(pending!==wasPending){setWasPending(pending);if(!pending&&message?.startsWith("Perfil profissional atualizado")){setDirty(false);setSavedAt((value)=>value+1);}}
   // Blocks shown: the saved experiences (at least one). Keys survive removals.
   const [blocks,setBlocks]=useState(()=>(profile.experiences.length?profile.experiences:[{}]).slice(0,3).map((experience,index)=>({key:`saved-${index}`,experience})));
   // "Nível" (júnior, pleno…) only for areas with that kind of career ladder, by the main experience.
@@ -110,7 +113,8 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
         <div className="field"><label htmlFor="profile-pix">Chave Pix para receber</label><input className="input" id="profile-pix" name="pixKey" defaultValue={profile.pixKey??""} placeholder="CPF, e-mail, celular ou chave aleatória" required/><small className="muted">É para onde vai o valor das suas conversas. Não aparece no perfil.</small></div>
       </EditBox>
 
-      {message&&<p className={message.startsWith("Perfil profissional atualizado") ? "form-feedback" : "form-error"} role="status">{message}</p>}
+      {message&&!message.startsWith("Perfil profissional atualizado")&&<p className="form-error" role="alert">{message}</p>}
+      {savedAt>0&&!dirty&&<div className="profile-save-toast"><TimedMessage key={savedAt} text={message??"Perfil salvo."} error={false}/></div>}
       <div className={`profile-edit-actions${dirty||pending?" is-visible":""}`}><small className="muted">Alterações não salvas no perfil.</small><button className="button button-dark" disabled={pending}>{pending?"Salvando…":"Salvar perfil"}</button></div>
     </KeepValuesForm>
   </section>;

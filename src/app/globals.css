@@ -1413,6 +1413,9 @@ html { scroll-padding-top: 120px; }
 /* "Abra sua agenda": the quick button keeps its distance from the text above it. */
 .agenda-grid .panel > form:first-of-type { margin-top: 16px; }
 .timed-message { margin-top: 12px; animation: flash-in .3s ease both; }
+.profile-save-toast { position: fixed; right: 24px; bottom: 24px; z-index: 30; max-width: min(420px, calc(100vw - 32px)); }
+.profile-save-toast .timed-message { margin: 0; box-shadow: 0 10px 30px rgba(23,32,51,.16); }
+@media (max-width: 640px) { .profile-save-toast { left: 16px; right: 16px; bottom: 16px; } }
 /* Temporary-error page: the 404 layout with a calm blue panel and a slow pulse. */
 .error-page { min-height: 100vh; padding-top: 48px; }
 .error-brand { display: inline-block; margin-bottom: 22px; color: var(--ink); font: 900 1.6rem/1 var(--display); letter-spacing: -.05em; text-decoration: none; }
