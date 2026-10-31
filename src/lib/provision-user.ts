@@ -1,3 +1,4 @@
+import { formatPersonName } from "@/lib/person-name";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -10,7 +11,7 @@ export type ProvisionResult =
 // confirmation link was never opened in this app still get a profile.
 export async function provisionAppUser(user: AuthUser): Promise<ProvisionResult> {
   if (!user.email) return { status: "error" };
-  const name = user.user_metadata?.full_name?.trim() || user.user_metadata?.name?.trim() || "Pessoa Insidely";
+  const name = formatPersonName(user.user_metadata?.full_name?.trim() || user.user_metadata?.name?.trim() || "Pessoa Insidely");
   const image = user.user_metadata?.avatar_url || null;
   const service = createSupabaseServiceClient();
   const email = user.email.toLowerCase();
