@@ -27,6 +27,7 @@ export default async function ConsultantDashboard() {
 
   return <DashboardShell mode="consultant" title={`Olá, ${profile.user.name.split(" ")[0]}.`} notifications={notifications}><WelcomeTour kind="consultant"/>
     <div className="consultant-home">
+      {!profile.pixKey?.trim() && <section className="panel pix-missing"><div><strong>Falta a sua chave Pix</strong><p className="muted">É para onde vai o valor das suas conversas. Cadastre em Editar perfil.</p></div><Link className="button button-dark button-sm" href="/consultor/perfil">Cadastrar chave Pix</Link></section>}
       {next ? <section className="panel next-conversation">
         <div><span className="eyebrow">Próxima conversa · {bookingCountdown(next.startsAt)}</span><h2>{next.customer.name}</h2><p className="muted">{dateTimeInBrazil(next.startsAt)} · {next.durationMinutes} min</p>{next.goals && <p className="next-conversation-goal">“{next.goals.length > 180 ? `${next.goals.slice(0, 180)}…` : next.goals}”</p>}</div>
         <div className="next-conversation-actions"><Link className="button button-dark" href={`/conversa/${next.id}`}>Abrir conversa</Link><Link className="button button-ghost" href="/consultor/consultas">Todas as consultas</Link></div>

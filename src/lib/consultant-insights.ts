@@ -11,7 +11,7 @@ export async function getProfileCompleteness(userId: string): Promise<{ percent:
   const supabase = service();
   const [{ data: user }, { data: profile }] = await Promise.all([
     supabase.from("User").select("image").eq("id", userId).maybeSingle(),
-    supabase.from("ProfessionalProfile").select("id, bio, verificationStatus, welcomeMessage, salaryRange, areaPro").eq("userId", userId).maybeSingle(),
+    supabase.from("ProfessionalProfile").select("id, bio, verificationStatus, welcomeMessage, salaryRange, areaPro, pixKey").eq("userId", userId).maybeSingle(),
   ]);
   if (!profile) return { percent: 0, items: [] };
   const [{ count: freeSlots }, { data: cover }] = await Promise.all([
@@ -23,6 +23,7 @@ export async function getProfileCompleteness(userId: string): Promise<{ percent:
     { label: "Foto de perfil", detail: "A foto redonda que aparece no seu cartão.", done: Boolean(user?.image), href: "/consultor/perfil" },
     { label: "Foto de capa", detail: "A imagem grande no topo do seu perfil público (diferente da foto de perfil).", done: Boolean(cover?.image), href: "/consultor/perfil" },
     { label: "Apresentação", detail: bioLength >= 120 ? "Pronta." : `${bioLength} de 120 caracteres: conte mais sobre o que você pode contextualizar.`, done: bioLength >= 120, href: "/consultor/perfil" },
+    { label: "Chave Pix", detail: "Para onde vai o valor das suas conversas.", done: Boolean(profile.pixKey?.trim()), href: "/consultor/perfil" },
     { label: "Horários livres", detail: "Pelo menos um horário livre na agenda.", done: (freeSlots ?? 0) > 0, href: "/consultor/agenda" },
     { label: "Vínculo verificado", detail: "Envie o comprovante (crachá, holerite ou carteira de trabalho) em Editar perfil.", done: profile.verificationStatus === "VERIFIED", href: "/consultor/perfil" },
     { label: "Mensagem de boas-vindas", detail: "O texto enviado no chat quando alguém agenda com você.", done: Boolean(profile.welcomeMessage), href: "/consultor/perfil" },

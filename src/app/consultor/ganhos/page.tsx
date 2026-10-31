@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role, PaymentStatus } from "@/lib/domain";
@@ -19,10 +20,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   const gains = await getConsultantGains(user.id, page, 20);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("ProfessionalProfile").select("id, pixKey").eq("userId", user.id).maybeSingle();
   const { data: upcoming } = profile ? await supabase.from("Booking").select("totalCents, feeCents").eq("professionalProfileId", profile.id).eq("status", "CONFIRMED").gt("startsAt", new Date().toISOString()) : { data: [] };
   const upcomingCents = (upcoming ?? []).reduce((sum: number, row: { totalCents: number; feeCents: number }) => sum + row.totalCents - row.feeCents, 0);
   return <DashboardShell mode="consultant" title="Ganhos">
+    {!profile?.pixKey?.trim() && <section className="panel pix-missing" data-persist><div><strong>Cadastre sua chave Pix para receber</strong><p className="muted">Sem ela, o valor das suas conversas fica guardado até você informar para onde enviar.</p></div><Link className="button button-dark button-sm" href="/consultor/perfil">Cadastrar chave Pix</Link></section>}
     <div className="grid grid-3 wallet-metrics">
       <div className="metric"><span>Liberado para você</span><strong>{money(gains.releasedTotalCents)}</strong></div>
       <div className="metric"><span>Retido até a confirmação</span><strong>{money(gains.heldTotalCents)}</strong></div>
