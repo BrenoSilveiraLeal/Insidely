@@ -978,7 +978,11 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 /* Reviews on the public profile: consultant reply and discreet report/reply actions */
 .review-reply { margin-left: 0; padding: 10px 14px; border-left: 3px solid var(--mineral); border-radius: 0 12px 12px 0; background: var(--paper); }
 .review-reply p { margin: 4px 0 0; }
-.terms-changes { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.terms-changes { display: grid; gap: 0; margin: 0; padding: 4px 18px; list-style: none; border-radius: 16px; background: rgba(255,255,255,.06); counter-reset: change; }
+.terms-changes li { position: relative; padding: 12px 0 12px 34px; border-bottom: 1px solid rgba(247,242,232,.1); line-height: 1.5; counter-increment: change; }
+.terms-changes li:last-child { border-bottom: 0; }
+.terms-changes li::before { content: counter(change); position: absolute; top: 12px; left: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--coral, #ff7657); color: var(--ink); font-size: .72rem; font-weight: 850; }
+.terms-full { margin: 0; color: #c9ccd3; font-size: .9rem; }
 
 /* Cookie choice */
 .cookie-banner { position: fixed; z-index: 90; left: 16px; right: 16px; bottom: 16px; max-width: 760px; margin-inline: auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); font-size: .88rem; }
