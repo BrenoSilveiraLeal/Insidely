@@ -1456,7 +1456,9 @@ export async function answerReportAction(reportId: string, formData: FormData) {
   }
   after(() => logAdminAction(admin.id, decision === "REPLY" ? "reply_report" : "resolve_report", null, reportId));
   revalidatePath("/admin/casos"); revalidatePath(back); revalidatePath("/admin/suporte"); revalidatePath("/admin/denuncias"); revalidatePath("/admin");
-  redirect(decision === "REPLY" ? `${back}?${from}ok=enviada` : `/admin/casos?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
+  // Closing returns to the list the case was opened from (Denúncias, Chamados de suporte) or to Casos.
+  const list = from ? `/admin/${String(formData.get("de"))}` : "/admin/casos";
+  redirect(decision === "REPLY" ? `${back}?${from}ok=enviada` : `${list}?ok=${decision === "RESOLVED" ? "resolvido" : "arquivado"}`);
 }
 
 // The person who opened a case answers the team on the same thread (never a new case), or closes it.
