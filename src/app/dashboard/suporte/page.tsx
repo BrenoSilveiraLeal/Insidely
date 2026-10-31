@@ -1,3 +1,4 @@
+import { preferredDashboardMode } from "@/lib/dashboard-mode";
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const user = await requireUser([Role.USER, Role.CONSULTANT]);
   const cases = await getMySupportCases(user.id);
-  return <DashboardShell mode={user.role === Role.CONSULTANT ? "consultant" : "user"} title="Suporte" canConsultant={user.role === Role.CONSULTANT}>
+  return <DashboardShell mode={await preferredDashboardMode(user.role)} title="Suporte" canConsultant={user.role === Role.CONSULTANT}>
     <div className="support-cases-head"><p className="muted">Seus pedidos de ajuda e denúncias. Cada caso guarda a conversa com a equipe até ser resolvido.</p><Link className="button button-dark button-sm" href="/suporte">Novo pedido de ajuda</Link></div>
     <div className="list">{cases.map((item) => <Link className="list-row support-case-row" href={`/dashboard/suporte/${item.id}`} key={item.id}>
       <div><span className="status">{item.targetUserId || item.bookingId ? "Denúncia" : "Suporte"}</span> <strong>{item.category}</strong><p className="muted">{item.description.length > 140 ? `${item.description.slice(0, 140)}…` : item.description}</p><small className="muted">Aberto em {shortDate(parseDbDate(item.createdAt))} · última atividade {shortDate(parseDbDate(item.updatedAt))}</small></div>

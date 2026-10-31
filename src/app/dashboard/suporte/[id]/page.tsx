@@ -1,3 +1,4 @@
+import { preferredDashboardMode } from "@/lib/dashboard-mode";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { closeSupportCaseAction, replySupportCaseAction } from "@/app/actions";
@@ -26,7 +27,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const answered = messages.some((message) => message.fromStaff);
   // The team answered last and now waits for the person (status IN_REVIEW).
   const waitingOnPerson = report.status === "IN_REVIEW";
-  return <DashboardShell mode={user.role === Role.CONSULTANT ? "consultant" : "user"} title={report.category} canConsultant={user.role === Role.CONSULTANT}>
+  return <DashboardShell mode={await preferredDashboardMode(user.role)} title={report.category} canConsultant={user.role === Role.CONSULTANT}>
     {query.ok === "enviada" && <FlashMessage>Mensagem enviada. A equipe vai responder aqui mesmo.</FlashMessage>}
     {query.ok === "resolvido" && <FlashMessage>Obrigado! O caso foi marcado como resolvido.</FlashMessage>}
     {query.erro && <p className="form-error" role="alert">{ERRORS[query.erro] ?? "Não foi possível enviar. Tente de novo."}</p>}

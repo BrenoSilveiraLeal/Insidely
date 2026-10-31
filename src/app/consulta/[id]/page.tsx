@@ -1,3 +1,4 @@
+import { preferredDashboardMode } from "@/lib/dashboard-mode";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -23,8 +24,9 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
   }
 
   if (!booking || !["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) notFound();
+  const mode = await preferredDashboardMode(user.role);
   const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
-  return <DashboardShell mode={user.role === Role.CONSULTANT ? "consultant" : "user"} title="Sua consulta">
+  return <DashboardShell mode={mode} title="Sua consulta">
     <div className="profile-layout">
       <section className="panel consulta-card">
         <span className="eyebrow">Consulta confirmada</span>
@@ -36,7 +38,7 @@ export default async function ConsultationPage({ params }: { params: Promise<{ i
         </div>
         {roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na videochamada</a>}
         {user.role !== Role.CONSULTANT && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <div className="meeting-policy"><strong>Como foi a conversa?</strong><p>Dê uma nota de 0 a 5 e, se quiser, deixe um comentário para {otherPerson}.</p><Link className="button button-accent" href="/dashboard/avaliacoes">Avaliar conversa</Link></div>}
-        <Link className="button button-ghost" href={user.role === Role.CONSULTANT ? "/consultor/consultas" : "/dashboard/agendamentos"}>Voltar para consultas</Link>
+        <Link className="button button-ghost" href={mode === "consultant" ? "/consultor/consultas" : "/dashboard/agendamentos"}>Voltar para consultas</Link>
       </section>
       <aside className="booking-box">
         <span className="eyebrow">Contexto combinado</span>

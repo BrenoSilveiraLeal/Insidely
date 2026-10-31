@@ -10,7 +10,12 @@ type Mode = "user" | "consultant";
 let lastMode: Mode | null = null;
 
 export function RememberDashboardMode({ mode }: { mode: Mode | "admin" }) {
-  useEffect(() => { if (mode !== "admin") lastMode = mode; }, [mode]);
+  useEffect(() => {
+    if (mode === "admin") return;
+    lastMode = mode;
+    // Also remembered for the server (lib/dashboard-mode.ts), so shared pages keep this menu.
+    document.cookie = `insidely-mode=${mode}; path=/; max-age=31536000; samesite=lax`;
+  }, [mode]);
   return null;
 }
 
