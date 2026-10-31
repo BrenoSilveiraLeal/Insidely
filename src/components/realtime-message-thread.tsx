@@ -34,7 +34,9 @@ function readLabel(readAt: string, now: number) {
 // for both participants. Under the last own message: "Enviado", then "Lido agora / há X min / às HH:MM",
 // updated live: the other
 // side's page marks messages read (markConversationReadAction) and realtime delivers the UPDATE.
-export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages, blocked = [] }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; blocked?: BlockedNotice[]; initialMessages: Message[] }) {
+// systemNotice: a note from Insidely shown first, centred like a chat app's system notice (it is not a
+// message: nobody sent it and it is not stored).
+export function RealtimeMessageThread({ bookingId, conversationId, currentUserId, consultantId, otherName, initialMessages, blocked = [], systemNotice }: { bookingId: string; conversationId: string; currentUserId: string; consultantId: string; otherName: string; blocked?: BlockedNotice[]; systemNotice?: string; initialMessages: Message[] }) {
   const [messages, setMessages] = useState(initialMessages);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
@@ -79,6 +81,7 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
       <span className="message-meta">{messageTime(notice.createdAt)} · só você vê</span>
     </div>);
   return <div className="message-thread conversation-thread" aria-live="polite" ref={thread}>
+    {systemNotice && <div className="message-system" role="note"><strong>Aviso da Insidely</strong><span>{systemNotice}</span></div>}
     {messages.map((message, index) => {
       const own = message.senderId === currentUserId;
       const side = message.senderId === consultantId ? "message-consultant" : "message-customer";

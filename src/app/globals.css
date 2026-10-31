@@ -1298,6 +1298,8 @@ html { scroll-padding-top: 120px; }
 .case-queue { display: grid; gap: 20px; }
 .message-questions { display: grid; gap: 14px; }
 .message-automatic { font-size: .68rem; font-weight: 700; opacity: .7; }
+.message-system { display: grid; gap: 4px; justify-self: center; max-width: min(560px, 92%); margin: 4px auto 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper-2); color: var(--ink); font-size: .82rem; line-height: 1.45; text-align: center; }
+.message-system strong { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
 .message-question { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
 .message-question.is-skipped { opacity: .6; }
 .message-question.is-skipped .textarea { min-height: 0; height: 52px; resize: none; }
