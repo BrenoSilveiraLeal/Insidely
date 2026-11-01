@@ -3,6 +3,7 @@ import { Role } from "@/lib/domain";
 import { appEmailConfigured, smtpConfigured } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { checkGoogleMeet } from "@/lib/google-meet";
+import { checkStripe } from "@/lib/stripe";
 import { imageModerationConfigured } from "@/lib/image-moderation";
 import { explainError } from "@/lib/error-text";
 import { requireUser } from "@/lib/session";
@@ -23,7 +24,7 @@ async function measureDatabase(supabase: any) {
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 const minutesSince = (date: Date) => Math.round((Date.now() - date.getTime()) / 60_000);
 
-// Health of the pieces the platform depends on: database, Google Meet, e-mail and scheduled jobs.
+// Health of the pieces the platform depends on: database, Google Meet, payments, e-mail and scheduled jobs.
 const RUN_LABELS: Record<string, string> = {
   reminded: "lembrete(s) enviado(s)", reviewPrompts: "pedido(s) de avaliação", closedRooms: "sala(s) encerrada(s)", noShows: "ausência(s) registrada(s)",
   resumedPauses: "pausa(s) encerrada(s)", unreadEmails: "e-mail(s) de mensagem não lida", pushes: "notificação(ões) push",
@@ -78,6 +79,7 @@ export default async function Page() {
   const checks: Check[] = [
     { name: "Banco de dados", ok: !dbError, message: dbError ? `Erro: ${dbError.message}` : `Respondendo (${dbMs} ms).` },
     { name: "Google Meet", ok: meet.ok, message: meet.message + (fallbackRooms ? ` ${fallbackRooms} sala(s) usaram o Jitsi nos últimos 7 dias.` : "") },
+    { name: "Pagamentos (Stripe)", ...checkStripe() },
     { name: "Envio de e-mails", ok: appEmailConfigured(), message: appEmailConfigured() ? (smtpConfigured() ? "Configurado via SMTP (Gmail)." : "Configurado via Resend.") : "Nenhum provedor configurado: e-mails não são enviados." },
     { name: "Moderação de fotos", ok: imageModerationConfigured(), message: imageModerationConfigured() ? "Fotos de perfil e capas são verificadas automaticamente antes de serem publicadas." : "DESLIGADA: falta a variável OPENAI_API_KEY na Vercel. Sem ela, qualquer foto é aceita." },
     jobCheck("reminders", "Tarefa de 5 minutos (lembretes, salas, avisos)", 20),
