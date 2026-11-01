@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, BriefcaseBusiness, MapPin, ShieldCheck, Star } from "lucide-react";
+import { companyLogo } from "@/lib/company-logos";
 import { initials, money, publicName } from "@/lib/format";
 import { isNewProfile } from "@/lib/profile-age";
 import { getIdentityVerifiedProfileIds } from "@/lib/profile-signals";
@@ -38,7 +40,8 @@ function readableOn(hex: string) {
 }
 
 export function CompanyCard({ company }: { company: { slug: string; name: string; sector: string; logoText: string; color: string; _count: { experiences: number } } }) {
-  return <Link href={`/empresa/${company.slug}`} className="card company-card"><span className="logo-tile" style={{ background: company.color, color: readableOn(company.color) }}>{company.logoText}</span><div><h3>{company.name}</h3><p className="muted">{company.sector}</p><span className="count">{company._count.experiences} experiências <ArrowUpRight size={14}/></span></div></Link>;
+  const logo = companyLogo(company.slug);
+  return <Link href={`/empresa/${company.slug}`} className="card company-card">{logo ? <span className="logo-tile logo-tile-image"><Image src={logo} alt="" width={48} height={48} unoptimized/></span> : <span className="logo-tile" style={{ background: company.color, color: readableOn(company.color) }}>{company.logoText}</span>}<div><h3>{company.name}</h3><p className="muted">{company.sector}</p><span className="count">{company._count.experiences} experiências <ArrowUpRight size={14}/></span></div></Link>;
 }
 
 export function ProfessionCard({ profession }: { profession: { slug: string; name: string; category: string; accent: string; _count: { experiences: number } } }) {

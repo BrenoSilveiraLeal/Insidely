@@ -9,6 +9,7 @@ import { EditBox } from "@/components/edit-box";
 import { useActionState, useState } from "react";
 import { CatalogPicker } from "@/components/catalog-picker";
 import { FilePicker } from "@/components/file-picker";
+import { PixKeyField } from "@/components/pix-key-field";
 import { VERIFICATION_METHODS } from "@/lib/verification";
 import { deleteAccountAction, saveAreaInsightsAction, saveWelcomeMessageAction, submitVerificationAction, updateProfessionalProfileAction } from "@/app/actions";
 type Option={id:string;name:string}; type Experience={id?:string;companyId?:string;professionId?:string;pendingCompanyName?:string|null;pendingProfessionName?:string|null;title?:string;area?:string;isCurrent?:boolean;startedAt?:Date|null;endedAt?:Date|null;summary?:string}; type Profile={headline:string;bio:string;publicSurname?:string|null;pseudonym?:string|null;ageRange?:string|null;location:string;region:string;workMode:string;seniority:string;yearsExperience:number;price30Cents:number;price60Cents:number;responseHours:number;pixKey?:string|null;topics:string[];boundaries:string[];experiences:Experience[]};
@@ -110,7 +111,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
           <label className="check-row"><input type="checkbox" name="messageEnabled" checked={offersMessages} onChange={(event)=>setOffersMessages(event.target.checked)}/><span><strong>Também aceito perguntas por mensagem</strong><small className="muted">O cliente paga, o chat abre na hora e você tem 48 horas para responder até 5 mensagens. Sem horário marcado.</small></span></label>
           {offersMessages&&<div className="field"><label htmlFor="profile-message-price">Valor das perguntas por mensagem (R$)</label><input className="input" id="profile-message-price" type="number" name="messagePrice" min="10" step="0.01" defaultValue={((messagePriceCents??Math.max(1000,Math.round(profile.price30Cents*0.6/100)*100))/100).toFixed(2)} required/><small className="muted">Sugerimos 60% do valor da conversa de 30 minutos.</small></div>}
         </div>
-        <div className="field"><label htmlFor="profile-pix">Chave Pix para receber</label><input className="input" id="profile-pix" name="pixKey" defaultValue={profile.pixKey??""} placeholder="CPF, e-mail, celular ou chave aleatória" required/><small className="muted">É para onde vai o valor das suas conversas. Não aparece no perfil.</small></div>
+        <PixKeyField defaultValue={profile.pixKey}/>
       </EditBox>
 
       {message&&!message.startsWith("Perfil profissional atualizado")&&<p className="form-error" role="alert">{message}</p>}

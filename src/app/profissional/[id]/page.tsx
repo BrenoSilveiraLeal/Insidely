@@ -3,7 +3,9 @@ import { experiencePeriod } from "@/lib/experience-period";
 import { isSlotStillBookable } from "@/lib/booking-policy";
 import { AvailabilityWatchButton } from "@/components/availability-watch-button";
 import { getVerifiedExperienceId } from "@/lib/verification-experience";
+import Image from "next/image";
 import Link from "next/link";
+import { companyLogo } from "@/lib/company-logos";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { CalendarDays, Check, ChevronDown, Clock, Flag, MapPin, MessageSquareText, ShieldCheck, Star, MessageSquareReply, X } from "lucide-react";
@@ -85,8 +87,8 @@ export default async function ProfessionalPage({ params, searchParams }: { param
             <div><h3>Pode perguntar sobre</h3><ul className="scope-list scope-yes">{profile.topics.map(topic => <li key={topic}><Check size={15} aria-hidden="true"/>{topic.charAt(0).toUpperCase() + topic.slice(1).toLowerCase()}</li>)}</ul></div>
             <div><h3>Fica de fora</h3><ul className="scope-list scope-no">{profile.boundaries.map(item => <li key={item}><X size={15} aria-hidden="true"/>{item}</li>)}</ul></div>
           </div></article>}
-          <article className="profile-main profile-path"><h2>Trajetória</h2><ol className="path-list">{profile.experiences.map((exp, index) => { const verified = profile.verificationStatus === "VERIFIED" && (verifiedExperienceId ? verifiedExperienceId === exp.id : index === 0); const former = exp.isCurrent === false; return <li key={exp.id} className={index === 0 ? "is-main" : undefined}>
-            <span className="path-logo" aria-hidden="true">{exp.company.name.trim().charAt(0).toUpperCase()}</span>
+          <article className="profile-main profile-path"><h2>Trajetória</h2><ol className="path-list">{profile.experiences.map((exp, index) => { const verified = profile.verificationStatus === "VERIFIED" && (verifiedExperienceId ? verifiedExperienceId === exp.id : index === 0); const former = exp.isCurrent === false; const logo = companyLogo(exp.company.name); return <li key={exp.id} className={index === 0 ? "is-main" : undefined}>
+            {logo ? <span className="path-logo path-logo-image" aria-hidden="true"><Image src={logo} alt="" width={30} height={30} unoptimized/></span> : <span className="path-logo" aria-hidden="true">{exp.company.name.trim().charAt(0).toUpperCase()}</span>}
             <div><strong>{exp.title}</strong><span className="muted">{exp.company.name} · {exp.profession.name}</span>
               <span className="path-period">{experiencePeriod(exp)}</span>
               {exp.summary && <p className="path-summary">{exp.summary}</p>}
