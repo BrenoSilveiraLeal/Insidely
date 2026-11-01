@@ -136,8 +136,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .company-card, .profession-card { min-height: 230px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
 .logo-tile { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 18px; color: white; font: 800 1.1rem/1 var(--display); }
-.logo-tile-image { background: #fff; border: 1px solid var(--line); }
-.logo-tile-image img { width: 48px; height: 48px; object-fit: contain; }
+.logo-tile-image { overflow: hidden; background: #fff; border: 1px solid var(--line); }
+.logo-tile-image img { width: 100%; height: 100%; object-fit: contain; }
 .company-card h3, .profession-card h3 { font: 800 1.7rem/1 var(--display); letter-spacing: -.045em; margin: 28px 0 8px; }
 .count { font-size: .78rem; font-weight: 800; }
 
@@ -1599,8 +1599,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .path-list li > div strong { font-size: 1.02rem; }
 .path-logo { display: grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 13px; background: var(--paper-2); font: 850 1.15rem/1 var(--display); }
 .path-list li.is-main .path-logo { background: var(--ink); color: var(--paper); }
-.path-logo.path-logo-image, .path-list li.is-main .path-logo.path-logo-image { background: #fff; border: 1px solid var(--line); }
-.path-logo-image img { width: 30px; height: 30px; object-fit: contain; }
+.path-logo.path-logo-image, .path-list li.is-main .path-logo.path-logo-image { overflow: hidden; background: #fff; border: 1px solid var(--line); }
+.path-logo-image img { width: 100%; height: 100%; object-fit: contain; }
 .path-tag { flex: none; padding: 4px 10px; border-radius: 999px; background: var(--paper-2); font-size: .72rem; font-weight: 800; }
 .profile-note { margin: 12px 0 0; font-size: .85rem; }
 @media (max-width: 620px) { .profile-scope-grid { grid-template-columns: 1fr; } }

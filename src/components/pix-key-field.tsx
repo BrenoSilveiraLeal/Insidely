@@ -14,11 +14,12 @@ const FIELD: Record<PixKeyType, { placeholder: string; inputMode: "numeric" | "t
 export function PixKeyField({ defaultValue }: { defaultValue?: string | null }) {
   const [initial] = useState(() => displayPixKey(defaultValue));
   const [type, setType] = useState<PixKeyType>(initial.type);
-  const [text, setText] = useState(initial.text);
+  const [values, setValues] = useState<Record<PixKeyType, string>>(() => ({ CPF: "", PHONE: "", EMAIL: "", RANDOM: "", [initial.type]: initial.text }));
   const [touched, setTouched] = useState(false);
+  const text = values[type];
   const valid = normalizePixKey(type, text) !== null;
   const field = FIELD[type];
-  const choose = (next: PixKeyType) => { if (next === type) return; setType(next); setText(""); setTouched(false); };
+  const choose = (next: PixKeyType) => { if (next === type) return; setType(next); setTouched(false); };
   return <div className="field pix-key-field">
     <span className="field-label" id="profile-pix-type">Chave Pix para receber</span>
     <div className="employment-choice pix-key-types" role="radiogroup" aria-labelledby="profile-pix-type">
@@ -28,7 +29,7 @@ export function PixKeyField({ defaultValue }: { defaultValue?: string | null }) 
     <input className="input" id="profile-pix" name="pixKey" type={field.type} inputMode={field.inputMode} maxLength={field.maxLength} autoComplete="off" placeholder={field.placeholder} value={text} required
       aria-invalid={touched && !valid ? true : undefined} aria-describedby="profile-pix-help"
       ref={(input) => input?.setCustomValidity(text && !valid ? pixKeyError(type) : "")}
-      onChange={(event) => setText(maskPixKey(type, event.target.value))} onBlur={() => setTouched(true)}/>
+      onChange={(event) => setValues((current) => ({ ...current, [type]: maskPixKey(type, event.target.value) }))} onBlur={() => setTouched(true)}/>
     {touched && text && !valid ? <small className="pix-key-error" id="profile-pix-help" role="alert">{pixKeyError(type)}</small> : <small className="muted" id="profile-pix-help">Use uma chave cadastrada no seu banco, no seu nome. É para onde vai o valor das suas conversas e não aparece no perfil.</small>}
   </div>;
 }
