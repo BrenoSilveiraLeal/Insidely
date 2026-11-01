@@ -1,3 +1,4 @@
+import { CalendarSync, Check, RefreshCw } from "lucide-react";
 import { disconnectCalendarAction, syncCalendarNowAction } from "@/app/actions";
 import { calendarErrorText, type CalendarLink } from "@/lib/google-calendar-link";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -6,18 +7,23 @@ import { parseDbDate, shortDate } from "@/lib/format";
 // for consultants, conversations into the calendar for customers). Agenda (consultant) and
 // Configurações (customer).
 export function GoogleCalendarPanel({ link, returnTo, consultant }: { link: CalendarLink | null; returnTo: "/consultor/agenda" | "/dashboard/configuracoes"; consultant: boolean }) {
-  const what = consultant
-    ? "Suas conversas confirmadas entram sozinhas no seu Google Agenda (e saem se forem canceladas), e os horários livres da Insidely que batem com compromissos do Google são removidos. Conversas já reservadas não mudam."
-    : "Suas conversas confirmadas entram sozinhas no seu Google Agenda, com o link da sala, e saem se forem canceladas.";
+  const features = [
+    "Conversas confirmadas entram na sua agenda, com o link da sala, e saem se forem canceladas.",
+    ...(consultant ? ["Horários livres que batem com compromissos do Google são removidos. Conversas já reservadas não mudam."] : []),
+  ];
   const problem = calendarErrorText(link?.lastError ?? null);
-  return <section className="panel agenda-sync"><div><span className="eyebrow">Google Agenda</span>
-    {link
-      ? <><strong>Conectado{link.googleEmail ? ` a ${link.googleEmail}` : ""}</strong><p className="muted">{what} Atualiza a cada poucos minutos{link.lastSyncAt ? `; última vez em ${shortDate(parseDbDate(link.lastSyncAt))}` : ""}.</p>{problem && <p className="form-error">{problem}</p>}</>
-      : <><strong>Conecte sua agenda do Google</strong><p className="muted">{what} Você conecta uma vez e pode desconectar quando quiser.</p></>}
-  </div>
-    {link
-      ? <div className="agenda-sync-actions"><form action={syncCalendarNowAction.bind(null, returnTo)}><button className="button button-ghost button-sm">Sincronizar agora</button></form><form action={disconnectCalendarAction.bind(null, returnTo)}><button className="button button-ghost button-sm">Desconectar</button></form></div>
-      : <a className="button button-dark" href={`/auth/google-agenda?returnTo=${encodeURIComponent(returnTo)}`}>Conectar Google Agenda</a>}
+  return <section className="panel calendar-link">
+    <header className="calendar-link-head">
+      <span className="calendar-link-icon" aria-hidden="true"><CalendarSync size={20}/></span>
+      <div className="calendar-link-title"><span className="eyebrow">Google Agenda</span><strong>{link ? link.googleEmail ?? "Conta Google conectada" : "Conecte sua agenda do Google"}</strong></div>
+      {link ? <span className={`calendar-link-status${problem ? " is-warning" : ""}`}>{problem ? "Com problema" : "Conectado"}</span> : <a className="button button-dark button-sm" href={`/auth/google-agenda?returnTo=${encodeURIComponent(returnTo)}`}>Conectar</a>}
+    </header>
+    <ul className="calendar-link-features">{features.map((feature) => <li key={feature}><Check size={15} aria-hidden="true"/><span>{feature}</span></li>)}</ul>
+    {problem && <p className="form-error">{problem}</p>}
+    <footer className="calendar-link-foot">
+      <small className="muted">{link ? (link.lastSyncAt ? `Atualiza sozinho a cada poucos minutos · última vez em ${shortDate(parseDbDate(link.lastSyncAt))}` : "Atualiza sozinho a cada poucos minutos") : "Você conecta uma vez e pode desconectar quando quiser."}</small>
+      {link && <div className="calendar-link-actions"><form action={syncCalendarNowAction.bind(null, returnTo)}><button className="button button-ghost button-sm"><RefreshCw size={14} aria-hidden="true"/>Sincronizar agora</button></form><form action={disconnectCalendarAction.bind(null, returnTo)}><button className="calendar-link-disconnect">Desconectar</button></form></div>}
+    </footer>
   </section>;
 }
 

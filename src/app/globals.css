@@ -1972,3 +1972,22 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .policy-report-panel .textarea { width: 100%; min-height: 0; background: var(--paper); }
 .policy-actions .button[aria-expanded="true"] { background: rgba(21,23,20,.06); }
 .agenda-sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Google Agenda link: header (icon, account, status), what syncs, footer (last sync, actions). */
+.calendar-link { display: grid; gap: 14px; }
+.calendar-link-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.calendar-link-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: var(--forest); color: var(--paper); }
+.calendar-link-title { display: grid; gap: 2px; flex: 1 1 200px; min-width: 0; }
+.calendar-link-title strong { font-size: 1rem; overflow-wrap: anywhere; }
+.calendar-link-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: rgba(46,125,82,.12); color: #2e7d52; font-size: .78rem; font-weight: 750; }
+.calendar-link-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.calendar-link-status.is-warning { background: rgba(180,110,0,.12); color: #8a5a00; }
+.calendar-link-features { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.calendar-link-features li { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: .88rem; line-height: 1.45; }
+.calendar-link-features svg { flex: 0 0 auto; margin-top: 3px; color: #2e7d52; }
+.calendar-link-foot { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
+.calendar-link-foot small { font-size: .8rem; }
+.calendar-link-actions { display: flex; align-items: center; gap: 14px; }
+.calendar-link-actions form { margin: 0; }
+.calendar-link-actions .button { gap: 6px; }
+.calendar-link-disconnect { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .82rem; text-decoration: underline; cursor: pointer; }
+.calendar-link-disconnect:hover { color: var(--ink); }
