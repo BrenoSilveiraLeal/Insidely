@@ -8,7 +8,7 @@ const FILES: Record<string, string> = {
   mcdonalds: "mcdonalds.svg", "mercado-livre": "mercado-livre.png", nubank: "nubank.png", petrobras: "petrobras.svg",
   picpay: "picpay.png", renner: "renner.png", stone: "stone.png", totvs: "totvs.png", vale: "vale.png", xp: "xp.svg",
 };
-const WORDMARKS = new Set(["accenture", "amazon", "ambev", "drogasil", "ibm", "localiza", "magazineluiza", "petrobras"]);
+const WORDMARKS = new Set(["accenture", "amazon", "ambev", "drogasil", "ibm", "localiza", "magazineluiza", "petrobras", "totvs"]);
 const EDGE_TO_EDGE = new Set(["ifood", "renner", "xp"]);
 
 // Experiences carry only the company name, so the lookup also accepts it ("McDonald’s" → mcdonalds).
