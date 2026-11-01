@@ -6,6 +6,7 @@ import { reactivateExpiredPauses } from "@/lib/pause";
 import { emailUnreadMessages } from "@/lib/conversation-extras";
 import { recordCronRun } from "@/lib/admin-log";
 import { sendPendingPushes } from "@/lib/push";
+import { syncLinkedCalendars } from "@/lib/google-calendar-link";
 import { alertAdmins } from "@/lib/ops-alerts";
 import { consumeQuota } from "@/lib/auth-email-throttle";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -60,7 +61,8 @@ export async function GET() {
   const resumedPauses = await reactivateExpiredPauses(supabase, now).catch(() => 0);
   const unreadEmails = await emailUnreadMessages(supabase, now).catch((error) => { console.error("unread_scan_failed", { error }); return 0; });
   const pushes = await sendPendingPushes(supabase, now).catch((error) => { console.error("push_scan_failed", { error }); return 0; });
-  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails, pushes };
+  const calendars = await syncLinkedCalendars(supabase, now).catch((error) => { console.error("calendar_scan_failed", { error }); return 0; });
+  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails, pushes, calendars };
   await recordCronRun(supabase, "reminders", true, result);
   return Response.json(result);
 }

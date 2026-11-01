@@ -3,6 +3,8 @@ import { Role } from "@/lib/domain";
 import { AvailabilityManager } from "@/components/consultant-availability";
 import { PauseProfile, RecurringAvailability } from "@/components/agenda-tools";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { calendarSyncText, GoogleCalendarPanel } from "@/components/google-calendar-panel";
+import { getCalendarLink } from "@/lib/google-calendar-link";
 import { getConsultantDashboard } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { parseDbDate, shortDate } from "@/lib/format";
@@ -15,10 +17,10 @@ const zone = "America/Sao_Paulo";
 const dayKey = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(date);
 const time = (date: Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: zone, hour: "2-digit", minute: "2-digit" }).format(date);
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ pausa?: string; sync?: string; removidos?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ pausa?: string; sync?: string; removidos?: string; adicionadas?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
   const query = await searchParams;
-  const profile = await getConsultantDashboard(user.id);
+  const [profile, calendarLink] = await Promise.all([getConsultantDashboard(user.id), getCalendarLink(user.id)]);
   // Pause columns are added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pause } = await (createSupabaseServiceClient() as any).from("ProfessionalProfile").select("pausedAt, pausedUntil").eq("userId", user.id).maybeSingle();
@@ -31,7 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   const days = Array.from({ length: 7 }, (_, index) => new Date(now.getTime() + index * 86_400_000));
   return <DashboardShell mode="consultant" title="Agenda">
     {query.pausa === "retomada" && <p className="form-feedback" role="status">Perfil reativado. Ele voltou para a busca.</p>}
-    {query.sync && <p className={query.sync === "ok" ? "form-feedback" : "form-error"} role={query.sync === "ok" ? "status" : "alert"}>{query.sync === "ok" ? (Number(query.removidos) > 0 ? `Agenda sincronizada: ${query.removidos} horário(s) livre(s) que batiam com compromissos do Google Agenda foram removidos.` : "Agenda sincronizada: nenhum horário livre batia com compromissos do Google Agenda.") : query.sync === "permission-error" ? "O Google não liberou a leitura da agenda. Tente de novo e, na tela do Google, marque a caixa de permissão da agenda." : query.sync === "api-disabled" ? "A sincronização com o Google Agenda está temporariamente indisponível. A equipe já foi avisada." : query.sync === "account-mismatch" ? "A conta Google escolhida pertence a outro usuário da Insidely." : "Não foi possível sincronizar com o Google Agenda agora."}</p>}
+    {query.sync && (() => { const notice = calendarSyncText(query.sync, query.adicionadas, query.removidos); return <p className={notice.ok ? "form-feedback" : "form-error"} role={notice.ok ? "status" : "alert"}>{notice.text}</p>; })()}
     <div className="agenda-page">
       <PauseProfile upcoming={(profile?.bookings ?? []).filter((booking) => ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) && booking.startsAt > now).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()).map((booking) => ({ id: booking.id, label: shortDate(booking.startsAt), startsAt: booking.startsAt.toISOString(), customer: booking.customer.name }))} paused={paused} pausedUntilLabel={paused && pause?.pausedUntil ? new Intl.DateTimeFormat("pt-BR", { timeZone: zone, day: "2-digit", month: "long" }).format(parseDbDate(pause.pausedUntil)) : null}/>
       <section className="panel">
@@ -47,7 +49,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
         })}</div>
         <p className="muted week-legend"><span className="week-slot">Livre</span> <span className="week-slot week-slot-booked">Reservado</span></p>
       </section>
-      <section className="panel agenda-sync"><div><span className="eyebrow">Google Agenda</span><strong>Evite choque de compromissos</strong><p className="muted">Lemos só os horários ocupados das próximas 8 semanas da sua agenda do Google e removemos os horários livres da Insidely que batem com eles. Conversas já reservadas não mudam. Nada fica salvo: sincronize sempre que mudar sua agenda.</p></div><a className="button button-ghost" href="/auth/google-agenda">Sincronizar agora</a></section>
+      <GoogleCalendarPanel link={calendarLink} returnTo="/consultor/agenda" consultant/>
       <RecurringAvailability/>
       <AvailabilityManager slots={slots}/>
     </div>

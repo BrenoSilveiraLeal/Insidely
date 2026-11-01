@@ -4,7 +4,8 @@ import { provisionAppUser } from "@/lib/provision-user";
 import { recordAccess } from "@/lib/access-log";
 import { calendarReturnPath, createParticipantCalendarEvent, recordGoogleError } from "@/lib/google-calendar";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { removeSlotsBusyInGoogle } from "@/lib/google-agenda-sync";
+import { calendarLinkReturnPath } from "@/lib/google-agenda-sync";
+import { saveCalendarLink, syncCalendar } from "@/lib/google-calendar-link";
 
 export function safeNextPath(raw: string | null) { return raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\") ? raw : "/continuar"; }
 
@@ -24,15 +25,20 @@ export async function GET(request: NextRequest) {
     const calendarFlow = nextUrl.pathname === "/auth/google-calendar/complete";
     const agendaSyncFlow = nextUrl.pathname === "/auth/google-agenda/complete";
     if (agendaSyncFlow) {
+      const agendaReturn = calendarLinkReturnPath(nextUrl.searchParams.get("returnTo"), true);
       const { data: existingUser } = await createSupabaseServiceClient().from("User").select("id").eq("auth_user_id", user.id).maybeSingle();
-      if (!existingUser || existingUser.id !== nextUrl.searchParams.get("userId")) { await supabase.auth.signOut(); return NextResponse.redirect(new URL("/consultor/agenda?sync=account-mismatch", request.url)); }
-      if (!exchange.session?.provider_token) { await recordGoogleError("google-agenda-sync", `no provider_token; scopes asked: freebusy`); return NextResponse.redirect(new URL("/consultor/agenda?sync=permission-error", request.url)); }
+      if (!existingUser || existingUser.id !== nextUrl.searchParams.get("userId")) { await supabase.auth.signOut(); return NextResponse.redirect(new URL(`${agendaReturn}?sync=account-mismatch`, request.url)); }
+      // The refresh token keeps the link: without it (offline access refused) nothing can stay in sync.
+      const refreshToken = exchange.session?.provider_refresh_token;
+      if (!refreshToken) { await recordGoogleError("google-calendar-link", "no provider_refresh_token"); return NextResponse.redirect(new URL(`${agendaReturn}?sync=permission-error`, request.url)); }
+      const googleEmail = (user.identities?.find((identity) => identity.provider === "google")?.identity_data?.email as string | undefined) ?? user.email ?? null;
       try {
-        const removed = await removeSlotsBusyInGoogle(existingUser.id, exchange.session.provider_token);
-        return NextResponse.redirect(new URL(`/consultor/agenda?sync=ok&removidos=${removed}`, request.url));
+        await saveCalendarLink(existingUser.id, refreshToken, googleEmail);
+        const synced = await syncCalendar(existingUser.id);
+        return NextResponse.redirect(new URL(`${agendaReturn}?sync=ok&adicionadas=${synced.added}&removidos=${synced.removedSlots}`, request.url));
       } catch (syncError) {
         const reason = syncError instanceof Error ? syncError.message : "";
-        return NextResponse.redirect(new URL(`/consultor/agenda?sync=${reason === "calendar_permission_missing" ? "permission-error" : reason === "calendar_api_disabled" ? "api-disabled" : "error"}`, request.url));
+        return NextResponse.redirect(new URL(`${agendaReturn}?sync=${reason.includes("calendar_link_save_failed") ? "error" : reason === "calendar_api_disabled" ? "api-disabled" : reason === "calendar_permission_missing" ? "permission-error" : "linked-later"}`, request.url));
       }
     }
     if (calendarFlow) {

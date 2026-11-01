@@ -20,6 +20,8 @@ import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
+import { calendarLinkReturnPath } from "@/lib/google-agenda-sync";
+import { removeCalendarLink, syncCalendar } from "@/lib/google-calendar-link";
 import { canReviewBooking, canSendBookingMessage, isMessageClosing, MESSAGE_CLOSING_TEXT } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
@@ -1661,4 +1663,23 @@ async function notifyCaseStaff(supabase: any, reportId: string, title: string, b
   const { data: admins } = owner ? { data: [{ id: owner.adminUserId }] } : await supabase.from("User").select("id").eq("role", "ADMIN");
   const rows = ((admins ?? []) as { id: string }[]).map((admin) => ({ id: crypto.randomUUID(), userId: admin.id, title, body, href: `/admin/casos/relato/${reportId}`, createdAt }));
   if (rows.length) await supabase.from("Notification").insert(rows);
+}
+
+// Google Agenda link (lib/google-calendar-link.ts): sync now, or disconnect (events already created stay).
+export async function syncCalendarNowAction(returnTo: string) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const back = calendarLinkReturnPath(returnTo, user.role === Role.CONSULTANT);
+  let target = `${back}?sync=agora`;
+  try { const synced = await syncCalendar(user.id); target += `&adicionadas=${synced.added}&removidos=${synced.removedSlots}`; }
+  catch (error) { const reason = error instanceof Error ? error.message : ""; target = `${back}?sync=${reason === "calendar_api_disabled" ? "api-disabled" : reason === "calendar_permission_missing" ? "permission-error" : "error"}`; }
+  revalidatePath(back);
+  redirect(target);
+}
+
+export async function disconnectCalendarAction(returnTo: string) {
+  const user = await requireUser([Role.USER, Role.CONSULTANT]);
+  const back = calendarLinkReturnPath(returnTo, user.role === Role.CONSULTANT);
+  await removeCalendarLink(user.id);
+  revalidatePath(back);
+  redirect(`${back}?sync=desconectado`);
 }

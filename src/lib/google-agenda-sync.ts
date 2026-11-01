@@ -2,14 +2,20 @@ import "server-only";
 import { getAppUrl } from "@/lib/app-url";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
-// "Sincronizar com o Google Agenda": the consultant authorizes read-only free/busy access once per
-// sync (no token is stored) and every free Insidely slot that overlaps something busy in the
-// Google calendar in the next 8 weeks is removed. Booked slots are never touched.
+// Google → app: every free Insidely slot that overlaps something busy in the consultant's Google
+// calendar in the next 8 weeks is removed. Booked slots are never touched. Run on connecting and by
+// the 5-minute job (lib/google-calendar-link.ts).
 export const GOOGLE_FREEBUSY_SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
 
-export function agendaSyncCallbackUrl(userId: string) {
+// Where connecting the Google Agenda can start from (and returns to).
+export const CALENDAR_LINK_PAGES = ["/consultor/agenda", "/dashboard/configuracoes"] as const;
+export function calendarLinkReturnPath(raw: string | null, consultant: boolean) {
+  return CALENDAR_LINK_PAGES.find((page) => page === raw) ?? (consultant ? "/consultor/agenda" : "/dashboard/configuracoes");
+}
+
+export function agendaSyncCallbackUrl(userId: string, returnTo: string) {
   const callback = new URL("/auth/callback", getAppUrl());
-  callback.searchParams.set("next", `/auth/google-agenda/complete?userId=${encodeURIComponent(userId)}`);
+  callback.searchParams.set("next", `/auth/google-agenda/complete?userId=${encodeURIComponent(userId)}&returnTo=${encodeURIComponent(returnTo)}`);
   return callback.toString();
 }
 

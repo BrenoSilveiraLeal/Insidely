@@ -1971,3 +1971,4 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .policy-report-panel > form { display: grid; gap: 8px; justify-items: start; }
 .policy-report-panel .textarea { width: 100%; min-height: 0; background: var(--paper); }
 .policy-actions .button[aria-expanded="true"] { background: rgba(21,23,20,.06); }
+.agenda-sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }

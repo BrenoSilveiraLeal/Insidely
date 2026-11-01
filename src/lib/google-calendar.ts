@@ -22,6 +22,11 @@ export function googleCalendarCallbackUrl(bookingId: string, userId: string, ret
   return callback.toString();
 }
 
+// The same id for a person and a booking every time, so adding twice is a 409 and never a duplicate.
+export function calendarEventId(userId: string, bookingId: string) {
+  return createHash("sha256").update(`insidely:${userId}:${bookingId}`).digest("hex").slice(0, 40);
+}
+
 export async function createParticipantCalendarEvent({ userId, bookingId, accessToken }: { userId: string; bookingId: string; accessToken: string }) {
   const service = createSupabaseServiceClient();
   const { data: appUser, error: userError } = await service.from("User").select("role").eq("id", userId).maybeSingle();
@@ -38,7 +43,7 @@ export async function createParticipantCalendarEvent({ userId, bookingId, access
   if (!Number.isFinite(start.getTime())) throw new Error("calendar_invalid_date");
   const end = new Date(start.getTime() + booking.durationMinutes * 60_000);
   const roomUrl = `${getAppUrl()}/sala/${booking.id}`;
-  const eventId = createHash("sha256").update(`insidely:${userId}:${booking.id}`).digest("hex").slice(0, 40);
+  const eventId = calendarEventId(userId, booking.id);
   const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
