@@ -23,7 +23,7 @@ export function CookieConsent() {
   if (choice === "accepted") return <><Analytics/><SpeedInsights/></>;
   if (choice !== null) return null;
   return <div className="cookie-banner" role="dialog" aria-live="polite" aria-label="Aviso de cookies">
-    <p>Usamos cookies essenciais para manter você conectado e seguro. Com a sua permissão, também coletamos estatísticas anônimas de uso para melhorar o site. <Link className="text-link" href="/privacidade">Saiba mais</Link></p>
-    <div className="cookie-banner-actions"><button className="button button-ghost button-sm" type="button" onClick={() => decide("refused")}>Só os essenciais</button><button className="button button-accent button-sm" type="button" onClick={() => decide("accepted")}>Aceitar estatísticas</button></div>
+    <p><strong>Este site usa cookies.</strong> Os essenciais mantêm você conectado e seguro e estão sempre ativos. Com a sua permissão, usamos também cookies de análise, anônimos, para melhorar o site. <Link className="text-link" href="/privacidade">Saiba mais</Link></p>
+    <div className="cookie-banner-actions"><button className="button button-ghost button-sm" type="button" onClick={() => decide("refused")}>Recusar cookies</button><button className="button button-accent button-sm" type="button" onClick={() => decide("accepted")}>Aceitar cookies</button></div>
   </div>;
 }
