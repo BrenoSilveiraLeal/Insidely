@@ -152,7 +152,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .page-hero { padding: 160px 0 78px; background: var(--ink); color: var(--paper); position: relative; overflow: hidden; }
 .page-hero::after { content: attr(data-mark); position: absolute; right: -1vw; bottom: -5vw; color: var(--mineral); font: 800 clamp(9rem, 24vw, 25rem)/.8 var(--display); opacity: .94; }
-.companies-hero::after { bottom: 0; }
+.companies-hero::after { bottom: -.3em; }
 .page-hero-inner { position: relative; z-index: 2; }
 .page-hero h1 { max-width: 920px; margin: 20px 0; font: 800 clamp(3.6rem, 9vw, 9rem)/.92 var(--display); letter-spacing: -.075em; }
 .page-hero p { max-width: 620px; color: #c8cbc5; font-size: 1.1rem; }
