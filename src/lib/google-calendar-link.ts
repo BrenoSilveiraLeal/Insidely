@@ -135,3 +135,33 @@ export function calendarErrorText(reason: string | null) {
   if (reason.includes("calendar_api_disabled") || reason.includes("calendar_permission_missing")) return "O Google recusou o acesso à agenda. Se o problema continuar, desconecte e conecte de novo marcando todas as permissões.";
   return "A última sincronização falhou. Tentamos de novo em alguns minutos.";
 }
+
+// For /admin/status: the OAuth client is set, how many people linked, and whether syncing works.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function checkGoogleCalendarLinks(supabase: any) {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return { ok: false, message: "Faltam GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET na Vercel: ninguém consegue manter o Google Agenda conectado." };
+  const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+  // Errors older than the last sync that worked are already solved (e.g. the API was off, then enabled).
+  const lastSuccessAt = await calendarLastSuccessAt(supabase);
+  const since = lastSuccessAt && lastSuccessAt > dayAgo ? lastSuccessAt : dayAgo;
+  const [{ count: linked, error }, { count: failing }, { count: events }, { count: recentErrors }] = await Promise.all([
+    supabase.from("GoogleCalendarLink").select("userId", { count: "exact", head: true }),
+    supabase.from("GoogleCalendarLink").select("userId", { count: "exact", head: true }).not("lastError", "is", null),
+    supabase.from("CalendarEvent").select("bookingId", { count: "exact", head: true }),
+    supabase.from("ErrorEvent").select("id", { count: "exact", head: true }).in("routeType", GOOGLE_CALENDAR_ERRORS).gt("createdAt", since),
+  ]);
+  if (error) return { ok: false, message: `Não foi possível ler as conexões (falta a migração 20261101122000?): ${error.message}` };
+  const summary = `${linked ?? 0} conta(s) conectada(s) · ${events ?? 0} conversa(s) enviada(s) para o Google Agenda.`;
+  if (failing) return { ok: false, message: `${summary} ${failing} conta(s) com falha na última sincronização; veja os problemas registrados abaixo.` };
+  if (recentErrors) return { ok: false, message: `${summary} ${recentErrors} erro(s) do Google Agenda nas últimas 24 h; veja os problemas registrados abaixo.` };
+  return { ok: true, message: `Sincronizando a cada 5 minutos. ${summary}` };
+}
+
+export const GOOGLE_CALENDAR_ERRORS = ["google-calendar-link", "google-freebusy", "google-calendar-event", "google-agenda-sync"];
+
+// The latest sync of anyone's Google Agenda that finished without error (null if none yet).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function calendarLastSuccessAt(supabase: any): Promise<string | null> {
+  const { data } = await supabase.from("GoogleCalendarLink").select("lastSyncAt").is("lastError", null).not("lastSyncAt", "is", null).order("lastSyncAt", { ascending: false }).limit(1).maybeSingle();
+  return data?.lastSyncAt ? new Date(data.lastSyncAt).toISOString() : null;
+}

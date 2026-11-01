@@ -1,5 +1,5 @@
 // Server errors (ErrorEvent) explained for the team on /admin/status: what stopped working and
-// what to do. Unknown errors get a generic sentence; the raw text stays one click away.
+// what to do. Unknown errors get a generic sentence (the raw text is not shown: nobody reads it there).
 type ErrorRow = { path: string; routeType: string; message: string };
 export type ErrorText = { what: string; fix?: string; area: string };
 
@@ -24,5 +24,5 @@ export function explainError(row: ErrorRow): ErrorText {
   }
   if (/fetch failed|ECONNRESET|ETIMEDOUT|timeout/i.test(message)) return { area, what: "Um serviço externo demorou ou não respondeu.", fix: "Se repetir muito, confira o status do serviço (Supabase, Google, Stripe)." };
   if (/JWT|not_authorized|permission denied/i.test(message)) return { area, what: "Uma ação foi recusada por falta de permissão." };
-  return { area, what: "Algo deu errado ao carregar ou salvar nesta área.", fix: "Se repetir, envie os detalhes técnicos para quem cuida do código." };
+  return { area, what: "Algo deu errado ao carregar ou salvar nesta área.", fix: "Se repetir, avise quem cuida do código." };
 }

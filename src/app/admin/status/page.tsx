@@ -4,6 +4,7 @@ import { appEmailConfigured, smtpConfigured } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { checkGoogleMeet } from "@/lib/google-meet";
 import { checkStripe } from "@/lib/stripe";
+import { calendarLastSuccessAt, checkGoogleCalendarLinks, GOOGLE_CALENDAR_ERRORS } from "@/lib/google-calendar-link";
 import { imageModerationConfigured } from "@/lib/image-moderation";
 import { explainError } from "@/lib/error-text";
 import { requireUser } from "@/lib/session";
@@ -48,7 +49,9 @@ export default async function Page() {
   const { error: dbError, ms: dbMs } = await measureDatabase(supabase);
   // The 5-minute job writes ~300 rows a day, so the daily run is fetched on its own: a shared
   // "latest 60" list would push it out within five hours and the page would call it missing.
-  const [meet, { data: runs }, { data: dailyRuns }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
+  const [calendarSuccessAt, calendarLinks, meet, { data: runs }, { data: dailyRuns }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
+    calendarLastSuccessAt(supabase),
+    checkGoogleCalendarLinks(supabase),
     checkGoogleMeet(),
     supabase.from("CronRun").select("job, ok, detail, createdAt").order("createdAt", { ascending: false }).limit(60),
     supabase.from("CronRun").select("job, ok, detail, createdAt").eq("job", "daily").order("createdAt", { ascending: false }).limit(5),
@@ -73,12 +76,22 @@ export default async function Page() {
     const text = explainError(row);
     const key = `${text.area}|${text.what}`;
     const group = groups.get(key);
-    if (group) group.count++; else groups.set(key, { key, text, message: row.message ?? "", last: row.createdAt, count: 1 });
+    if (group) group.count++; else groups.set(key, { key, text, routeType: row.routeType, last: row.createdAt, count: 1 });
     return groups;
-  }, new Map<string, { key: string; text: ReturnType<typeof explainError>; message: string; last: string; count: number }>()).values()];
+  }, new Map<string, { key: string; text: ReturnType<typeof explainError>; routeType: string; last: string; count: number }>()).values()]
+    // Resolved: for the Google Agenda, a sync worked after the last error; otherwise it has not
+    // happened again for a day. Pending ones come first.
+    .map((group) => {
+      const lastAt = parseDbDate(group.last).getTime();
+      const calendar = GOOGLE_CALENDAR_ERRORS.includes(group.routeType);
+      const resolved = calendar ? Boolean(calendarSuccessAt && new Date(calendarSuccessAt).getTime() > lastAt) : minutesSince(parseDbDate(group.last)) > 24 * 60;
+      return { ...group, resolved, resolvedWhy: calendar ? "a sincronização voltou a funcionar depois disso" : "não voltou a acontecer nas últimas 24 h" };
+    })
+    .sort((a, b) => Number(a.resolved) - Number(b.resolved));
   const checks: Check[] = [
     { name: "Banco de dados", ok: !dbError, message: dbError ? `Erro: ${dbError.message}` : `Respondendo (${dbMs} ms).` },
     { name: "Google Meet", ok: meet.ok, message: meet.message + (fallbackRooms ? ` ${fallbackRooms} sala(s) usaram o Jitsi nos últimos 7 dias.` : "") },
+    { name: "Google Agenda", ...calendarLinks },
     { name: "Pagamentos (Stripe)", ...checkStripe() },
     { name: "Envio de e-mails", ok: appEmailConfigured(), message: appEmailConfigured() ? (smtpConfigured() ? "Configurado via SMTP (Gmail)." : "Configurado via Resend.") : "Nenhum provedor configurado: e-mails não são enviados." },
     { name: "Moderação de fotos", ok: imageModerationConfigured(), message: imageModerationConfigured() ? "Fotos de perfil e capas são verificadas automaticamente antes de serem publicadas." : "DESLIGADA: falta a variável OPENAI_API_KEY na Vercel. Sem ela, qualquer foto é aceita." },
@@ -87,10 +100,10 @@ export default async function Page() {
   ];
   return <DashboardShell mode="admin" title="Status do sistema">
     <div className="list">{checks.map((check) => <div className="list-row" key={check.name}><div><strong>{check.ok ? "🟢" : "🔴"} {check.name}</strong><p className="muted">{check.message}</p></div><span className="status">{check.ok ? "OK" : "Atenção"}</span></div>)}</div>
-    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Problemas registrados · últimos 7 dias</span><div className="list error-list">{errorGroups.map((group) => <div className="list-row error-row" key={group.key}>
-      <div><strong>{group.text.area}</strong><p>{group.text.what}</p>{group.text.fix && <p className="muted error-fix">O que fazer: {group.text.fix}</p>}<details className="error-tech"><summary>Detalhes técnicos</summary><code>{group.message.slice(0, 400)}</code></details></div>
-      <span className="error-when">{group.count > 1 ? `${group.count} vezes · ` : ""}última {shortDate(parseDbDate(group.last))}</span>
+    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Problemas registrados · últimos 7 dias</span><div className="list error-list">{errorGroups.map((group) => <div className={`list-row error-row${group.resolved ? " is-resolved" : ""}`} key={group.key}>
+      <div><strong>{group.text.area}</strong><p>{group.text.what}</p>{group.resolved ? <p className="muted error-fix">Resolvido: {group.resolvedWhy}.</p> : group.text.fix && <p className="muted error-fix">O que fazer: {group.text.fix}</p>}</div>
+      <div className="error-side"><span className={`error-state${group.resolved ? " is-resolved" : ""}`}>{group.resolved ? "Resolvido" : "Pendente"}</span><span className="error-when">{group.count > 1 ? `${group.count} vezes · ` : ""}última {shortDate(parseDbDate(group.last))}</span></div>
     </div>)}{!errorGroups.length && <div className="panel"><p className="muted">Nenhum problema registrado nos últimos 7 dias.</p></div>}</div></section>
-    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Tarefas automáticas · o que fizeram</span><p className="muted">O sistema roda sozinho uma tarefa a cada 5 minutos e outra uma vez por dia. Aqui aparecem só as execuções que fizeram algo ou falharam.</p><div className="table-wrap"><table><thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th></tr></thead><tbody>{notableRuns.map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.job === "daily" ? "Diária" : "A cada 5 min"}</td><td className={row.ok ? undefined : "form-error"}>{row.ok ? "" : "Falhou: "}{describeRun(row.detail) || "Nada pendente."}</td></tr>)}</tbody></table>{!notableRuns.length && <p className="muted">Nenhuma ação nas últimas horas: tudo em dia.</p>}</div></section>
+    <section className="section" style={{ paddingBottom: 0 }}><span className="eyebrow">Tarefas automáticas · o que fizeram</span><p className="muted status-section-note">O sistema roda sozinho uma tarefa a cada 5 minutos e outra uma vez por dia. Aqui aparecem só as execuções que fizeram algo ou falharam.</p><div className="table-wrap status-section-body"><table><thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th></tr></thead><tbody>{notableRuns.map((row, index) => <tr key={index}><td>{shortDate(parseDbDate(row.createdAt))}</td><td>{row.job === "daily" ? "Diária" : "A cada 5 min"}</td><td className={row.ok ? undefined : "form-error"}>{row.ok ? "" : "Falhou: "}{describeRun(row.detail) || "Nada pendente."}</td></tr>)}</tbody></table>{!notableRuns.length && <p className="muted">Nenhuma ação nas últimas horas: tudo em dia.</p>}</div></section>
   </DashboardShell>;
 }

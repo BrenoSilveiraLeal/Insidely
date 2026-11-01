@@ -1535,9 +1535,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .error-row { align-items: flex-start; }
 .error-row p { margin: 4px 0 0; }
 .error-fix { font-size: .88rem; }
-.error-tech { margin-top: 8px; font-size: .78rem; color: var(--muted); }
-.error-tech summary { cursor: pointer; font-weight: 700; }
-.error-tech code { display: block; margin-top: 6px; padding: 10px; border-radius: 10px; background: var(--paper-2); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .74rem; }
 .error-when { flex: none; color: var(--muted); font-size: .8rem; font-weight: 700; text-align: right; }
 /* Reality Check: the day as one proportional bar plus a legend, instead of five number cards. */
 .routine-panel { display: grid; gap: 18px; }
@@ -1992,3 +1989,10 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .calendar-link-disconnect { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .82rem; text-decoration: underline; cursor: pointer; }
 .calendar-link-disconnect:hover { color: var(--ink); }
 .calendar-added { display: inline-flex; align-items: center; gap: 6px; color: #2e7d52; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+/* System status: room under each section title, a small note, and each problem marked pending or resolved. */
+.error-list, .status-section-body { margin-top: 18px; }
+.status-section-note { margin: 6px 0 0; font-size: .82rem; line-height: 1.45; }
+.error-side { display: grid; gap: 6px; justify-items: end; flex: none; }
+.error-state { padding: 4px 10px; border-radius: 999px; background: rgba(180,40,30,.1); color: #a3281e; font-size: .74rem; font-weight: 800; }
+.error-state.is-resolved { background: rgba(46,125,82,.12); color: #2e7d52; }
+.error-row.is-resolved strong, .error-row.is-resolved > div > p:not(.error-fix) { color: var(--muted); }
