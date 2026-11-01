@@ -17,11 +17,6 @@ export function explainError(row: ErrorRow): ErrorText {
   if (/calendar_booking_not_available|calendar_booking_not_found/i.test(message)) return { area, what: "Alguém tentou adicionar ao Google Agenda uma conversa que não está mais confirmada." };
   if (/events\.insert (401|403)/i.test(message)) return { area, what: "O Google recusou criar o evento na agenda da pessoa (permissão negada).", fix: "A pessoa precisa autorizar o acesso à agenda novamente." };
   if (/invalid_grant/i.test(message)) return { area, what: "A conexão com o Google Meet expirou: as salas novas usam o Jitsi até ser renovada.", fix: "Gere um novo token do Google e atualize GOOGLE_REFRESH_TOKEN na Vercel." };
-  if (/^Foto recusada: ([\w/-]+)/.test(message)) {
-    const category = message.match(/^Foto recusada: ([\w/-]+)/)?.[1] ?? "";
-    const reason = category.startsWith("sexual/minors") ? "conteúdo envolvendo menores" : category.startsWith("sexual") ? "conteúdo sexual" : category.startsWith("violence") ? "violência explícita" : category.startsWith("self-harm") ? "automutilação" : "conteúdo impróprio";
-    return { area, what: `A moderação recusou uma foto (${reason}).`, fix: "Não precisa fazer nada; aparece aqui para acompanhar se a moderação está rígida demais." };
-  }
   if (/fetch failed|ECONNRESET|ETIMEDOUT|timeout/i.test(message)) return { area, what: "Um serviço externo demorou ou não respondeu.", fix: "Se repetir muito, confira o status do serviço (Supabase, Google, Stripe)." };
   if (/JWT|not_authorized|permission denied/i.test(message)) return { area, what: "Uma ação foi recusada por falta de permissão." };
   return { area, what: "Algo deu errado ao carregar ou salvar nesta área.", fix: "Se repetir, avise quem cuida do código." };

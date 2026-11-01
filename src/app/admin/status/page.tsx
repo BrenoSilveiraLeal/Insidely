@@ -56,7 +56,8 @@ export default async function Page() {
     supabase.from("CronRun").select("job, ok, detail, createdAt").order("createdAt", { ascending: false }).limit(60),
     supabase.from("CronRun").select("job, ok, detail, createdAt").eq("job", "daily").order("createdAt", { ascending: false }).limit(5),
     supabase.from("Booking").select("id", { count: "exact", head: true }).like("meetingUrl", "https://meet.jit.si%").gte("startsAt", daysAgo(7)),
-    supabase.from("ErrorEvent").select("path, routeType, message, createdAt").gte("createdAt", daysAgo(7)).order("createdAt", { ascending: false }).limit(30),
+    // Photos refused by the moderation are the moderation working, not a system problem.
+    supabase.from("ErrorEvent").select("path, routeType, message, createdAt").neq("routeType", "image-moderation").gte("createdAt", daysAgo(7)).order("createdAt", { ascending: false }).limit(30),
   ]);
   type Run = { job: string; ok: boolean; detail: string | null; createdAt: string };
   const seen = new Set<string>();
