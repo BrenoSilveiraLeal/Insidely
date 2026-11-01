@@ -25,6 +25,6 @@ export function checkStripe() {
   const missing = Object.entries(keys).filter(([, value]) => !value).map(([name]) => name);
   const mode = keys.STRIPE_SECRET_KEY?.startsWith("sk_live_") ? "produção" : keys.STRIPE_SECRET_KEY?.startsWith("sk_test_") ? "teste" : null;
   const keysText = missing.length ? `Faltam na Vercel: ${missing.join(", ")}.` : `Chaves configuradas${mode ? ` (modo ${mode})` : ""}.`;
-  if (!STRIPE_CHECKOUT_ENABLED) return { ok: false, message: `DESATIVADO: o checkout está em modo de demonstração e nenhuma cobrança real é feita. ${keysText}` };
+  if (!STRIPE_CHECKOUT_ENABLED) return { ok: false, message: `NÃO IMPLEMENTADO: o checkout real pelo Stripe ainda falta ser ligado. Por enquanto os pagamentos são simulados e nenhuma cobrança real é feita. ${keysText}` };
   return { ok: missing.length === 0 && mode === "produção", message: missing.length ? `Pagamentos reais não funcionam. ${keysText}` : mode === "produção" ? "Pagamentos reais ativos pelo Stripe." : `Em modo ${mode ?? "desconhecido"}: as cobranças não são reais.` };
 }
