@@ -1991,3 +1991,4 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .calendar-link-actions .button { gap: 6px; }
 .calendar-link-disconnect { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .82rem; text-decoration: underline; cursor: pointer; }
 .calendar-link-disconnect:hover { color: var(--ink); }
+.calendar-added { display: inline-flex; align-items: center; gap: 6px; color: #2e7d52; font-size: .82rem; font-weight: 700; white-space: nowrap; }
