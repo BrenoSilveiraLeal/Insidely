@@ -13,7 +13,7 @@ const nunito = Nunito({ subsets: ["latin"], weight: ["700", "800", "900"], varia
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://insidely.vercel.app"),
-  icons: { icon: "/favicon.ico", shortcut: "/favicon.ico", apple: "/favicon.png" },
+  icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/favicon.png" },
   verification: { google: "s_ssjV-gKDczz7Zqva6a9LHHSNO88KBL5aLpQQVvuFc" },
   title: { default: "Insidely — A realidade antes da decisão", template: "%s | Insidely" },
   description: "Converse com profissionais verificados antes de escolher uma empresa ou profissão.",
