@@ -1056,6 +1056,9 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 .search-more-chevron { transition: transform .2s; }
 .search-more[open] .search-more-chevron { transform: rotate(180deg); }
 .search-more-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--mineral); color: var(--ink); font-size: .72rem; }
+.search-more { interpolate-size: allow-keywords; }
+.search-more::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size .32s ease, opacity .22s ease, content-visibility .32s allow-discrete; }
+.search-more[open]::details-content { block-size: auto; opacity: 1; }
 .search-more[open] .search-more-grid { padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
 .search-more-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; margin-top: 12px; }
 .area-insights { display: grid; gap: 16px; margin-bottom: 28px; }
