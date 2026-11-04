@@ -648,45 +648,48 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 .topic-select-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;min-width:0;margin:0;padding:18px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.42)}.topic-select-group legend{padding:0 8px}.topic-select-group label{display:flex;align-items:center;gap:10px;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.7);font-size:.84rem;font-weight:700}.topic-select-group input{flex:0 0 auto;accent-color:var(--forest)}.review-comment{margin:10px 0 0;color:var(--muted);line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.review-row{align-items:start}.review-row .rating{white-space:nowrap}@media(max-width:520px){.topic-select-group{grid-template-columns:1fr}}
 
 /* Branded checkbox: native input kept for keyboard, forms and screen readers, drawn as a custom box. */
-.check-row { --check-bg: #fffdf8; --check-border: rgba(23,32,51,.32); position: relative; display: flex; align-items: flex-start; gap: 12px; width: fit-content; max-width: 100%; padding: 2px 0; font-size: .86rem; line-height: 1.45; cursor: pointer; -webkit-user-select: none; user-select: none; }
-.auth-panel .check-row, .sidebar .check-row { --check-bg: #272a26; --check-border: rgba(247,242,232,.38); }
-.check-row .check-input { position: absolute; top: 2px; left: 0; width: 22px; height: 22px; margin: 0; opacity: 0; cursor: pointer; }
-.check-box { position: relative; flex: 0 0 22px; display: grid; place-items: center; width: 22px; height: 22px; border: 1.5px solid var(--check-border); border-radius: 7px; background: var(--check-bg); transition: background-color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
-.check-box svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 16; stroke-dashoffset: 16; transition: stroke-dashoffset .22s ease .04s; }
-.check-label { min-width: 0; padding-top: 1px; }
+.check-row { --check-bg: #b9bec5; position: relative; display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 10px; width: fit-content; max-width: 100%; padding: 2px 0; font-size: .86rem; line-height: 1.45; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.auth-panel .check-row, .sidebar .check-row { --check-bg: #5e625e; }
+.check-row .check-input { position: absolute; z-index: 1; top: 2px; left: 0; width: 42px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.check-box { position: relative; grid-column: 1; grid-row: 1; display: block; width: 42px; height: 24px; border: 0; border-radius: 999px; background: var(--check-bg); transition: background-color .18s ease, box-shadow .18s ease; }
+.check-box::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; content: ""; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(23,32,51,.2); transition: transform .18s ease; }
+.check-box svg { display: none; }
+.check-label { grid-column: 2; grid-row: 1; min-width: 0; padding-top: 1px; }
+.check-row::after { grid-column: 3; grid-row: 1; min-width: 58px; color: var(--muted); font-size: .7rem; font-weight: 750; text-align: right; content: "Desligado"; }
+.check-row:has(.check-input:checked)::after { color: var(--ink); content: "Ligado"; }
 /* Auth fields: every label sits 8px above its field, whether it wraps the input or precedes it. */
 .auth-form.form-stack > label:not(.check-row):has(+ .input, + .select) { margin-bottom: -9px; }
 .auth-form.form-stack > label:has(> .password-field) { display: grid; gap: 8px; }
 @media (max-width: 620px), (max-height: 560px) and (orientation: landscape) and (max-width: 1100px) { .auth-form.form-stack > label:not(.check-row):has(+ .input, + .select) { margin-bottom: -4px; } }
 .check-label a { color: inherit; text-underline-offset: 3px; }
-.check-row:hover .check-box { border-color: var(--mineral); }
-.check-row:active .check-box { transform: scale(.9); }
-.check-input:checked + .check-box { border-color: var(--mineral); background: var(--mineral); box-shadow: 0 0 0 4px rgba(255,118,87,.18); }
-.check-input:checked + .check-box svg { stroke-dashoffset: 0; }
+.check-row:hover .check-box { box-shadow: 0 0 0 3px rgba(255,118,87,.13); }
+.check-input:checked + .check-box { background: var(--mineral); }
+.check-input:checked + .check-box::after { transform: translateX(18px); }
 .check-input:focus-visible + .check-box { outline: 3px solid var(--mineral); outline-offset: 3px; }
 .check-input:disabled + .check-box, .check-input:disabled ~ .check-label { opacity: .5; cursor: not-allowed; }
 /* Every checkbox gets the same drawn Insidely control, including standalone filters. */
-input[type="checkbox"]:not(.check-input):not([role="switch"]) {
+input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input) {
   appearance: none;
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 24px;
   margin: 0;
-  border: 1.5px solid rgba(23,32,51,.34);
-  border-radius: 7px;
-  background: #fffdf8;
+  border: 0;
+  border-radius: 999px;
+  background: #b9bec5 radial-gradient(circle at 12px 12px, #fff 0 9px, transparent 9.5px);
   cursor: pointer;
-  transition: background-color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  transition: background-color .18s ease, background-position .18s ease, box-shadow .18s ease;
 }
-input[type="checkbox"]:not(.check-input):not([role="switch"]):checked {
-  border-color: var(--mineral);
-  background: var(--mineral) center / 14px 14px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.5 8.5 3 3 6-7' fill='none' stroke='%23172033' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  box-shadow: 0 0 0 4px rgba(255,118,87,.18);
+input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input):checked {
+  background-color: var(--mineral);
+  background-position: 18px 0;
+  box-shadow: 0 0 0 3px rgba(255,118,87,.13);
 }
-input[type="checkbox"]:not(.check-input):not([role="switch"]):focus-visible { outline: 3px solid var(--mineral); outline-offset: 3px; }
-input[type="checkbox"]:not(.check-input):not([role="switch"]):disabled { opacity: .5; cursor: not-allowed; }
-input[type="checkbox"]:not(.check-input):not([role="switch"]):active { transform: scale(.9); }
-@media (prefers-reduced-motion: reduce) { .check-box, .check-box svg { transition: none; } }
+input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input):focus-visible { outline: 3px solid var(--mineral); outline-offset: 3px; }
+input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input):disabled { opacity: .5; cursor: not-allowed; }
+label:not(.check-row):has(> input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input))::after { display: inline-block; min-width: 58px; margin-left: 8px; color: var(--muted); font-size: .7rem; font-weight: 750; text-align: right; content: "Desligado"; }
+label:not(.check-row):has(> input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input):checked)::after { color: var(--ink); content: "Ligado"; }
+@media (prefers-reduced-motion: reduce) { .check-box, .check-box::after, input[type="checkbox"]:not(.check-input):not([role="switch"]):not(.privacy-toggle-input) { transition: none; } }
 
 /* Responsive foundation: safe areas (notches, home bars, TV overscan), flexible heights,
    touch screens and large displays. Kept last so it settles the earlier per-page patches. */
@@ -1597,7 +1600,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .search-more[open] > summary { border: 0; background: transparent; color: var(--ink); }
 .search-more-grid { margin-top: 6px; }
 .search-more[open] .search-more-grid { padding: 14px 0 4px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
-.search-more-grid .check-row { align-self: center; min-height: 50px; }
+.search-more-grid .check-row { align-self: center; min-height: 44px; width: 100%; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.62); color: var(--ink); font-size: .82rem; font-weight: 650; transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease; }
+.search-more-grid .check-row:hover { border-color: rgba(23,32,51,.32); background: #fffdf8; box-shadow: 0 5px 16px rgba(23,32,51,.06); }
 @media (max-width: 1100px) {
   .search-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .search-submit { grid-column: 1 / -1; }
