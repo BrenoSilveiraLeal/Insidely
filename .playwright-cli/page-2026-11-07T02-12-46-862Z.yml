@@ -1,0 +1,446 @@
+- generic [active] [ref=e1]:
+  - link "Pular para o conteúdo" [ref=e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - banner "Navegação principal" [ref=e3]:
+    - link "Insidely - início" [ref=e4] [cursor=pointer]:
+      - /url: /#inicio
+      - text: inside
+      - generic [ref=e5]: ly
+      - generic [ref=e6]: .
+    - navigation "Seções do site" [ref=e7]:
+      - button "Profissionais" [ref=e8] [cursor=pointer]
+      - button "Empresas" [ref=e11] [cursor=pointer]
+      - button "Profissões" [ref=e14] [cursor=pointer]
+      - button "Reality Check" [ref=e17] [cursor=pointer]
+  - main [ref=e20]:
+    - generic [ref=e21]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]: Carreira sem propaganda
+          - heading "A vaga mostra o cargo. A gente mostra o que há por dentro." [level=1] [ref=e26]:
+            - generic [ref=e27]: A vaga mostra
+            - generic [ref=e28]: o cargo.
+            - generic [ref=e29]: A gente mostra
+            - generic [ref=e30]: o que há por
+            - generic [ref=e31]: dentro.
+          - paragraph [ref=e32]: Converse com quem vive ou já viveu a rotina antes de aceitar a vaga, escolher o curso ou mudar de carreira.
+          - generic [ref=e33]:
+            - link "Encontrar alguém" [ref=e34] [cursor=pointer]:
+              - /url: /buscar
+            - link "Ver como funciona" [ref=e37] [cursor=pointer]:
+              - /url: "#como-funciona"
+        - generic [ref=e40]:
+          - article [ref=e41]:
+            - generic [ref=e42]: Quem vive conta
+            - heading "\"A comunicação falha. O cargo vira três. A prioridade muda sem contexto.\"" [level=2] [ref=e46]
+            - generic [ref=e47]:
+              - generic [ref=e48]: comunicação
+              - generic [ref=e54]: desvio de função
+              - generic [ref=e58]: cobrança sem clareza
+          - article [ref=e63]:
+            - generic [ref=e64]: O anúncio diz
+            - heading "Ambiente dinâmico, autonomia e grandes oportunidades de crescimento." [level=2] [ref=e65]
+      - region "Números da comunidade" [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - strong [ref=e73]: "82"
+            - text: profissionais ativos
+          - generic [ref=e74]:
+            - strong [ref=e75]: "21"
+            - text: empresas representadas
+          - generic [ref=e76]:
+            - strong [ref=e77]: "88"
+            - text: conversas concluídas
+          - generic [ref=e78]:
+            - strong [ref=e79]: "4.5"
+            - text: avaliação média real
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: O que a vaga esconde
+          - heading "Decisões grandes ainda são tomadas com informação pequena." [level=2] [ref=e84]
+          - paragraph [ref=e85]: A descrição mostra requisitos. A marca mostra cultura. Só quem vive ou viveu a rotina consegue ligar os pontos.
+        - generic [ref=e86]:
+          - article [ref=e88]:
+            - generic [ref=e89]: "01"
+            - paragraph [ref=e90]: Como é uma terça-feira comum, não o dia da entrevista?
+          - article [ref=e91]:
+            - generic [ref=e92]: "02"
+            - paragraph [ref=e93]: A liderança dá contexto ou só cobra a entrega?
+          - article [ref=e94]:
+            - generic [ref=e95]: "03"
+            - paragraph [ref=e96]: O crescimento acontece ou fica apenas no discurso?
+          - article [ref=e97]:
+            - generic [ref=e98]: "04"
+            - paragraph [ref=e99]: O que você gostaria de saber antes de entrar?
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: Uma escolha menos escura
+          - heading "Não aceite uma descrição. Investigue o contexto." [level=2] [ref=e104]
+          - paragraph [ref=e105]: A Insidely aproxima dúvidas honestas de experiências verificadas - com proteção para quem pergunta e para quem responde.
+        - generic [ref=e107]:
+          - article [ref=e108]:
+            - generic [ref=e109]: "01"
+            - generic [ref=e110]:
+              - generic [ref=e111]: Explore
+              - heading "Encontre o contexto certo." [level=3] [ref=e112]
+              - paragraph [ref=e113]: Filtre por profissão, empresa, senioridade e forma de trabalho.
+            - generic [ref=e114]: "?"
+          - article [ref=e115]:
+            - generic [ref=e116]: "02"
+            - generic [ref=e117]:
+              - generic [ref=e118]: Pergunte
+              - heading "Leve as perguntas difíceis." [level=3] [ref=e119]
+              - paragraph [ref=e120]: Rotina, liderança, carga, crescimento e processo seletivo - sem pedir dados confidenciais.
+            - generic [ref=e121]: "?"
+          - article [ref=e122]:
+            - generic [ref=e123]: "03"
+            - generic [ref=e124]:
+              - generic [ref=e125]: Decida
+              - heading "Troque suposição por clareza." [level=3] [ref=e126]
+              - paragraph [ref=e127]: Use experiências contextualizadas para escolher seu próximo passo com mais consciência.
+            - generic [ref=e128]: "?"
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - generic [ref=e133]: Pessoas, não rankings
+            - heading "Experiências para comparar." [level=2] [ref=e134]
+          - link "Ver todos os profissionais" [ref=e135] [cursor=pointer]:
+            - /url: /buscar
+        - generic [ref=e138]:
+          - link "A Vínculo verificado Remoto Ana Software Engineer com experiência em Amazon Amazon São Paulo, SP R$ 35,00 / 30 min 4.0" [ref=e139] [cursor=pointer]:
+            - /url: /profissional/profile-0
+            - generic [ref=e140]: A
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - generic [ref=e144]: Vínculo verificado
+                - generic [ref=e148]: Remoto
+              - heading "Ana" [level=3] [ref=e149]
+              - generic [ref=e150]: Software Engineer com experiência em Amazon
+              - generic [ref=e151]:
+                - generic "Trabalha nesta empresa" [ref=e152]: Amazon
+                - generic [ref=e157]: São Paulo, SP
+              - generic [ref=e161]:
+                - generic [ref=e162]:
+                  - strong [ref=e163]: R$ 35,00
+                  - text: / 30 min
+                - generic [ref=e164]: "4.0"
+          - link "PD Vínculo verificado Presencial Pessoa da comunidade Desenvolvedor(a) com experiência em Vale Vale R$ 45,00 / 30 min 4.0" [ref=e167] [cursor=pointer]:
+            - /url: /profissional/profile-2
+            - generic [ref=e168]: PD
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - generic [ref=e172]: Vínculo verificado
+                - generic [ref=e176]: Presencial
+              - heading "Pessoa da comunidade" [level=3] [ref=e177]
+              - generic [ref=e178]: Desenvolvedor(a) com experiência em Vale
+              - generic "Trabalha nesta empresa" [ref=e180]: Vale
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - strong [ref=e187]: R$ 45,00
+                  - text: / 30 min
+                - generic [ref=e188]: "4.0"
+          - link "G Vínculo verificado Presencial Gustavo Analista de Sistemas com experiência em Petrobras Petrobras Porto Alegre, RS R$ 60,00 / 30 min 5.0" [ref=e191] [cursor=pointer]:
+            - /url: /profissional/profile-5
+            - generic [ref=e192]: G
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - generic [ref=e196]: Vínculo verificado
+                - generic [ref=e200]: Presencial
+              - heading "Gustavo" [level=3] [ref=e201]
+              - generic [ref=e202]: Analista de Sistemas com experiência em Petrobras
+              - generic [ref=e203]:
+                - generic "Trabalha nesta empresa" [ref=e204]: Petrobras
+                - generic [ref=e209]: Porto Alegre, RS
+              - generic [ref=e213]:
+                - generic [ref=e214]:
+                  - strong [ref=e215]: R$ 60,00
+                  - text: / 30 min
+                - generic [ref=e216]: "5.0"
+          - 'link "GP Vínculo verificado Remoto G. Profissional #1806 Analista de Dados com experiência em Nubank Nubank R$ 65,00 / 30 min 4.0" [ref=e219] [cursor=pointer]':
+            - /url: /profissional/profile-6
+            - generic [ref=e220]: GP
+            - generic [ref=e222]:
+              - generic [ref=e223]:
+                - generic [ref=e224]: Vínculo verificado
+                - generic [ref=e228]: Remoto
+              - 'heading "G. Profissional #1806" [level=3] [ref=e229]'
+              - generic [ref=e230]: Analista de Dados com experiência em Nubank
+              - generic "Trabalha nesta empresa" [ref=e232]: Nubank
+              - generic [ref=e237]:
+                - generic [ref=e238]:
+                  - strong [ref=e239]: R$ 65,00
+                  - text: / 30 min
+                - generic [ref=e240]: "4.0"
+          - link "PD Vínculo verificado Presencial Pessoa da comunidade Analista de Saúde com experiência em PicPay PicPay R$ 40,00 / 30 min 4.0" [ref=e243] [cursor=pointer]:
+            - /url: /profissional/profile-8
+            - generic [ref=e244]: PD
+            - generic [ref=e246]:
+              - generic [ref=e247]:
+                - generic [ref=e248]: Vínculo verificado
+                - generic [ref=e252]: Presencial
+              - heading "Pessoa da comunidade" [level=3] [ref=e253]
+              - generic [ref=e254]: Analista de Saúde com experiência em PicPay
+              - generic "Trabalha nesta empresa" [ref=e256]: PicPay
+              - generic [ref=e261]:
+                - generic [ref=e262]:
+                  - strong [ref=e263]: R$ 40,00
+                  - text: / 30 min
+                - generic [ref=e264]: "4.0"
+          - 'link "JP Vínculo verificado Remoto J. Profissional #1809 Analista de RH com experiência em Mercado Livre Mercado Livre R$ 45,00 / 30 min 5.0" [ref=e267] [cursor=pointer]':
+            - /url: /profissional/profile-9
+            - generic [ref=e268]: JP
+            - generic [ref=e270]:
+              - generic [ref=e271]:
+                - generic [ref=e272]: Vínculo verificado
+                - generic [ref=e276]: Remoto
+              - 'heading "J. Profissional #1809" [level=3] [ref=e277]'
+              - generic [ref=e278]: Analista de RH com experiência em Mercado Livre
+              - generic "Trabalha nesta empresa" [ref=e280]: Mercado Livre
+              - generic [ref=e285]:
+                - generic [ref=e286]:
+                  - strong [ref=e287]: R$ 45,00
+                  - text: / 30 min
+                - generic [ref=e288]: "5.0"
+          - link "PD Verificação em análise Presencial Pessoa da comunidade UI Designer com experiência em Globo Globo R$ 55,00 / 30 min 5.0" [ref=e291] [cursor=pointer]:
+            - /url: /profissional/profile-11
+            - generic [ref=e292]: PD
+            - generic [ref=e294]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: Verificação em análise
+                - generic [ref=e297]: Presencial
+              - heading "Pessoa da comunidade" [level=3] [ref=e298]
+              - generic [ref=e299]: UI Designer com experiência em Globo
+              - generic "Trabalha nesta empresa" [ref=e301]: Globo
+              - generic [ref=e306]:
+                - generic [ref=e307]:
+                  - strong [ref=e308]: R$ 55,00
+                  - text: / 30 min
+                - generic [ref=e309]: "5.0"
+          - 'link "CP Vínculo verificado Remoto C. Profissional #1812 Product Manager com experiência em iFood iFood R$ 60,00 / 30 min 4.0" [ref=e312] [cursor=pointer]':
+            - /url: /profissional/profile-12
+            - generic [ref=e313]: CP
+            - generic [ref=e315]:
+              - generic [ref=e316]:
+                - generic [ref=e317]: Vínculo verificado
+                - generic [ref=e321]: Remoto
+              - 'heading "C. Profissional #1812" [level=3] [ref=e322]'
+              - generic [ref=e323]: Product Manager com experiência em iFood
+              - generic "Trabalha nesta empresa" [ref=e325]: iFood
+              - generic [ref=e330]:
+                - generic [ref=e331]:
+                  - strong [ref=e332]: R$ 60,00
+                  - text: / 30 min
+                - generic [ref=e333]: "4.0"
+      - generic [ref=e337]:
+        - generic [ref=e338]: Uma marca não é uma experiência única
+        - blockquote [ref=e339]: A empresa que você imagina pode não ser a equipe que você encontra.
+        - link "Ver empresas por dentro" [ref=e340] [cursor=pointer]:
+          - /url: /empresas
+        - generic [ref=e345]: Time
+        - generic [ref=e346]: Rotina
+        - generic [ref=e347]: Gestão
+        - generic [ref=e348]: Empresa
+      - generic [ref=e350]:
+        - generic [ref=e351]:
+          - generic [ref=e352]:
+            - generic [ref=e353]: Por dentro das empresas
+            - heading "A mesma marca. Muitas realidades." [level=2] [ref=e358]: A mesma marca.Muitas realidades.
+          - link "Todas as empresas" [ref=e359] [cursor=pointer]:
+            - /url: /empresas
+        - generic [ref=e362]:
+          - link [ref=e363] [cursor=pointer]:
+            - /url: /empresa/amazon
+            - generic [ref=e365]:
+              - heading "Amazon" [level=3] [ref=e366]
+              - paragraph [ref=e367]: Tecnologia e varejo
+              - generic [ref=e368]: 6 experiências
+          - link [ref=e372] [cursor=pointer]:
+            - /url: /empresa/google
+            - generic [ref=e374]:
+              - heading "Google" [level=3] [ref=e375]
+              - paragraph [ref=e376]: Tecnologia
+              - generic [ref=e377]: 7 experiências
+          - link [ref=e381] [cursor=pointer]:
+            - /url: /empresa/nubank
+            - generic [ref=e383]:
+              - heading "Nubank" [level=3] [ref=e384]
+              - paragraph [ref=e385]: Serviços financeiros
+              - generic [ref=e386]: 7 experiências
+          - link [ref=e390] [cursor=pointer]:
+            - /url: /empresa/mercado-livre
+            - generic [ref=e392]:
+              - heading "Mercado Livre" [level=3] [ref=e393]
+              - paragraph [ref=e394]: Tecnologia e comércio
+              - generic [ref=e395]: 5 experiências
+          - link [ref=e399] [cursor=pointer]:
+            - /url: /empresa/ifood
+            - generic [ref=e401]:
+              - heading "iFood" [level=3] [ref=e402]
+              - paragraph [ref=e403]: Tecnologia e entregas
+              - generic [ref=e404]: 6 experiências
+          - link [ref=e408] [cursor=pointer]:
+            - /url: /empresa/mcdonalds
+            - generic [ref=e410]:
+              - heading "McDonald’s" [level=3] [ref=e411]
+              - paragraph [ref=e412]: Alimentação
+              - generic [ref=e413]: 7 experiências
+          - link [ref=e417] [cursor=pointer]:
+            - /url: /empresa/magazine-luiza
+            - generic [ref=e419]:
+              - heading "Magazine Luiza" [level=3] [ref=e420]
+              - paragraph [ref=e421]: Varejo
+              - generic [ref=e422]: 8 experiências
+          - link [ref=e426] [cursor=pointer]:
+            - /url: /empresa/renner
+            - generic [ref=e428]:
+              - heading "Renner" [level=3] [ref=e429]
+              - paragraph [ref=e430]: Varejo de moda
+              - generic [ref=e431]: 4 experiências
+      - generic [ref=e436]:
+        - generic [ref=e437]:
+          - generic [ref=e438]:
+            - generic [ref=e439]: Reality Check
+            - heading "A profissão imaginada encontra o trabalho prático." [level=2] [ref=e443]
+          - link "Ver todas" [ref=e444] [cursor=pointer]:
+            - /url: /profissoes
+        - generic [ref=e447]:
+          - link "Tecnologia Desenvolvimento de Software 6 profissionais" [ref=e448] [cursor=pointer]:
+            - /url: /profissao/desenvolvimento-de-software
+            - generic [ref=e449]: Tecnologia
+            - generic [ref=e450]:
+              - heading "Desenvolvimento de Software" [level=3] [ref=e451]
+              - generic [ref=e452]: 6 profissionais
+          - link "Tecnologia Engenharia de Software 4 profissionais" [ref=e456] [cursor=pointer]:
+            - /url: /profissao/engenharia-de-software
+            - generic [ref=e457]: Tecnologia
+            - generic [ref=e458]:
+              - heading "Engenharia de Software" [level=3] [ref=e459]
+              - generic [ref=e460]: 4 profissionais
+          - link "Tecnologia Desenvolvimento Frontend 6 profissionais" [ref=e464] [cursor=pointer]:
+            - /url: /profissao/frontend
+            - generic [ref=e465]: Tecnologia
+            - generic [ref=e466]:
+              - heading "Desenvolvimento Frontend" [level=3] [ref=e467]
+              - generic [ref=e468]: 6 profissionais
+          - link "Tecnologia Desenvolvimento Backend 7 profissionais" [ref=e472] [cursor=pointer]:
+            - /url: /profissao/backend
+            - generic [ref=e473]: Tecnologia
+            - generic [ref=e474]:
+              - heading "Desenvolvimento Backend" [level=3] [ref=e475]
+              - generic [ref=e476]: 7 profissionais
+          - link "Tecnologia Desenvolvimento Full Stack 3 profissionais" [ref=e480] [cursor=pointer]:
+            - /url: /profissao/full-stack
+            - generic [ref=e481]: Tecnologia
+            - generic [ref=e482]:
+              - heading "Desenvolvimento Full Stack" [level=3] [ref=e483]
+              - generic [ref=e484]: 3 profissionais
+          - link "Tecnologia Desenvolvimento Mobile 4 profissionais" [ref=e488] [cursor=pointer]:
+            - /url: /profissao/mobile
+            - generic [ref=e489]: Tecnologia
+            - generic [ref=e490]:
+              - heading "Desenvolvimento Mobile" [level=3] [ref=e491]
+              - generic [ref=e492]: 4 profissionais
+      - generic [ref=e497]:
+        - generic [ref=e498]:
+          - generic [ref=e499]: Confiança desde o desenho
+          - heading "Privacidade não entra depois. Ela começa junto." [level=2] [ref=e503]
+          - paragraph [ref=e504]: Quem compartilha experiência controla o que fica público. Verificações são privadas; o perfil exibe apenas o selo.
+          - link "Participar com segurança" [ref=e505] [cursor=pointer]:
+            - /url: /cadastro
+        - generic [ref=e508]:
+          - article [ref=e509]:
+            - generic [ref=e520]:
+              - text: Identidade
+              - heading "Pública, protegida ou pseudônima." [level=3] [ref=e521]
+          - article [ref=e522]:
+            - generic [ref=e526]:
+              - text: Verificação
+              - heading "Documento nunca aparece no perfil." [level=3] [ref=e527]
+          - article [ref=e528]:
+            - generic [ref=e533]:
+              - text: Limites
+              - heading "Sem segredos, dados internos ou de terceiros." [level=3] [ref=e534]
+      - generic [ref=e536]:
+        - generic [ref=e537]: Depois da conversa
+        - generic "Depois da conversa" [ref=e538]:
+          - generic [ref=e539]:
+            - figure "1 de 3" [ref=e540]:
+              - blockquote [ref=e541]: “Eu estava entre aceitar uma proposta numa consultoria ou continuar na indústria. Em 40 minutos entendi como é a rotina real de projetos e decidi aceitar. Três meses depois, foi a melhor escolha.”
+              - generic [ref=e542]: Cliente da Insidely, depois da conversa
+            - figure [aria-hidden]:
+              - blockquote: “Achava que UX era só desenhar telas. A conversa me mostrou a parte de pesquisa com usuários e entrei num curso focado nisso. Saí com um plano de estudo para seis meses.”
+              - generic: Cliente da Insidely, depois da conversa
+            - figure [aria-hidden]:
+              - blockquote: “Queria saber se valia a pena fazer mestrado antes de ir para o mercado de dados. Ouvi de quem contrata que portfólio pesa mais. Mudei de plano e já consegui meu primeiro estágio.”
+              - generic: Cliente da Insidely, depois da conversa
+          - generic [ref=e543]:
+            - button "História anterior" [ref=e544] [cursor=pointer]
+            - generic [ref=e547]:
+              - button "Ir para a história 1" [ref=e548] [cursor=pointer]
+              - button "Ir para a história 2" [ref=e549] [cursor=pointer]
+              - button "Ir para a história 3" [ref=e550] [cursor=pointer]
+            - button "Próxima história" [ref=e551] [cursor=pointer]
+      - generic [ref=e556]:
+        - generic [ref=e557]: Antes da próxima decisão
+        - heading "Não escolha no escuro." [level=2] [ref=e558]: Não escolhano escuro.
+        - paragraph [ref=e559]: Uma conversa pode não decidir por você. Mas pode fazer você decidir melhor.
+        - generic [ref=e560]:
+          - link "Encontrar uma experiência" [ref=e561] [cursor=pointer]:
+            - /url: /buscar
+          - link "Compartilhar a minha" [ref=e564] [cursor=pointer]:
+            - /url: /cadastro
+  - contentinfo [ref=e577]:
+    - generic [ref=e578]:
+      - generic [ref=e579]:
+        - generic [ref=e580]:
+          - link "inside ly ." [ref=e581] [cursor=pointer]:
+            - /url: /#inicio
+            - text: inside
+            - generic [ref=e582]: ly
+            - generic [ref=e583]: .
+          - paragraph [ref=e584]: A realidade antes da decisão.
+        - generic [ref=e585]:
+          - heading "Descobrir" [level=4] [ref=e586]
+          - generic [ref=e587]:
+            - link "Profissionais" [ref=e588] [cursor=pointer]:
+              - /url: /buscar
+            - link "Empresas" [ref=e589] [cursor=pointer]:
+              - /url: /empresas
+            - link "Profissões" [ref=e590] [cursor=pointer]:
+              - /url: /profissoes
+        - generic [ref=e591]:
+          - heading "Participar" [level=4] [ref=e592]
+          - generic [ref=e593]:
+            - link "Criar conta" [ref=e594] [cursor=pointer]:
+              - /url: /cadastro
+            - link "Ser consultor" [ref=e595] [cursor=pointer]:
+              - /url: /onboarding
+            - link "Reality Check" [ref=e596] [cursor=pointer]:
+              - /url: /reality-check
+        - generic [ref=e597]:
+          - heading "Insidely" [level=4] [ref=e598]
+          - generic [ref=e599]:
+            - link "Sobre a ideia" [ref=e600] [cursor=pointer]:
+              - /url: /sobre
+            - link "Falar com o suporte" [ref=e601] [cursor=pointer]:
+              - /url: /suporte
+            - link "Termos de Uso" [ref=e602] [cursor=pointer]:
+              - /url: /termos
+            - link "Política de Privacidade" [ref=e603] [cursor=pointer]:
+              - /url: /privacidade
+            - link "Segurança" [ref=e604] [cursor=pointer]:
+              - /url: /seguranca
+            - link "Central de ajuda" [ref=e605] [cursor=pointer]:
+              - /url: /ajuda
+      - generic [ref=e606]: © 2026 Insidely. A realidade antes da decisão.
+  - button "Open Next.js Dev Tools" [ref=e612] [cursor=pointer]
+  - alert [ref=e616]
+  - dialog "Aviso de cookies" [ref=e617]:
+    - paragraph [ref=e618]:
+      - strong [ref=e619]: Este site usa cookies.
+      - text: Os essenciais mantêm você conectado e seguro e estão sempre ativos. Com a sua permissão, usamos também cookies de análise, anônimos, para melhorar o site.
+      - link "Saiba mais" [ref=e620] [cursor=pointer]:
+        - /url: /privacidade
+    - generic [ref=e621]:
+      - button "Recusar cookies" [ref=e622] [cursor=pointer]
+      - button "Aceitar cookies" [ref=e623] [cursor=pointer]

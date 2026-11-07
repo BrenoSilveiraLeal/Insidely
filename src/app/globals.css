@@ -707,11 +707,18 @@ h1, h2, h3, h4, p, li, td, th, label { overflow-wrap: break-word; }
 /* Floating header and drawer stay clear of the notch / status bar. */
 .header-wrap { top: calc(18px + var(--safe-top)); }
 .premium-header { width: min(1210px, calc(100% - 32px - var(--safe-left) - var(--safe-right))); }
-.mobile-drawer { width: min(620px, calc(100% - 32px - var(--safe-left) - var(--safe-right))); }
+.mobile-drawer {
+  width: min(620px, calc(100% - 32px - var(--safe-left) - var(--safe-right)));
+  /* The compact header also appears on tablets and landscape phones. */
+  max-height: calc(100dvh - 110px - var(--safe-top) - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
 @media (max-width: 620px) {
   .header-wrap { top: calc(10px + var(--safe-top)); }
   .premium-header, .mobile-drawer { width: calc(100% - 20px - var(--safe-left) - var(--safe-right)); }
-  .mobile-drawer { max-height: calc(100svh - 88px - var(--safe-top) - var(--safe-bottom)); }
+  .mobile-drawer { max-height: calc(100dvh - 88px - var(--safe-top) - var(--safe-bottom)); }
 }
 .footer { padding-bottom: calc(34px + var(--safe-bottom)); }
 
