@@ -64,7 +64,10 @@ export function StoryMotion() {
       <div className="container">
         <motion.div
           className="story-intro"
-          initial={reduced ? false : { opacity: 0, y: 50 }}
+          // Keep the initial markup identical on the server and the first client
+          // render. Motion applies the user's reduced-motion preference after
+          // hydration (it removes the positional movement while keeping the fade).
+          initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.35 }}
           transition={{ duration: 0.75 }}

@@ -162,3 +162,9 @@
 [  241305ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:719
 [  244170ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:719
 [  244374ms] [LOG] [Fast Refresh] done in 312ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_05y3oi5z9mc_3._.js:719
+[  906528ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
+[ 1147540ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
+[ 1388559ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
+[ 1629577ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
+[ 1870585ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
+[ 2115596ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/hmr?id=zg99_6niUA4qCCFVKZBm8' failed: WebSocket opening handshake timed out @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_1wygxxh5rwq0t._.js:16225
