@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type PanelName = "profissionais" | "empresas" | "profissoes" | "reality" | null;
@@ -52,9 +52,9 @@ export function PremiumNavigation() {
   const dashboardHref = auth === "in" ? "/continuar" : null;
   // An unfinished sign-up continues where it stopped.
   const signupHref = auth === "incomplete" ? "/onboarding" : "/cadastro";
-  const pathname = usePathname(); const router = useRouter(); const [activePanel, setActivePanel] = useState<ActivePanel>(null); const [mobilePath, setMobilePath] = useState<string | null>(null);
-  const activeName = activePanel?.path === pathname ? activePanel.name : null; const mobileOpen = mobilePath === pathname;
-  useEffect(() => { jumpToTop(); const timeout = window.setTimeout(() => { setActivePanel(null); setMobilePath(null); }, 0); return () => window.clearTimeout(timeout); }, [pathname]);
+  const pathname = usePathname(); const router = useRouter(); const [activePanel, setActivePanel] = useState<ActivePanel>(null); const [panelOpen, setPanelOpen] = useState(false); const closePanelTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const [mobilePath, setMobilePath] = useState<string | null>(null);
+  const activeName = activePanel?.path === pathname ? activePanel.name : null; const mobileOpen = mobilePath === pathname; const showPanel = (name: Exclude<PanelName, null>) => { if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); setActivePanel({ name, path: pathname }); setPanelOpen(true); }; const hidePanel = () => { setPanelOpen(false); if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); closePanelTimer.current = window.setTimeout(() => setActivePanel(null), 280); };
+  useEffect(() => { jumpToTop(); if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); const timeout = window.setTimeout(() => { setActivePanel(null); setMobilePath(null); }, 0); return () => window.clearTimeout(timeout); }, [pathname]); useEffect(() => () => { if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); }, []);
   useEffect(() => {
     // Depois da primeira pintura, deixa as rotas mais usadas prontas no cache
     // do roteador. Assim o clique não começa uma navegação do zero.
@@ -64,11 +64,11 @@ export function PremiumNavigation() {
     return () => window.clearTimeout(timeout);
   }, [router]);
   const goHome = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setActivePanel(null); setMobilePath(null); if (pathname === "/") { window.history.replaceState(null, "", "/#inicio"); jumpToTop(); return; } router.push("/#inicio"); };
-  return <div className="header-wrap"><header className="header premium-header" aria-label="Navegação principal" onMouseLeave={() => setActivePanel(null)}>
+  return <div className="header-wrap"><header className="header premium-header" aria-label="Navegação principal" onMouseLeave={hidePanel}>
     <Link className="brand premium-brand" href="/#inicio" onClick={goHome} aria-label="Insidely - início">inside<span>ly</span><i>.</i></Link>
-    <nav className="premium-nav" aria-label="Seções do site">{(Object.keys(panels) as Exclude<PanelName, null>[]).map((key) => <button type="button" key={key} aria-expanded={activeName === key} onMouseEnter={() => setActivePanel({ name: key, path: pathname })} onFocus={() => setActivePanel({ name: key, path: pathname })} onClick={() => setActivePanel(activeName === key ? null : { name: key, path: pathname })}>{panels[key].label}<ChevronDown size={14}/></button>)}</nav>
+    <nav className="premium-nav" aria-label="Seções do site">{(Object.keys(panels) as Exclude<PanelName, null>[]).map((key) => <button type="button" key={key} aria-expanded={panelOpen && activeName === key} onMouseEnter={() => showPanel(key)} onFocus={() => showPanel(key)} onClick={() => showPanel(key)}>{panels[key].label}<ChevronDown size={14}/></button>)}</nav>
     <div className="nav-actions premium-actions" data-auth-pending={auth === null || undefined}>{dashboardHref ? <Link className="button button-accent button-sm" href={dashboardHref}>Meu painel</Link> : <><Link className="button button-ghost button-sm" href="/entrar">Entrar</Link><Link className="button button-accent button-sm" href={signupHref}>Criar conta</Link></>}</div>
     <button className="mobile-menu" type="button" aria-label={mobileOpen ? "Fechar navegação" : "Abrir navegação"} onClick={() => setMobilePath(mobileOpen ? null : pathname)}>{mobileOpen ? <X size={22}/> : <Menu size={22}/>}</button>
-    {activeName && <div className="mega-shell" role="region" aria-label={panels[activeName].label}><div className="mega-intro"><span className="eyebrow">{panels[activeName].eyebrow}</span><p>{panels[activeName].description}</p><Link href={panels[activeName].allHref}>{panels[activeName].allLabel}<ArrowUpRight size={15}/></Link></div><div className="mega-items">{panels[activeName].items.map(([href, label, detail]) => <Link key={href} href={href}><span>{label}</span><small>{detail}</small><ArrowUpRight size={17}/></Link>)}</div></div>}
-  </header>{mobileOpen && <nav className="mobile-drawer" aria-label="Navegação móvel"><Link href="/buscar">Profissionais</Link><Link href="/empresas">Empresas</Link><Link href="/profissoes">Profissões</Link><Link href="/reality-check">Reality Check</Link><Link href="/sobre">Sobre</Link><Link href="/suporte">Suporte</Link>{dashboardHref ? <Link href={dashboardHref}>Meu painel</Link> : <><Link href="/entrar">Entrar</Link><Link href={signupHref}>Criar conta</Link></>}</nav>}</div>;
+    {activeName && <div className="mega-shell" data-open={panelOpen} aria-hidden={!panelOpen} inert={!panelOpen} role="region" aria-label={panels[activeName].label}><div className="mega-intro"><span className="eyebrow">{panels[activeName].eyebrow}</span><p>{panels[activeName].description}</p><Link href={panels[activeName].allHref}>{panels[activeName].allLabel}<ArrowUpRight size={15}/></Link></div><div className="mega-items">{panels[activeName].items.map(([href, label, detail]) => <Link key={href} href={href}><span>{label}</span><small>{detail}</small><ArrowUpRight size={17}/></Link>)}</div></div>}
+  </header><nav className="mobile-drawer" data-open={mobileOpen} aria-hidden={!mobileOpen} inert={!mobileOpen} aria-label="Navegação móvel"><Link href="/buscar">Profissionais</Link><Link href="/empresas">Empresas</Link><Link href="/profissoes">Profissões</Link><Link href="/reality-check">Reality Check</Link><Link href="/sobre">Sobre</Link><Link href="/suporte">Suporte</Link>{dashboardHref ? <Link href={dashboardHref}>Meu painel</Link> : <><Link href="/entrar">Entrar</Link><Link href={signupHref}>Criar conta</Link></>}</nav></div>;
 }
