@@ -31,6 +31,6 @@ export function DashboardNavToggle({ children, activeHref }: { children: React.R
   }, [pathname, activeHref]);
   return <>
     <button type="button" className="nav-toggle" aria-expanded={open} aria-controls="dashboard-nav" onClick={() => setOpen((value) => !value)}>{open ? "Fechar" : "Menu"}</button>
-    <div id="dashboard-nav" ref={ref} className="side-nav-wrap" data-open={open} aria-hidden={compact && !open ? true : undefined} inert={compact && !open} onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpen(false); }}>{children}</div>
+    <div id="dashboard-nav" ref={ref} className="side-nav-wrap" data-open={open} aria-hidden={compact && !open ? true : undefined} inert={compact && !open} onClick={(event) => { if (event.target === event.currentTarget || (event.target as HTMLElement).closest("a")) setOpen(false); }}>{children}</div>
   </>;
 }

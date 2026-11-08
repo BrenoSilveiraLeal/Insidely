@@ -1523,6 +1523,73 @@ html { scroll-padding-top: 120px; }
 .onboarding-progress-bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .onboarding-progress-bar span { height: 5px; border-radius: 999px; background: rgba(247,242,232,.16); transition: background .3s; }
 .onboarding-progress-bar span.is-done { background: var(--coral, #ff7657); }
+
+/* Smoothly reveal dashboard notifications while keeping the closing state animatable. */
+.notification-popover { visibility: hidden; opacity: 0; pointer-events: none; transform: translateY(-8px) scale(.98); transform-origin: top right; transition: opacity .2s ease, transform .24s ease, visibility 0s linear .24s; }
+.notification-popover[data-open="true"] { visibility: visible; opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); transition-delay: 0s; }
+
+/* The compact dashboard menu enters from the left edge and slides back out on close. */
+@media (max-width: 950px) {
+  .side-nav-wrap, .side-nav-wrap[data-open="true"] {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: block;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    flex: none;
+    padding: 0;
+    overflow: hidden;
+    background: rgba(10, 14, 24, 0);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: none;
+    transition: background .28s ease, opacity .28s ease, visibility 0s linear .32s;
+  }
+  .side-nav-wrap[data-open="true"] {
+    background: rgba(10, 14, 24, .58);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+  .side-nav-wrap .side-nav {
+    width: min(340px, 86vw);
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    align-content: start;
+    padding: calc(24px + var(--safe-top)) 16px calc(20px + var(--safe-bottom));
+    overflow-y: auto;
+    background: var(--ink);
+    box-shadow: 18px 0 42px rgba(0, 0, 0, .22);
+    transform: translateX(-102%);
+    transition: transform .32s cubic-bezier(.22, .8, .25, 1);
+  }
+  .side-nav-wrap[data-open="true"] .side-nav { transform: translateX(0); }
+}
+
+/* Keep public page cards light on narrow screens, including cards placed over
+   the navy hero canvas. Translucent white surfaces looked gray on phones. */
+@media (max-width: 620px) {
+  .site-main .card,
+  .site-main .panel,
+  .site-main .profile-main,
+  .site-main .booking-box,
+  .site-main .list-row,
+  .site-main .availability-preview,
+  .site-main .review-card {
+    background-color: var(--paper);
+  }
+  .site-main .card:hover { background-color: var(--paper); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-popover, .side-nav-wrap, .side-nav-wrap .side-nav { transition-duration: .01ms !important; }
+}
 .onboarding-step { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; animation: flash-in .3s ease both; }
 .onboarding-step[hidden] { display: none; }
 .onboarding-step h2 { margin: 0; font: 850 clamp(1.7rem, 3vw, 2.3rem)/1.02 var(--display); letter-spacing: -.04em; outline: none; }

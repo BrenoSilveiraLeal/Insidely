@@ -29,13 +29,13 @@ export function NotificationPopover({ notifications }: { notifications: Notifica
     <button className={`notification-bell ${unread.length ? "notification-bell-active" : ""}`} type="button" aria-label={unread.length ? `${unread.length} notificações não lidas` : "Notificações"} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
       <Bell size={19} aria-hidden="true" />{unread.length > 0 && <span>{unread.length > 99 ? "99+" : unread.length}</span>}
     </button>
-    {open && <div className="notification-popover" role="dialog" aria-label="Notificações">
+    <div className="notification-popover" data-open={open} aria-hidden={!open} inert={!open} role="dialog" aria-label="Notificações">
       <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{visibleNotifications.length > 0 && <ConfirmAction action={clearAllNotificationsAction} label={<><span className="sr-only">Limpar todas as notificações</span><Trash2 size={17} strokeWidth={2.2} aria-hidden="true"/></>} title="Limpar histórico de notificações?" description="Tem certeza de que deseja excluir todas as notificações? Essa ação não pode ser desfeita." confirmLabel="Excluir notificações" className="notification-clear-button" onOptimistic={() => { setClearFailed(false); setClearedNotificationIds(notificationIds); }} onError={() => { setClearedNotificationIds(null); setClearFailed(true); }}/>}</div></div>
       {clearFailed && <p className="form-error" role="alert">Não foi possível limpar as notificações agora.</p>}
       {visibleNotifications.length === 0 ? <p className="muted">Nenhuma notificação.</p> : <div className="notification-popover-list">{visibleNotifications.slice(0, 10).map((notification) => <div className={`notification-popover-item ${notification.readAt ? "" : "is-unread"}`} key={notification.id}>
         <strong>{notification.title}</strong><p>{notification.body}</p>
         <div className="notification-popover-actions">{notification.href && <form action={openNotificationAction.bind(null, notification.id, notification.href)}><button className="button button-ghost button-sm" type="submit">Abrir</button></form>}{!notification.readAt && <form action={markNotificationReadAction.bind(null, notification.id)}><button className="button button-ghost button-sm" type="submit">Lida</button></form>}</div>
       </div>)}</div>}
-    </div>}
+    </div>
   </div>;
 }

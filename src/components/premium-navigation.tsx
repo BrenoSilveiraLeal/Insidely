@@ -52,7 +52,7 @@ export function PremiumNavigation() {
   const dashboardHref = auth === "in" ? "/continuar" : null;
   // An unfinished sign-up continues where it stopped.
   const signupHref = auth === "incomplete" ? "/onboarding" : "/cadastro";
-  const pathname = usePathname(); const router = useRouter(); const [activePanel, setActivePanel] = useState<ActivePanel>(null); const [panelOpen, setPanelOpen] = useState(false); const closePanelTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const [mobilePath, setMobilePath] = useState<string | null>(null);
+  const pathname = usePathname(); const router = useRouter(); const [activePanel, setActivePanel] = useState<ActivePanel>(null); const [panelOpen, setPanelOpen] = useState(false); const closePanelTimer = useRef<number | null>(null); const [mobilePath, setMobilePath] = useState<string | null>(null);
   const activeName = activePanel?.path === pathname ? activePanel.name : null; const mobileOpen = mobilePath === pathname; const showPanel = (name: Exclude<PanelName, null>) => { if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); setActivePanel({ name, path: pathname }); setPanelOpen(true); }; const hidePanel = () => { setPanelOpen(false); if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); closePanelTimer.current = window.setTimeout(() => setActivePanel(null), 280); };
   useEffect(() => { jumpToTop(); if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); const timeout = window.setTimeout(() => { setActivePanel(null); setMobilePath(null); }, 0); return () => window.clearTimeout(timeout); }, [pathname]); useEffect(() => () => { if (closePanelTimer.current) window.clearTimeout(closePanelTimer.current); }, []);
   useEffect(() => {
