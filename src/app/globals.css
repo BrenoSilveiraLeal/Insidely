@@ -44,6 +44,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel:not(.form-stack):not(.account-head) > .eyebrow + :not(h1, h2, h3) { margin-top: 14px; }
 .muted { color: var(--muted); }
 .section { padding: 104px 0; }
+.page-hero + .section,
+.about-hero + .section,
+.search-results-section { position: relative; z-index: 1; margin-top: -24px; padding-top: 52px; border-radius: 28px 28px 0 0; background: var(--paper); color: var(--ink); }
 .section-head { display: flex; justify-content: space-between; gap: 40px; align-items: end; margin-bottom: 40px; }
 .section-title { margin: 14px 0 0; max-width: 900px; font: 700 clamp(2.4rem, 6vw, 5.6rem)/.92 var(--display); letter-spacing: -.06em; }
 .reviews-page-subtitle { margin: 24px 0 0; }
@@ -1485,11 +1488,11 @@ html { scroll-padding-top: 120px; }
   .page-hero { padding: 108px 0 50px; }
   .search-results-section .section-head { color: var(--ink); }
   .search-results-section .section-title { color: var(--ink); }
+  .search-results-section { padding-top: 52px; }
   .pagination { justify-content: space-between; text-align: left; }
   .pagination > span { flex: 0 1 auto; margin: 0 auto 0 0; text-align: left; }
   .pagination-arrows { margin-left: auto; }
   .pagination.section-head { align-items: center; flex-direction: row; gap: 12px; }
-  .companies-hero + .section { position: relative; z-index: 1; margin-top: -24px; padding-top: 52px; border-radius: 28px 28px 0 0; background: var(--paper); color: var(--ink); }
   .company-card { background: var(--paper); }
   .support-content-section .support-grid > div { color: var(--ink); }
   .support-content-section .support-grid .section-title { color: var(--ink); }
