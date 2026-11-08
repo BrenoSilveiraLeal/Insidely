@@ -67,7 +67,7 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const watching = viewer ? await isWatchingAvailability(viewer.id, profile.id) : false;
   const alsoTalked = (await Promise.all((await getAlsoTalkedWith(profile.id)).map((otherId) => getProfessional(otherId).catch(() => null)))).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  return <PublicShell>
+  return <PublicShell><div className="professional-public-page">
     <section className={`profile-hero${cover ? " profile-hero-with-cover" : ""}`} style={cover ? { backgroundImage: `linear-gradient(90deg, rgba(23,32,51,.9), rgba(23,32,51,.45)), url(${cover})` } : undefined}>
       <div className="container">
         <div className={`avatar${photo ? " avatar-photo" : ""}`} style={{ width: 120, fontSize: "2.4rem", ...(photo ? { backgroundImage: `url(${photo})` } : {}) }}>{photo ? null : initials(name)}</div>
@@ -130,5 +130,5 @@ export default async function ProfessionalPage({ params, searchParams }: { param
       </div>
     </section>
     {alsoTalked.length > 0 && <section className="section"><div className="container"><span className="eyebrow">Recomendações</span><h2 className="section-title also-talked-title">Quem conversou com {name} também conversou com</h2><div className="grid grid-3">{alsoTalked.map((item, index) => <ProfessionalCard key={item.id} profile={item} index={index}/>)}</div></div></section>}
-  </PublicShell>;
+  </div></PublicShell>;
 }

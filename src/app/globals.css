@@ -377,7 +377,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 @media(max-width:1050px){.inside-hero-grid{grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr)}.inside-scene{transform:translateX(-34px)}.truth-grid,.trust-grid,.final-cta-inner,.agenda-grid{grid-template-columns:1fr}.truth-heading{position:static}.final-symbol{justify-self:center;width:min(80vw,560px);margin-top:56px;margin-bottom:70px}.final-copy{padding-top:95px}.support-grid{grid-template-columns:1fr}}
 @media(max-width:950px){.inside-hero-content{transform:none}.inside-hero-grid{grid-template-columns:1fr}.inside-scene{transform:none;width:100%;min-height:462px;margin:8px auto 0}.inside-scene .surface-card,.inside-scene .inside-card{width:min(250px,calc(100% - 34px));min-height:220px;padding:18px;left:calc(50% - 125px);right:auto;translate:none}.inside-scene .surface-card{top:18px}.inside-scene .inside-card{bottom:8px}.inside-scene .surface-card h2,.inside-scene .inside-card h2{margin-top:26px;font-size:1.32rem}.career-network{left:28%;bottom:-5%;width:92vw}.problem-grid,.truth-grid,.about-grid{grid-template-columns:1fr}.problem-heading{position:static}.trust-cards{margin-top:25px}.brand-truth-inner blockquote{font-size:clamp(3.4rem,10vw,6rem)}}
 @media(max-width:620px){
-  html,body,.site-main{background:var(--ink)}
+  html,body,.site-main{background:var(--paper)}
   .header-wrap{top:10px}.premium-header{width:calc(100% - 20px);min-height:58px;padding:8px 10px 8px 16px}.premium-header .premium-brand{font-size:1.25rem}.mobile-drawer{width:calc(100% - 20px);max-height:calc(100svh - 88px);overflow-y:auto;margin-top:8px;padding:10px;border-radius:20px;box-shadow:0 24px 60px rgba(8,12,20,.38)}.mobile-drawer a{padding:12px 13px;border-bottom:1px solid rgba(255,255,255,.08)}.mobile-drawer a:last-child{border-bottom:0;background:var(--mineral);color:var(--ink);text-align:center}
   .inside-hero{min-height:auto;padding:104px 0 58px}.inside-hero-grid{gap:14px}.inside-hero h1{margin:18px 0 24px;font-size:clamp(2.6rem,12.2vw,4.5rem);line-height:.86;letter-spacing:-.07em;-webkit-text-stroke:1px rgba(23,32,51,.92)}.hero-line{white-space:normal}.inside-hero-copy{font-size:.98rem}.inside-hero-actions{display:grid;grid-template-columns:1fr}.inside-hero-actions .button{width:100%}.hero-word-outline{text-shadow:none}
   .inside-scene{min-height:462px;width:100%;margin-top:18px}.surface-card,.inside-card{width:min(250px,calc(100% - 34px));min-height:220px;padding:18px;border-radius:23px;left:calc(50% - 125px);right:auto;translate:none}.surface-card{top:18px}.inside-card{bottom:8px}.surface-card h2,.inside-card h2{margin-top:26px;font-size:1.32rem}.inside-scene:has(.inside-card:hover) .surface-card,.inside-card:hover{transform:none!important;opacity:1;filter:none}.career-network{left:8%;bottom:-2%;width:132vw;opacity:.34}
@@ -1483,17 +1483,17 @@ html { scroll-padding-top: 120px; }
 .mobile-drawer[data-open="false"] { display: none; }
 @media (max-width: 620px) {
   .page-hero { padding: 108px 0 50px; }
-  .search-results-section .section-head { color: var(--paper); }
-  .search-results-section .section-title { color: var(--paper); }
-  .pagination { justify-content: center; text-align: center; }
-  .pagination > span { flex: 0 0 100%; margin: 0; text-align: center; }
-  .pagination-arrows { margin-inline: auto; }
-  .pagination.section-head { align-items: center; flex-direction: column; gap: 14px; }
+  .search-results-section .section-head { color: var(--ink); }
+  .search-results-section .section-title { color: var(--ink); }
+  .pagination { justify-content: space-between; text-align: left; }
+  .pagination > span { flex: 0 1 auto; margin: 0 auto 0 0; text-align: left; }
+  .pagination-arrows { margin-left: auto; }
+  .pagination.section-head { align-items: center; flex-direction: row; gap: 12px; }
   .companies-hero + .section { position: relative; z-index: 1; margin-top: -24px; padding-top: 52px; border-radius: 28px 28px 0 0; background: var(--paper); color: var(--ink); }
   .company-card { background: var(--paper); }
-  .support-content-section .support-grid > div { color: var(--paper); }
-  .support-content-section .support-grid .section-title { color: var(--paper); }
-  .support-content-section .support-grid .section-copy { color: #c8cfdb; }
+  .support-content-section .support-grid > div { color: var(--ink); }
+  .support-content-section .support-grid .section-title { color: var(--ink); }
+  .support-content-section .support-grid .section-copy { color: var(--muted); }
   .support-content-section .support-grid > .panel { background: var(--paper); color: var(--ink); }
 
   .mobile-drawer, .mobile-drawer[data-open="false"] { display: grid; max-height: 0; margin-top: 0; padding-block: 0; overflow: hidden; border-color: transparent; opacity: 0; pointer-events: none; transform: translateY(-8px) scaleY(.985); animation: none; transition: max-height .34s ease, margin .24s ease, padding .24s ease, opacity .2s ease, transform .3s ease, border-color .2s ease; }
@@ -1527,6 +1527,14 @@ html { scroll-padding-top: 120px; }
 /* Smoothly reveal dashboard notifications while keeping the closing state animatable. */
 .notification-popover { visibility: hidden; opacity: 0; pointer-events: none; transform: translateY(-8px) scale(.98); transform-origin: top right; transition: opacity .2s ease, transform .24s ease, visibility 0s linear .24s; }
 .notification-popover[data-open="true"] { visibility: visible; opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); transition-delay: 0s; }
+.notification-popover[data-closing="true"] { animation: notification-popover-out .22s ease-in both; }
+@keyframes notification-popover-out { to { opacity: 0; transform: translateY(-8px) scale(.98); } }
+
+@keyframes pagination-results-in { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+.paginated-bookings { animation: pagination-results-in .38s cubic-bezier(.2,.75,.25,1) both; }
+.pagination-arrows a { transition: transform .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease; }
+.pagination-arrows a:hover { transform: translateY(-2px); background: var(--ink); color: var(--paper); }
+.pagination-arrows a:active { transform: scale(.9); }
 
 /* The compact dashboard menu enters from the left edge and slides back out on close. */
 @media (max-width: 950px) {
@@ -1575,6 +1583,12 @@ html { scroll-padding-top: 120px; }
 /* Keep public page cards light on narrow screens, including cards placed over
    the navy hero canvas. Translucent white surfaces looked gray on phones. */
 @media (max-width: 620px) {
+  .companies-hero::after {
+    right: max(12px, var(--safe-right));
+    bottom: 0;
+    font-size: clamp(9rem, 31vw, 13rem);
+    line-height: 1;
+  }
   .site-main .card,
   .site-main .panel,
   .site-main .profile-main,
@@ -1585,6 +1599,9 @@ html { scroll-padding-top: 120px; }
     background-color: var(--paper);
   }
   .site-main .card:hover { background-color: var(--paper); }
+  .professional-public-page { background: var(--paper); color: var(--ink); }
+  .professional-public-page > .section:has(.profile-layout) { padding-bottom: 32px; }
+  .professional-public-page > .section:has(.also-talked-title) { padding-top: 32px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2148,6 +2165,17 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .calendar-link-disconnect { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .82rem; text-decoration: underline; cursor: pointer; }
 .calendar-link-disconnect:hover { color: var(--ink); }
 .calendar-added { display: inline-flex; align-items: center; gap: 6px; color: #2e7d52; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+
+@media (max-width: 620px) {
+  .about-hero { padding: 112px 0 52px; }
+  .about-hero h1 { max-width: 100%; margin: 18px 0; font-size: clamp(2.6rem, 12vw, 4.2rem); line-height: .9; }
+  .about-grid { gap: 16px; }
+  .about-card { min-height: 0; padding: 24px; }
+  .about-card > svg { margin: 0 0 20px; padding-bottom: 0; }
+  .about-card h2 { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+  .about-discovery { min-height: 0; padding: 20px; }
+  .about-actions { margin-top: 24px; }
+}
 /* System status: room under each section title, a small note, and each problem marked pending or resolved. */
 .error-list, .status-section-body { margin-top: 18px; }
 .status-section-note { margin: 6px 0 0; font-size: .82rem; line-height: 1.45; }

@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://insidely.vercel.app",
+      "localStorage": [
+        {
+          "name": "insidely-cookie-consent",
+          "value": "refused"
+        }
+      ]
+    }
+  ]
+}

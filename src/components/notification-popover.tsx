@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Trash2 } from "lucide-react";
 import { ConfirmAction } from "@/components/confirm-action";
 import { clearAllNotificationsAction, markAllNotificationsReadAction, markNotificationReadAction, openNotificationAction } from "@/app/actions";
@@ -9,6 +9,8 @@ type NotificationItem = { id: string; title: string; body: string; href: string 
 
 export function NotificationPopover({ notifications }: { notifications: NotificationItem[] }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<number | null>(null);
   const [clearFailed, setClearFailed] = useState(false);
   const notificationIds = notifications.map((notification) => notification.id).join(",");
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string | null>(null);
@@ -16,20 +18,43 @@ export function NotificationPopover({ notifications }: { notifications: Notifica
   const ref = useRef<HTMLDivElement>(null);
   const unread = visibleNotifications.filter((notification) => !notification.readAt);
 
+  const closePopover = useCallback(() => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimer.current = null;
+    }, 220);
+  }, []);
+  const togglePopover = useCallback(() => {
+    if (open || closing) {
+      closePopover();
+      return;
+    }
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    setClosing(false);
+    setOpen(true);
+  }, [closePopover, closing, open]);
+
   useEffect(() => {
     if (!open) return;
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(event.target as Node)) closePopover();
     };
     document.addEventListener("mousedown", closeOnOutsideClick);
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
-  }, [open]);
+  }, [closePopover, open]);
+
+  useEffect(() => () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+  }, []);
 
   return <div className="notification-wrap" ref={ref}>
-    <button className={`notification-bell ${unread.length ? "notification-bell-active" : ""}`} type="button" aria-label={unread.length ? `${unread.length} notificações não lidas` : "Notificações"} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+    <button className={`notification-bell ${unread.length ? "notification-bell-active" : ""}`} type="button" aria-label={unread.length ? `${unread.length} notificações não lidas` : "Notificações"} aria-expanded={open && !closing} onClick={togglePopover}>
       <Bell size={19} aria-hidden="true" />{unread.length > 0 && <span>{unread.length > 99 ? "99+" : unread.length}</span>}
     </button>
-    <div className="notification-popover" data-open={open} aria-hidden={!open} inert={!open} role="dialog" aria-label="Notificações">
+    <div className="notification-popover" data-open={open} data-closing={closing} aria-hidden={!open || closing} inert={!open || closing} role="dialog" aria-label="Notificações">
       <div className="notification-popover-head"><strong>Notificações</strong><div className="notification-popover-head-actions">{unread.length > 0 && <form action={markAllNotificationsReadAction}><button className="notification-popover-link" type="submit">Marcar todas como lidas</button></form>}{visibleNotifications.length > 0 && <ConfirmAction action={clearAllNotificationsAction} label={<><span className="sr-only">Limpar todas as notificações</span><Trash2 size={17} strokeWidth={2.2} aria-hidden="true"/></>} title="Limpar histórico de notificações?" description="Tem certeza de que deseja excluir todas as notificações? Essa ação não pode ser desfeita." confirmLabel="Excluir notificações" className="notification-clear-button" onOptimistic={() => { setClearFailed(false); setClearedNotificationIds(notificationIds); }} onError={() => { setClearedNotificationIds(null); setClearFailed(true); }}/>}</div></div>
       {clearFailed && <p className="form-error" role="alert">Não foi possível limpar as notificações agora.</p>}
       {visibleNotifications.length === 0 ? <p className="muted">Nenhuma notificação.</p> : <div className="notification-popover-list">{visibleNotifications.slice(0, 10).map((notification) => <div className={`notification-popover-item ${notification.readAt ? "" : "is-unread"}`} key={notification.id}>

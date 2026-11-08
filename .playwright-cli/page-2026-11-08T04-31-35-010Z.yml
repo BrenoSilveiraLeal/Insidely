@@ -1,0 +1,122 @@
+- generic [active] [ref=e1]:
+  - link "Pular para o conteúdo" [ref=e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - generic:
+    - banner "Navegação principal" [ref=e3]:
+      - link "Insidely - início" [ref=e4] [cursor=pointer]:
+        - /url: /#inicio
+        - text: inside
+        - generic [ref=e5]: ly
+        - generic [ref=e6]: .
+      - button "Abrir navegação" [ref=e7]
+    - navigation:
+      - link:
+        - /url: /buscar
+        - text: Profissionais
+      - link:
+        - /url: /empresas
+        - text: Empresas
+      - link:
+        - /url: /profissoes
+        - text: Profissões
+      - link:
+        - /url: /reality-check
+        - text: Reality Check
+      - link:
+        - /url: /sobre
+        - text: Sobre
+      - link:
+        - /url: /suporte
+        - text: Suporte
+      - link:
+        - /url: /entrar
+        - text: Entrar
+      - link:
+        - /url: /cadastro
+        - text: Criar conta
+  - main [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Suporte Insidely
+        - heading "Conte com a gente." [level=1] [ref=e20]
+        - paragraph [ref=e21]: Dúvidas sobre conta, verificação, pagamento, conversa ou segurança podem ser enviadas diretamente para a equipe.
+      - text: "?"
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]: Atendimento responsável
+        - heading "Explique o que aconteceu." [level=2] [ref=e26]
+        - paragraph [ref=e27]: Não envie senhas, números completos de cartão ou documentos nesta mensagem. Para verificação profissional, use a área privada do perfil do consultor.
+        - generic [ref=e28]:
+          - generic [ref=e32]:
+            - text: Acompanhe a conversa com a equipe em
+            - link "seus casos" [ref=e33] [cursor=pointer]:
+              - /url: /dashboard/suporte
+          - generic [ref=e34]: Análise feita pela equipe de suporte
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: Assunto
+          - combobox "Assunto" [ref=e41]:
+            - option "Conta e acesso" [selected]
+            - option "Verificação profissional"
+            - option "Agendamento"
+            - option "Pagamento"
+            - option "Segurança e denúncia"
+            - option "Outro assunto"
+        - generic [ref=e42]:
+          - generic [ref=e43]: Como podemos ajudar?
+          - textbox "Como podemos ajudar?" [ref=e44]
+        - button "Enviar para o suporte" [ref=e45] [cursor=pointer]
+  - contentinfo [ref=e46]:
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - link "inside ly ." [ref=e50] [cursor=pointer]:
+            - /url: /#inicio
+            - text: inside
+            - generic [ref=e51]: ly
+            - generic [ref=e52]: .
+          - paragraph [ref=e53]: A realidade antes da decisão.
+        - generic [ref=e54]:
+          - heading "Descobrir" [level=4] [ref=e55]
+          - generic [ref=e56]:
+            - link "Profissionais" [ref=e57] [cursor=pointer]:
+              - /url: /buscar
+            - link "Empresas" [ref=e58] [cursor=pointer]:
+              - /url: /empresas
+            - link "Profissões" [ref=e59] [cursor=pointer]:
+              - /url: /profissoes
+        - generic [ref=e60]:
+          - heading "Participar" [level=4] [ref=e61]
+          - generic [ref=e62]:
+            - link "Criar conta" [ref=e63] [cursor=pointer]:
+              - /url: /cadastro
+            - link "Ser consultor" [ref=e64] [cursor=pointer]:
+              - /url: /onboarding
+            - link "Reality Check" [ref=e65] [cursor=pointer]:
+              - /url: /reality-check
+        - generic [ref=e66]:
+          - heading "Insidely" [level=4] [ref=e67]
+          - generic [ref=e68]:
+            - link "Sobre a ideia" [ref=e69] [cursor=pointer]:
+              - /url: /sobre
+            - link "Falar com o suporte" [ref=e70] [cursor=pointer]:
+              - /url: /suporte
+            - link "Termos de Uso" [ref=e71] [cursor=pointer]:
+              - /url: /termos
+            - link "Política de Privacidade" [ref=e72] [cursor=pointer]:
+              - /url: /privacidade
+            - link "Segurança" [ref=e73] [cursor=pointer]:
+              - /url: /seguranca
+            - link "Central de ajuda" [ref=e74] [cursor=pointer]:
+              - /url: /ajuda
+      - generic [ref=e75]: © 2026 Insidely. A realidade antes da decisão.
+  - alert [ref=e76]
+  - dialog "Aviso de cookies" [ref=e77]:
+    - paragraph [ref=e78]:
+      - strong [ref=e79]: Este site usa cookies.
+      - text: Os essenciais mantêm você conectado e seguro e estão sempre ativos. Com a sua permissão, usamos também cookies de análise, anônimos, para melhorar o site.
+      - link "Saiba mais" [ref=e80] [cursor=pointer]:
+        - /url: /privacidade
+    - generic [ref=e81]:
+      - button "Recusar cookies" [ref=e82] [cursor=pointer]
+      - button "Aceitar cookies" [ref=e83] [cursor=pointer]

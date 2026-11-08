@@ -64,11 +64,17 @@ export function PremiumNavigation() {
     return () => window.clearTimeout(timeout);
   }, [router]);
   const goHome = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setActivePanel(null); setMobilePath(null); if (pathname === "/") { window.history.replaceState(null, "", "/#inicio"); jumpToTop(); return; } router.push("/#inicio"); };
+  const panel = activeName ? panels[activeName] : null;
   return <div className="header-wrap"><header className="header premium-header" aria-label="Navegação principal" onMouseLeave={hidePanel}>
     <Link className="brand premium-brand" href="/#inicio" onClick={goHome} aria-label="Insidely - início">inside<span>ly</span><i>.</i></Link>
     <nav className="premium-nav" aria-label="Seções do site">{(Object.keys(panels) as Exclude<PanelName, null>[]).map((key) => <button type="button" key={key} aria-expanded={panelOpen && activeName === key} onMouseEnter={() => showPanel(key)} onFocus={() => showPanel(key)} onClick={() => showPanel(key)}>{panels[key].label}<ChevronDown size={14}/></button>)}</nav>
     <div className="nav-actions premium-actions" data-auth-pending={auth === null || undefined}>{dashboardHref ? <Link className="button button-accent button-sm" href={dashboardHref}>Meu painel</Link> : <><Link className="button button-ghost button-sm" href="/entrar">Entrar</Link><Link className="button button-accent button-sm" href={signupHref}>Criar conta</Link></>}</div>
     <button className="mobile-menu" type="button" aria-label={mobileOpen ? "Fechar navegação" : "Abrir navegação"} onClick={() => setMobilePath(mobileOpen ? null : pathname)}>{mobileOpen ? <X size={22}/> : <Menu size={22}/>}</button>
-    {activeName && <div className="mega-shell" data-open={panelOpen} aria-hidden={!panelOpen} inert={!panelOpen} role="region" aria-label={panels[activeName].label}><div className="mega-intro"><span className="eyebrow">{panels[activeName].eyebrow}</span><p>{panels[activeName].description}</p><Link href={panels[activeName].allHref}>{panels[activeName].allLabel}<ArrowUpRight size={15}/></Link></div><div className="mega-items">{panels[activeName].items.map(([href, label, detail]) => <Link key={href} href={href}><span>{label}</span><small>{detail}</small><ArrowUpRight size={17}/></Link>)}</div></div>}
+    <div className="mega-shell" data-open={panelOpen && Boolean(panel)} aria-hidden={!panelOpen || !panel} inert={!panelOpen || !panel} role="region" aria-label={panel?.label ?? "Navegação"}>
+      {panel && <>
+        <div className="mega-intro"><span className="eyebrow">{panel.eyebrow}</span><p>{panel.description}</p><Link href={panel.allHref}>{panel.allLabel}<ArrowUpRight size={15}/></Link></div>
+        <div className="mega-items">{panel.items.map(([href, label, detail]) => <Link key={href} href={href}><span>{label}</span><small>{detail}</small><ArrowUpRight size={17}/></Link>)}</div>
+      </>}
+    </div>
   </header><nav className="mobile-drawer" data-open={mobileOpen} aria-hidden={!mobileOpen} inert={!mobileOpen} aria-label="Navegação móvel"><Link href="/buscar">Profissionais</Link><Link href="/empresas">Empresas</Link><Link href="/profissoes">Profissões</Link><Link href="/reality-check">Reality Check</Link><Link href="/sobre">Sobre</Link><Link href="/suporte">Suporte</Link>{dashboardHref ? <Link href={dashboardHref}>Meu painel</Link> : <><Link href="/entrar">Entrar</Link><Link href={signupHref}>Criar conta</Link></>}</nav></div>;
 }
