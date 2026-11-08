@@ -8,7 +8,7 @@ Marketplace de conversas profissionais para conhecer empresas e profissões ante
 
 ## O produto
 
-- **Explorar profissionais:** busca por empresa, profissão, localização, senioridade e temas; perfis podem apresentar experiências e avaliações.
+- **Busca de profissionais:** página responsiva com palavra-chave, empresa, profissão e modalidade, além de filtros por preço, avaliação, senioridade, disponibilidade, vínculo e ordenação. Resultados e contadores vêm do banco de dados.
 - **Conversas por vídeo:** reserva de horário, chat protegido, sala Google Meet no horário marcado e confirmação após o encontro.
 - **Perguntas por mensagem:** pedido de uma a cinco perguntas; o consultor responde uma de cada vez dentro de 48 horas.
 - **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat, bloqueios, denúncias, contestações e histórico preservado.
