@@ -28,5 +28,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`}><head><script dangerouslySetInnerHTML={{ __html: `if (performance.getEntriesByType("navigation")[0]?.type === "reload") { window.addEventListener("pageshow", () => window.scrollTo(0, 0), { once: true }); }` }} /></head><body suppressHydrationWarning><Suspense fallback={null}><NavigationProgress /></Suspense>{children}<CookieConsent /><ServiceWorkerRegister /><NoticeTimer /></body></html>;
+  return <html lang="pt-BR" className={`${inter.variable} ${nunito.variable}`}><head><script dangerouslySetInnerHTML={{ __html: `try { if (performance.getEntriesByType("navigation")[0]?.type === "reload") { history.scrollRestoration = "manual"; } } catch (e) {}` }} /></head><body suppressHydrationWarning><Suspense fallback={null}><NavigationProgress /></Suspense>{children}<CookieConsent /><ServiceWorkerRegister /><NoticeTimer /></body></html>;
 }
