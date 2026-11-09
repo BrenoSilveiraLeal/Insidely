@@ -4,7 +4,7 @@ A Insidely tem dois formatos de atendimento. Ambos criam um `Booking`, um `Conve
 
 ## Vídeo
 
-1. O cliente escolhe um horário e conclui o pagamento dentro do prazo indicado. Reservas não pagas expiram e liberam o horário.
+1. O cliente escolhe um horário e o horário fica reservado só para ele por **5 minutos** (some das opções de outras pessoas). Se o pagamento for concluído nesse prazo, a conversa é confirmada; se não, a reserva expira e o horário volta ao perfil. O banco expira reservas a cada minuto (`pg_cron`, migration `20261109120000_slot_hold_5_minutes.sql`), e o perfil público também limpa as vencidas ao ser aberto. Pedidos de perguntas por mensagem não têm horário e mantêm 30 minutos. Prazos em `src/lib/booking-policy.ts`.
 2. O chat abre 24 horas antes do horário marcado. A sala do Google Meet abre no início e fecha ao final da duração.
 3. Depois do fim, cliente e consultor podem confirmar que a conversa aconteceu. O cliente pode avaliar a partir do fim do horário, sem depender da liberação do repasse.
 4. Uma contestação mantém o caso para análise e bloqueia a conclusão financeira automática.
@@ -33,3 +33,7 @@ Os estados e as validações são aplicados no servidor e no banco. A interface 
 - Realtime e recibos: `src/components/realtime-message-thread.tsx`, `src/lib/conversations.ts`.
 - Políticas de horário e avaliação: `src/lib/booking-policy.ts`.
 - Migrations centrais: `20261029120000_review_after_conversation_ends.sql`, `20261030090000_conversation_reads.sql`, `20261030120000_message_read_receipts.sql`, `20261101108000_message_single_question.sql`, `20261101110000_message_questions.sql`, `20261101111000_message_questions_one_by_one.sql` e `20261101115000_next_question_button.sql`.
+
+## Advertências, suspensões e banimento
+
+A cada 3 advertências a conta é suspensa: 7 dias na 1ª vez e 30 dias na 2ª. Depois de mais 3 advertências, a conta é banida. O histórico fica na conta e só o suporte e a administração veem. A regra está em `src/lib/enforcement-policy.ts` e é aplicada por `src/lib/enforcement.ts`; os mesmos números aparecem nos Termos de serviço. Admin registra pelas telas de usuários; o suporte, por `/admin/sancoes` (sem acesso a CPF, sem agir em contas da equipe e sem encerrar suspensões).
