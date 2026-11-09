@@ -2367,3 +2367,8 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .bar-chart-table::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size .32s ease, opacity .22s ease, content-visibility .32s allow-discrete; }
 .bar-chart-table[open]::details-content { block-size: auto; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .bar-chart-table::details-content, .bar-chart-table summary::before { transition: none; } }
+
+/* Global breathing room: a title/subtitle sitting right above a list, grid or box never touches it.
+   :where() keeps specificity at zero, so any component that already sets its own gap still wins. */
+:where(.eyebrow, h1, h2, h3, p, .section-head) + :where(.list, .grid, .panel, .table-wrap, .empty-state) { margin-top: 18px; }
+:where(.eyebrow) + :where(h2) + :where(.list, .grid, .panel, .table-wrap, .empty-state) { margin-top: 18px; }
