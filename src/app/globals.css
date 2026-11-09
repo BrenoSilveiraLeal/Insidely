@@ -2372,3 +2372,14 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
    :where() keeps specificity at zero, so any component that already sets its own gap still wins. */
 :where(.eyebrow, h1, h2, h3, p, .section-head) + :where(.list, .grid, .panel, .table-wrap, .empty-state) { margin-top: 18px; }
 :where(.eyebrow) + :where(h2) + :where(.list, .grid, .panel, .table-wrap, .empty-state) { margin-top: 18px; }
+
+/* Short explanatory note under a section title: quiet card with an accent edge, never touching the list below. */
+.section-note { max-width: 68ch; margin: 10px 0 22px; padding: 12px 16px; border: 1px solid var(--line); border-left: 3px solid var(--mineral); border-radius: 12px; background: rgba(255,255,255,.4); color: var(--muted); font-size: .9rem; line-height: 1.55; }
+.section-note strong { color: var(--ink); font-weight: 700; }
+
+/* Every expandable <details> (chevron sections, FAQs, "more" panels) slides open and closed.
+   Dropdown-style menus are excluded: they float over the page and must not be clipped. */
+:root { interpolate-size: allow-keywords; }
+details:not(.row-menu):not(.case-filter-menu)::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size .32s ease, opacity .22s ease, content-visibility .32s allow-discrete; }
+details[open]:not(.row-menu):not(.case-filter-menu)::details-content { block-size: auto; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { details::details-content { transition: none; } }
