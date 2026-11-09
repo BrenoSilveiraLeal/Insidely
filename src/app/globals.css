@@ -2303,7 +2303,7 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 /* Advertências e suspensões (staff). The rules as a ladder of steps, then the accounts as rows. */
 .sanctions-rules { display: grid; gap: 22px; }
 .sanctions-rules-head h2, .sanctions-list-head h2 { margin: 0; font: 800 1.35rem/1.15 var(--display); letter-spacing: -.02em; }
-.sanctions-rules-head p { margin: 8px 0 0; max-width: 70ch; font-size: .92rem; line-height: 1.55; }
+.sanctions-rules-head p { margin: 8px 0 0; font-size: .92rem; line-height: 1.55; }
 .sanctions-ladder { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
 .sanctions-ladder li { position: relative; display: grid; gap: 8px; align-content: start; padding: 16px 18px 18px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.6); }
 .sanctions-ladder li:not(:last-child)::after { content: ""; position: absolute; top: 50%; right: -9px; width: 6px; height: 6px; border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); transform: translateY(-50%) rotate(45deg); opacity: .6; }
