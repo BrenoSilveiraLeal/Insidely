@@ -2142,7 +2142,9 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .message-questions-summary { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.55); font-size: .85rem; }
 .message-questions-summary ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; }
 /* Profile slots: the date first, "Disponível agora" under it. */
-.availability-when { display: grid; gap: 5px; justify-items: start; }
+/* Another rule above gives .availability-when two columns (for a form); here it is one stack. */
+.availability-preview-item .availability-when { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; justify-items: start; min-width: 0; }
+.availability-preview-item .availability-when .status { white-space: nowrap; }
 /* "Suas perguntas foram respondidas?" on the conversation page: the two choices side by side. */
 .message-contest .policy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .message-contest .policy-actions form { margin: 0; }
@@ -2228,3 +2230,18 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .appointment-card .cancel-booking-details > summary { min-height: 38px; padding: 0 14px; background: transparent; color: var(--red); border-color: rgba(201,79,71,.5); font-size: .8rem; }
 .appointment-card .cancel-booking-details > summary:hover, .appointment-card .cancel-booking-details[open] > summary { background: rgba(201,79,71,.08); transform: none; }
 @media (max-width: 520px) { .appointment-card { padding: 20px; } }
+
+/* Scrollbars: slim, rounded, in the site's ink tone — no arrow buttons. The page's own scrollbar stays hidden
+   (html/body rules above are more specific). Firefox gets the standard properties; Chromium/Safari the pseudo-elements. */
+* { scrollbar-width: thin; scrollbar-color: rgba(23,32,51,.3) transparent; }
+@supports selector(::-webkit-scrollbar) {
+  * { scrollbar-width: auto; scrollbar-color: auto; }
+  *::-webkit-scrollbar { width: 12px; height: 12px; }
+  *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+  *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  *::-webkit-scrollbar-thumb { min-height: 44px; border: 3px solid transparent; border-radius: 999px; background: rgba(23,32,51,.28); background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(23,32,51,.5); background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:active { background: var(--ink); background-clip: content-box; }
+}
+.city-input-list { overscroll-behavior: contain; }
+.city-input-list::-webkit-scrollbar-track { margin: 6px 0; }
