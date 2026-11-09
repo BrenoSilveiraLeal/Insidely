@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { Role, STAFF_ROLES } from "@/lib/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { provisionAppUser } from "@/lib/provision-user";
@@ -55,7 +56,16 @@ const getAccountState = cache(async (userId: string) => {
 // Suspended accounts are sent to /conta-suspensa before any protected page (admins excepted).
 export async function getSuspension(userId: string): Promise<Suspension | null> {
   const data = await getAccountState(userId);
-  if (!data?.suspendedAt || (data.suspendedUntil && new Date(`${String(data.suspendedUntil).replace(" ", "T")}Z`).getTime() <= Date.now())) return null;
+  if (!data?.suspendedAt) return null;
+  if (data.suspendedUntil && new Date(`${String(data.suspendedUntil).replace(" ", "T")}Z`).getTime() <= Date.now()) {
+    // The suspension's date has passed: access is back now, and the record and the consultant profile
+    // are restored right after this response (the daily job does the same for those who don't return).
+    after(async () => {
+      const { liftExpiredSuspensions } = await import("@/lib/enforcement");
+      await liftExpiredSuspensions(createSupabaseServiceClient(), userId).catch((error) => console.error("suspension_lift_failed", { userId, error }));
+    });
+    return null;
+  }
   return { reason: data.suspensionReason ?? "", until: data.suspendedUntil };
 }
 

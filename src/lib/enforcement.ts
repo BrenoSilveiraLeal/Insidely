@@ -57,3 +57,22 @@ export async function warnAccount(supabase: Service, { userId, adminUserId, reas
   });
   return { suspended: true, banned };
 }
+
+// A suspension ends on its own when its date passes: access already returns then (session.ts reads the
+// date), and this clears the record, puts a consultant's profile back in search (unless the consultant
+// paused it) and tells the person. Runs from the daily job and when the person next signs in.
+// Bans (no end date) are never lifted here.
+export async function liftExpiredSuspensions(supabase: Service, userId?: string) {
+  const now = new Date().toISOString();
+  let query = supabase.from("User").update({ suspendedAt: null, suspendedUntil: null, suspensionReason: null, updatedAt: now })
+    .not("suspendedAt", "is", null).not("suspendedUntil", "is", null).lte("suspendedUntil", now);
+  if (userId) query = query.eq("id", userId);
+  const { data: lifted, error } = await query.select("id, auth_user_id");
+  if (error) throw new Error(error.message);
+  for (const user of (lifted ?? []) as { id: string; auth_user_id: string | null }[]) {
+    // A deleted account keeps its profile off; it comes back only if the person reactivates the account.
+    if (user.auth_user_id) await supabase.from("ProfessionalProfile").update({ isActive: true, updatedAt: now }).eq("userId", user.id).is("pausedAt", null);
+    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: user.id, title: "Suspensão encerrada", body: "O prazo da suspensão terminou e sua conta voltou a funcionar normalmente.", href: "/continuar", createdAt: now });
+  }
+  return (lifted ?? []).length;
+}
