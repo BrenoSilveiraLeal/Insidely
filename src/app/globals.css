@@ -1251,7 +1251,7 @@ html { scroll-padding-top: 120px; }
 
 /* Six-box verification code */
 .otp-field { display: grid; gap: 10px; }
-.otp-field label { font-weight: 800; }
+.otp-field label { font-weight: 800; text-align: center; }
 .otp-input { display: flex; justify-content: center; gap: 10px; }
 .otp-box { width: 52px; height: 60px; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--ink); text-align: center; font: 800 1.6rem/1 var(--font-mono); transition: border-color .15s, box-shadow .15s; }
 .otp-box:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(255,118,87,.35); }
@@ -2245,3 +2245,24 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 }
 .city-input-list { overscroll-behavior: contain; }
 .city-input-list::-webkit-scrollbar-track { margin: 6px 0; }
+
+/* Booking cards (mensagens, consultas): each card is built on the same 7 rows, shared with its neighbour
+   in the row (subgrid), so name, note, buttons and "Mais opções" line up side by side. Empty rows collapse. */
+.booking-grid.two-columns { row-gap: 0; column-gap: 20px; align-items: stretch; }
+.booking-grid .two-columns-item { display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; margin-bottom: 20px; min-width: 0; align-self: stretch !important; }
+.booking-grid .two-columns-item > .booking-card { display: grid; grid-row: 1 / -1; grid-template-rows: subgrid; row-gap: 0; align-content: stretch; flex: none; min-width: 0; }
+.booking-grid .booking-card > * { grid-row: 6; margin: 0; min-width: 0; }
+.booking-grid .booking-card > .booking-card-head, .booking-grid .booking-card > .booking-card-top { grid-row: 1; }
+.booking-grid .booking-card > .booking-card-person, .booking-grid .booking-card > .booking-card-meta { grid-row: 2; margin-top: 14px; }
+.booking-grid .booking-card > .booking-card-goals-note { grid-row: 3; margin-top: 10px; }
+.booking-grid .booking-card > .booking-card-note { grid-row: 4; margin-top: 10px; }
+.booking-grid .booking-card > .booking-card-note:empty { display: block; margin-top: 0; }
+.booking-grid .booking-card > .booking-card-actions { grid-row: 5; margin-top: 16px; align-self: start; }
+.booking-grid .booking-card > .booking-card-actions:empty { display: flex; margin-top: 0; }
+.booking-grid .booking-card > .booking-card-more { grid-row: 7; margin-top: 18px !important; align-self: end; }
+.booking-grid .booking-card > :not(.booking-card-head):not(.booking-card-top):not(.booking-card-person):not(.booking-card-meta):not(.booking-card-goals-note):not(.booking-card-note):not(.booking-card-actions):not(.booking-card-more) { margin-top: 14px; }
+/* Head: status (and format) chips on the first line, date and time on the second — the same shape for every card. */
+.booking-card-head { display: grid; gap: 8px; justify-items: start; align-content: start; }
+.booking-card-head .booking-card-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+.booking-card-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-weight: 750; font-size: .9rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 1100px) { .booking-grid.two-columns { grid-template-columns: 1fr; } }

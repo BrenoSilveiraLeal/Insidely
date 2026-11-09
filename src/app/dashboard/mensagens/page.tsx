@@ -46,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
     {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
-    <TwoColumns layout="masonry">{shown.items.map((booking) => {
+    <TwoColumns className="booking-grid">{shown.items.map((booking) => {
       const roomState = meetingRoomState(booking.startsAt, booking.durationMinutes);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
       const note = booking.status === "PENDING_PAYMENT" ? "O horário fica reservado enquanto você conclui o pagamento."
@@ -59,8 +59,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ m
         : null;
       return <article className="panel booking-card" key={booking.id}>
         <header className="booking-card-head">
-          <span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{requestStatus(booking.status)}</span>
-          <span className="booking-card-when">{booking.format === "MESSAGE" ? <><span className="format-chip">Por mensagem</span> respostas até {shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}</> : <>{shortDate(booking.startsAt)} · {booking.durationMinutes} min</>}</span>{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}
+          <span className="booking-card-chips"><span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{requestStatus(booking.status)}</span>{booking.format === "MESSAGE" && <span className="format-chip">Por mensagem</span>}</span>
+          <span className="booking-card-when">{booking.format === "MESSAGE" ? <>Respostas até {shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}</> : <>{shortDate(booking.startsAt)} · {booking.durationMinutes} min</>}{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}</span>
         </header>
         <div className="booking-card-person"><h2>{booking.professional.user.name}</h2><span className="booking-reputation booking-reputation-neutral">{money(booking.totalCents)}</span></div>
         {note && <p className="booking-card-note">{note}</p>}
