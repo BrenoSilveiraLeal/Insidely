@@ -29,7 +29,7 @@ import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTE
 import { getAppUrl } from "@/lib/app-url";
 import { suggestEmail } from "@/lib/email-typo";
 import { createEmailChangeToken } from "@/lib/email-change-token";
-import { allowAuthEmail, allowIdentityAttempt, consumeQuota } from "@/lib/auth-email-throttle";
+import { allowAuthEmail, allowIdentityAttempt, allowLoginAttempt, consumeQuota } from "@/lib/auth-email-throttle";
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
 import { suspendAccount, warnAccount } from "@/lib/enforcement";
@@ -94,6 +94,7 @@ export type LoginState = { message: string; field?: "email" | "password"; hint?:
 
 // Checks a password without touching the caller's session cookies; the throwaway session is revoked right away.
 async function passwordMatches(email: string, password: string) {
+  if (!await allowLoginAttempt(email)) return false;
   const verifier = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await verifier.auth.signInWithPassword({ email, password });
   if (!error) await verifier.auth.signOut({ scope: "local" });
@@ -108,6 +109,8 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
     return { message: suggestion ? `Este e-mail parece incorreto. Você quis dizer ${suggestion}?` : "Este e-mail parece incorreto. Confira se digitou certo.", field: "email", suggestion: suggestion ?? undefined };
   }
   if (!password) return { message: "Digite sua senha.", field: "password" };
+  // Cap attempts per e-mail and per IP before touching Supabase Auth, so a script can't hammer one account.
+  if (!await allowLoginAttempt(email)) return { message: "Muitas tentativas de login. Aguarde 15 minutos e tente novamente, ou redefina sua senha.", hint: "help" };
   const supabase = await createSupabaseServerClient();
   const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error?.code === "email_not_confirmed") return { message: "Confirme seu e-mail antes de entrar. Não recebeu o link? Cadastre-se de novo com o mesmo e-mail para reenviá-lo.", field: "email", hint: "register" };

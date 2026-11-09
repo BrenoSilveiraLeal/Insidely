@@ -49,6 +49,26 @@ export async function allowIdentityAttempt(userId: string) {
   }
 }
 
+// Password sign-in: stops a script from trying many passwords against one account (per e-mail) or
+// many accounts from one machine (per IP). Limits are generous for a person who mistypes a few times.
+// Unlike the e-mail throttles this one fails closed on a "no" answer only; a database error still fails open.
+const LOGIN_EMAIL_LIMIT = 8, LOGIN_IP_LIMIT = 30, LOGIN_WINDOW_SECONDS = 15 * 60;
+export async function allowLoginAttempt(email: string) {
+  try {
+    const service = createSupabaseServiceClient();
+    const ip = await clientIp();
+    const checks = [service.rpc("consume_auth_email_quota", { p_key: hash(`login:email:${email.toLowerCase()}`), p_limit: LOGIN_EMAIL_LIMIT, p_window_seconds: LOGIN_WINDOW_SECONDS })];
+    if (ip) checks.push(service.rpc("consume_auth_email_quota", { p_key: hash(`login:ip:${ip}`), p_limit: LOGIN_IP_LIMIT, p_window_seconds: LOGIN_WINDOW_SECONDS }));
+    const results = await Promise.all(checks);
+    const failed = results.find((result) => result.error);
+    if (failed?.error) { console.error("login_throttle_unavailable", failed.error.message); return true; }
+    return results.every((result) => result.data === true);
+  } catch (error) {
+    console.error("login_throttle_unavailable", error);
+    return true;
+  }
+}
+
 // Generic per-key quota on the same table, for anything a signed-in user or a public endpoint could
 // repeat in a loop (reports, moderation logs, the public reminders cron). Fails open like the rest.
 export async function consumeQuota(key: string, limit: number, windowSeconds: number) {

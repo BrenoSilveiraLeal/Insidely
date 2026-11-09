@@ -110,4 +110,5 @@ Os testes autenticados usam duas contas configuradas no ambiente E2E. Consulte [
 - Dados de identidade e documentos de verificação não são expostos em views públicas.
 - RPCs privilegiadas validam autorização e revogam execução de `PUBLIC` e `anon`.
 - Views públicas devem expor somente os campos aprovados para o perfil público. Revise privacidade antes de acrescentar colunas.
+- O login limita tentativas por e-mail (8) e por IP (30) a cada 15 minutos, usando a cota `consume_auth_email_quota` (`src/lib/auth-email-throttle.ts`). Recuperação de senha, cadastro e verificação de CPF têm limites próprios na mesma tabela.
 - Nunca execute pagamentos, reembolsos ou alterações financeiras no navegador.
