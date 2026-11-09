@@ -198,7 +198,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sidebar { position: sticky; top: 0; height: 100vh; padding: 30px 18px; background: var(--ink); color: var(--paper); }
 .sidebar .brand { display: block; padding: 8px 12px 35px; font-size: 1.6rem; }
 .side-nav { display: grid; gap: 6px; }
-.side-nav a { padding: 12px 14px; border-radius: 13px; color: #c3c7c0; font-weight: 700; font-size: .86rem; }
+.side-nav a { padding: 12px 14px; border-radius: 13px; color: #c3c7c0; font-weight: 700; font-size: .86rem; white-space: nowrap; }
 .side-nav a:hover { background: #292c28; color: white; }
 /* A menu item with a count keeps the number beside its label, on the same line. */
 /* The count sits in a fixed slot at the right edge, so the label never wraps or moves and every count lines up. */
@@ -582,7 +582,7 @@ th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Dashboard navigation: current page and the collapsible "Menu" on small screens. */
 .side-nav a[aria-current="page"] { background: rgba(255,255,255,.12); color: white; }
-.side-nav a[aria-current="page"] { box-shadow: inset 3px 0 0 var(--amber); font-weight: 850; }
+.side-nav a[aria-current="page"] { box-shadow: inset 3px 0 0 var(--amber); }
 .nav-toggle { display: none; }
 .side-nav-wrap { display: contents; }
 @media (max-width: 950px) {
