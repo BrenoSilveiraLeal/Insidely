@@ -1,14 +1,15 @@
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PublicShell } from "@/components/public-shell";
 import { Suspense } from "react";
-import { SkeletonForMode } from "@/components/dashboard-mode";
+import { SkeletonForMode, SkeletonForStaff } from "@/components/dashboard-mode";
+import { preferredStaffMode, rememberedDashboardMode } from "@/lib/dashboard-mode";
 
 function Block({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
 /** Dashboard loading: the real sidebar and header stay put; only the content area shows placeholders. */
-export function DashboardSkeleton({ mode }: { mode: "user" | "consultant" | "admin" }) {
+export function DashboardSkeleton({ mode }: { mode: "user" | "consultant" | "admin" | "support" }) {
   return <DashboardShell mode={mode} title="">
     <div className="skeleton-stack" aria-busy="true" aria-label="Carregando">
       <div className="grid grid-3"><Block className="skeleton-metric" /><Block className="skeleton-metric" /><Block className="skeleton-metric" /></div>
@@ -19,9 +20,16 @@ export function DashboardSkeleton({ mode }: { mode: "user" | "consultant" | "adm
 }
 
 /** Loading for pages a consultant also opens: keeps whichever menu (client or consultant) is in use. */
-export function SharedDashboardSkeleton({ useContext = false }: { useContext?: boolean }) {
+export async function SharedDashboardSkeleton({ useContext = false }: { useContext?: boolean }) {
+  const initial = await rememberedDashboardMode();
   const user = <DashboardSkeleton mode="user" />;
-  return <Suspense fallback={user}><SkeletonForMode useContext={useContext} user={user} consultant={<DashboardSkeleton mode="consultant" />} /></Suspense>;
+  const consultant = <DashboardSkeleton mode="consultant" />;
+  return <Suspense fallback={initial === "consultant" ? consultant : user}><SkeletonForMode initial={initial} useContext={useContext} user={user} consultant={consultant} /></Suspense>;
+}
+
+/** Loading for /admin pages: admin and support have different menus, so keep the one in use. */
+export async function StaffDashboardSkeleton() {
+  return <SkeletonForStaff initial={await preferredStaffMode()} admin={<DashboardSkeleton mode="admin" />} support={<DashboardSkeleton mode="support" />} />;
 }
 
 /** Public page loading: same header and dark hero as the pages, with placeholders where content lands. */

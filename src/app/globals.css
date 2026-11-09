@@ -2190,3 +2190,41 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .error-state { padding: 4px 10px; border-radius: 999px; background: rgba(180,40,30,.1); color: #a3281e; font-size: .74rem; font-weight: 800; }
 .error-state.is-resolved { background: rgba(46,125,82,.12); color: #2e7d52; }
 .error-row.is-resolved strong, .error-row.is-resolved > div > p:not(.error-fix) { color: var(--muted); }
+
+/* Agendamentos (cliente): every card shares one skeleton so pairs line up —
+   head (status + when), title, body, footer pinned to the bottom. */
+.appointment-card { display: flex; flex-direction: column; gap: 0; padding: 24px; border-radius: 26px; }
+.appointment-card > .form-error { margin: 0 0 14px; }
+.appt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.appt-status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 10px; border-radius: 999px; background: var(--paper-2); color: var(--ink); font-size: .74rem; font-weight: 800; letter-spacing: .02em; }
+.appt-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.appointment-card[data-booking-status="CONFIRMED"] .appt-status { background: rgba(46,125,82,.13); color: #1f6240; }
+.appointment-card[data-booking-status="CONFIRMED"] .appt-status::before { background: #2e7d52; }
+.appointment-card[data-booking-status="PENDING_PAYMENT"] .appt-status, .appointment-card[data-booking-status="AWAITING_CONFIRMATION"] .appt-status { background: rgba(248,188,103,.28); color: #7a4a05; }
+.appointment-card[data-booking-status="PENDING_PAYMENT"] .appt-status::before, .appointment-card[data-booking-status="AWAITING_CONFIRMATION"] .appt-status::before { background: #c27a10; }
+.appointment-card[data-booking-status="CANCELLED"] .appt-status, .appointment-card[data-booking-status="DISPUTED"] .appt-status { background: rgba(201,79,71,.12); color: #9b2f29; }
+.appointment-card[data-booking-status="CANCELLED"] .appt-status::before, .appointment-card[data-booking-status="DISPUTED"] .appt-status::before { background: var(--red); }
+.appt-when { color: var(--muted); font-size: .82rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.appt-title { margin-top: 18px; }
+.appt-title h2 { margin: 0; font-size: 1.3rem; font-weight: 750; line-height: 1.2; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.appt-meta { margin: 6px 0 0; color: var(--muted); font-size: .92rem; font-variant-numeric: tabular-nums; }
+.appt-body { display: grid; gap: 12px; align-content: start; margin-top: 18px; flex: 1; }
+.appt-body:empty { display: none; }
+.appt-note { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.5; max-width: 52ch; }
+.appt-body > .button, .appt-body > .form-error { margin: 0; width: fit-content; }
+.appt-body > .form-error { width: auto; }
+.appt-foot { display: grid; gap: 14px; justify-items: start; margin-top: auto; padding-top: 20px; }
+.appointment-card .appt-foot .button { width: fit-content; margin: 0; }
+.appointment-card .appt-foot .appointment-card-footnote { width: 100%; margin: 0; padding-top: 14px; }
+.appointment-card .meeting-policy, .appointment-card .meeting-policy.compact { margin: 0; padding: 14px 16px; gap: 12px; border-radius: 18px; background: rgba(127,185,204,.16); border-color: rgba(39,60,90,.18); }
+.appointment-card .meeting-policy > span { flex-basis: 30px; width: 30px; height: 30px; }
+.appointment-card .meeting-policy > div { flex: 1; min-width: 0; gap: 4px; }
+.appointment-card .meeting-policy strong { font-size: .92rem; }
+.appointment-card .meeting-policy p { margin: 0; font-size: .82rem; }
+.appointment-card .meeting-policy .about-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; width: 100%; margin: 10px 0 0; }
+.appointment-card .meeting-policy .about-actions .button, .appointment-card .meeting-policy .about-actions .calendar-added { margin: 0 !important; }
+.appointment-card .meeting-policy .button, .appointment-card .meeting-policy form { margin: 8px 0 0 !important; }
+.appointment-card .cancel-booking-details { margin-top: 0; }
+.appointment-card .cancel-booking-details > summary { min-height: 38px; padding: 0 14px; background: transparent; color: var(--red); border-color: rgba(201,79,71,.5); font-size: .8rem; }
+.appointment-card .cancel-booking-details > summary:hover, .appointment-card .cancel-booking-details[open] > summary { background: rgba(201,79,71,.08); transform: none; }
+@media (max-width: 520px) { .appointment-card { padding: 20px; } }

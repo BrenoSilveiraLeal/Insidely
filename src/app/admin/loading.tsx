@@ -1,3 +1,3 @@
-import { DashboardSkeleton } from "@/components/route-skeletons";
+import { StaffDashboardSkeleton } from "@/components/route-skeletons";
 
-export default function Loading() { return <DashboardSkeleton mode="admin" />; }
+export default function Loading() { return <StaffDashboardSkeleton />; }
