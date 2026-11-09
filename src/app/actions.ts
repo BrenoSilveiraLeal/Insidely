@@ -909,18 +909,18 @@ export async function resolveCatalogRequestAction(formData: FormData) {
 const SUSPENSION_DAYS: Record<string, number | null> = { "7": 7, "30": 30, "90": 90, permanent: null };
 
 export async function suspendUserAction(userId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]); after(() => logAdminAction(admin.id, "suspend", userId, String(formData.get("duration") || "") + ": " + String(formData.get("reason") || "")));
+  const { actor: admin, base } = await sanctionContext(userId); after(() => logAdminAction(admin.id, "suspend", userId, String(formData.get("duration") || "") + ": " + String(formData.get("reason") || "")));
   const reason = String(formData.get("reason") || "").trim().slice(0, 500);
   const duration = String(formData.get("duration") || "");
-  if (reason.length < 10 || !(duration in SUSPENSION_DAYS) || userId === admin.id) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Informe a duração e um motivo com pelo menos 10 caracteres.")}`);
+  if (reason.length < 10 || !(duration in SUSPENSION_DAYS) || userId === admin.id) redirect(`${base}/${userId}?erro=${encodeURIComponent("Informe a duração e um motivo com pelo menos 10 caracteres.")}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   let result: { cancelled: number; failed: number };
   try { result = await suspendAccount(supabase, { userId, days: SUSPENSION_DAYS[duration], reason, adminUserId: admin.id }); }
-  catch (error) { redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent(error instanceof Error ? error.message : "Não foi possível suspender.")}`); }
+  catch (error) { redirect(`${base}/${userId}?erro=${encodeURIComponent(error instanceof Error ? error.message : "Não foi possível suspender.")}`); }
   const { cancelled, failed } = result;
-  revalidatePath("/admin/usuarios"); revalidatePath("/buscar"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
-  redirect(`/admin/usuarios/${userId}?ok=suspensa&canceladas=${cancelled}&falhas=${failed}`);
+  revalidatePath("/admin/usuarios"); revalidatePath("/admin/sancoes"); revalidatePath("/buscar"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
+  redirect(`${base}/${userId}?ok=suspensa&canceladas=${cancelled}&falhas=${failed}`);
 }
 
 export async function liftSuspensionAction(userId: string) {
@@ -1069,14 +1069,26 @@ export async function acceptTermsAction(_: { next?: string; error?: string } | u
 }
 
 // Graduated enforcement: warnings are recorded first; the admin page suggests suspension next.
+// Warnings, suspensions and bans are registered by admins (/admin/usuarios) and by support staff
+// (/admin/sancoes). Support never acts on admin or support accounts, nor on itself.
+async function sanctionContext(userId: string) {
+  const actor = await requireUser([Role.ADMIN, Role.SUPPORT]);
+  const base = actor.role === Role.SUPPORT ? "/admin/sancoes" : "/admin/usuarios";
+  if (actor.role === Role.SUPPORT) {
+    const { data: target } = await createSupabaseServiceClient().from("User").select("role").eq("id", userId).maybeSingle();
+    if (!target || target.role === Role.ADMIN || target.role === Role.SUPPORT || userId === actor.id) redirect(base);
+  }
+  return { actor, base };
+}
+
 export async function warnUserAction(userId: string, formData: FormData) {
-  const admin = await requireUser([Role.ADMIN]); after(() => logAdminAction(admin.id, "warn", userId, String(formData.get("reason") || "")));
+  const { actor: admin, base } = await sanctionContext(userId); after(() => logAdminAction(admin.id, "warn", userId, String(formData.get("reason") || "")));
   const reason = String(formData.get("reason") || "").trim().slice(0, 500);
-  if (reason.length < 10) redirect(`/admin/usuarios/${userId}?erro=${encodeURIComponent("Descreva o motivo da advertência com pelo menos 10 caracteres.")}`);
-  // Each 3rd warning suspends for 7 days and the 3rd suspension bans (lib/enforcement.ts).
+  if (reason.length < 10) redirect(`${base}/${userId}?erro=${encodeURIComponent("Descreva o motivo da advertência com pelo menos 10 caracteres.")}`);
+  // Every 3 warnings suspend (7 days, then 30) and 3 more ban (lib/enforcement-policy.ts).
   const outcome = await warnAccount(createSupabaseServiceClient(), { userId, adminUserId: admin.id, reason });
-  revalidatePath(`/admin/usuarios/${userId}`);
-  redirect(`/admin/usuarios/${userId}?ok=${outcome.banned ? "banida" : outcome.suspended ? "suspensa" : "advertida"}`);
+  revalidatePath(`${base}/${userId}`);
+  redirect(`${base}/${userId}?ok=${outcome.banned ? "banida" : outcome.suspended ? "suspensa" : "advertida"}`);
 }
 
 // Either participant of a conversation can block the other: no new bookings between them.

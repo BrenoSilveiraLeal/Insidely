@@ -11,7 +11,7 @@ const sections: { title: string; icon: LucideIcon; items: [string, string][] }[]
     ["Preciso informar CPF?", "Sim. Toda conta, de cliente ou de consultor, se identifica com CPF e data de nascimento. Isso protege os dois lados: o CPF não aparece no site e só é entregue a autoridades mediante ordem judicial."],
   ] },
   { title: "Pagamento e cancelamento", icon: CreditCard, items: [
-    ["Quando eu pago?", "Logo depois de escolher o horário. O horário fica reservado por até 30 minutos enquanto você conclui o pagamento."],
+    ["Quando eu pago?", "Logo depois de escolher o horário. O horário fica reservado só para você por 5 minutos enquanto você conclui o pagamento; sem pagamento, ele volta para o perfil."],
     ["Posso cancelar?", "Sim, antes do horário marcado. Com mais de 24 horas de antecedência você recebe 100% de volta; dentro das 24 horas, há uma taxa de 10%. Se o consultor cancelar, você recebe 100% de volta."],
     ["Onde está meu comprovante?", "Em Mensagens, no cartão da conversa, em “Mais opções” → “Ver comprovante”. Dá para imprimir ou salvar em PDF."],
   ] },

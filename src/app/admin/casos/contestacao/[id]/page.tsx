@@ -37,7 +37,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const conversationId = (one(booking.conversation) as { id?: string } | null)?.id ?? "";
   const [{ data: assignment }, { data: people }, { data: messages }] = await Promise.all([
     supabase.from("CaseAssignment").select("adminUserId, admin:User(name)").eq("caseKey", `dispute:${id}`).maybeSingle(),
-    supabase.from("User").select("id, name").in("id", [booking.customerId, consultantId].filter(Boolean)),
+    supabase.from("User").select("id, name, role").in("id", [booking.customerId, consultantId].filter(Boolean)),
     conversationId ? supabase.from("Message").select("id, body, senderId, createdAt, automatic").eq("conversationId", conversationId).order("createdAt").limit(1000) : { data: [] },
   ]);
   const open = booking.status === "DISPUTED";
@@ -67,7 +67,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {open && mine && <form className="support-reply" action={resolveDisputeAction.bind(null, id)}>
           <label className="support-reply-label" htmlFor="note">Explique a decisão</label>
           <textarea className="textarea" id="note" name="note" rows={3} maxLength={500} required minLength={10} placeholder={isMessage ? "Ex.: As respostas não tratam das perguntas enviadas; a 2ª e a 3ª foram respondidas com uma palavra." : "Ex.: O registro da sala mostra que o consultor não entrou."}/>
-          <label className="check-row"><input type="checkbox" name="warn" defaultChecked/><span>Se o valor for devolvido (todo ou em parte), advertir o consultor (a cada 3 advertências, suspensão de 7 dias; na 3ª suspensão, banimento).</span></label>
+          <label className="check-row"><input type="checkbox" name="warn" defaultChecked/><span>Se o valor for devolvido (todo ou em parte), advertir o consultor (a cada 3 advertências, suspensão de 1 semana; depois, de 1 mês; depois, banimento).</span></label>
           <div className="dispute-partial">
             <label className="support-reply-label" htmlFor="refund">Devolver só uma parte (opcional)</label>
             <div className="dispute-partial-row"><span>R$</span><input className="input" id="refund" name="refund" inputMode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" placeholder="0,00" aria-describedby="refund-help"/><button className="button button-ghost button-sm" name="decision" value="PARTIAL">Devolver esta parte</button></div>
@@ -85,7 +85,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <div className="case-fact"><span>Cliente</span><strong>{name(booking.customerId)}</strong></div>
         <div className="case-fact"><span>Consultor</span><strong>{name(consultantId)}</strong></div>
         <div className="case-fact"><span>{isMessage ? "Perguntas por mensagem" : "Conversa por vídeo"}</span><strong>{shortDate(parseDbDate(booking.startsAt))}</strong><small className="muted">{money(booking.totalCents)}{isMessage && Array.isArray(booking.questions) ? ` · ${booking.questions.length} pergunta(s)` : ""}</small></div>
-        {isAdmin && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${consultantId}`}>Ver conta do consultor</Link>}
+        {consultantId && (!isAdmin && ["ADMIN", "SUPPORT"].includes((people ?? []).find((person: { id: string }) => person.id === consultantId)?.role) ? <p className="muted">Conta da equipe: advertência e suspensão só por um administrador.</p> : <Link className="button button-ghost button-sm" href={isAdmin ? `/admin/usuarios/${consultantId}` : `/admin/sancoes/${consultantId}`}>{isAdmin ? "Ver conta do consultor" : "Advertir ou suspender o consultor"}</Link>)}
       </aside>
     </div>
   </DashboardShell>;

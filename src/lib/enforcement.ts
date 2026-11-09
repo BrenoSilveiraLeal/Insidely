@@ -2,12 +2,10 @@ import "server-only";
 import { sendBookingCancellationEmail, sendSecurityEmail } from "@/lib/email";
 import { cancelBookingAndRefund } from "@/lib/stripe-payments";
 
-// Graduated enforcement (Terms, "Advertências, suspensões e banimento"): each 3rd warning suspends the
-// account for 7 days, and the 3rd suspension is a permanent ban. Used by the admin account page and
-// by the decision on a contested conversation.
-export const WARNINGS_PER_SUSPENSION = 3;
-export const AUTO_SUSPENSION_DAYS = 7;
-export const SUSPENSIONS_BEFORE_BAN = 3;
+// Graduated enforcement (Terms, "Advertências, suspensões e banimento"; rules in enforcement-policy.ts):
+// every 3 warnings suspend the account for 7, then 30, then 60 days, and 3 more warnings ban it. Used
+// by the admin account page and by the decision on a contested conversation.
+import { WARNINGS_PER_SUSPENSION, enforcementSummary, nextSuspensionDays } from "@/lib/enforcement-policy";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Service = any;
@@ -45,16 +43,17 @@ export async function suspendAccount(supabase: Service, { userId, days, reason, 
 export async function warnAccount(supabase: Service, { userId, adminUserId, reason }: { userId: string; adminUserId: string; reason: string }) {
   await supabase.from("AccountWarning").insert({ userId, adminUserId, reason });
   const now = new Date().toISOString();
-  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Advertência na sua conta", body: `${reason} A cada ${WARNINGS_PER_SUSPENSION} advertências a conta é suspensa por ${AUTO_SUSPENSION_DAYS} dias; na ${SUSPENSIONS_BEFORE_BAN}ª suspensão, ela é banida.`, href: "/termos", createdAt: now });
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Advertência na sua conta", body: `${reason} ${enforcementSummary()}`, href: "/termos", createdAt: now });
   const { data: warned } = await supabase.from("User").select("email, name").eq("id", userId).maybeSingle();
   if (warned?.email) await sendSecurityEmail(warned.email, warned.name, "warning", { reason }).catch((error) => console.error("warning_email_failed", { error }));
   const { count: warnings } = await supabase.from("AccountWarning").select("id", { count: "exact", head: true }).eq("userId", userId);
   if (!warnings || warnings % WARNINGS_PER_SUSPENSION !== 0) return { suspended: false, banned: false };
   const { count: suspensions } = await supabase.from("AccountSuspension").select("id", { count: "exact", head: true }).eq("userId", userId);
-  const banned = (suspensions ?? 0) + 1 >= SUSPENSIONS_BEFORE_BAN;
+  const days = nextSuspensionDays(suspensions ?? 0);
+  const banned = days === null;
   await suspendAccount(supabase, {
-    userId, adminUserId, automatic: true, days: banned ? null : AUTO_SUSPENSION_DAYS,
-    reason: banned ? `Conta banida: ${SUSPENSIONS_BEFORE_BAN}ª suspensão por advertências acumuladas.` : `Suspensão automática de ${AUTO_SUSPENSION_DAYS} dias: ${warnings} advertências.`,
+    userId, adminUserId, automatic: true, days,
+    reason: banned ? `Conta banida: advertências acumuladas após ${suspensions} suspensões.` : `Suspensão automática de ${days} dias: ${warnings} advertências.`,
   });
   return { suspended: true, banned };
 }

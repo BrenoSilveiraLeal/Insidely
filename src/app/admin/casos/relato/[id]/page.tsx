@@ -87,7 +87,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {personCard(isSupport ? "Quem pediu ajuda" : "Quem denunciou", reporter)}
         {!isSupport && personCard("Pessoa denunciada", target)}
         {booking && <div className="case-fact"><span>Conversa</span><strong>{shortDate(parseDbDate(booking.startsAt))}</strong><small className="muted">{bookingStatusLabel(booking.status)} · {money(booking.totalCents)}</small></div>}
-        {isAdmin && target && open && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${target.id}#suspensao`}>Advertir ou suspender</Link>}
+        {target && open && (!isAdmin && (target.role === "ADMIN" || target.role === "SUPPORT") ? <p className="muted">Conta da equipe: advertência e suspensão só por um administrador.</p> : <Link className="button button-ghost button-sm" href={isAdmin ? `/admin/usuarios/${target.id}#suspensao` : `/admin/sancoes/${target.id}`}>Advertir ou suspender</Link>)}
         {isAdmin && reporter && <Link className="button button-ghost button-sm" href={`/admin/usuarios/${reporter.id}`}>Ver conta de quem abriu</Link>}
       </aside>
     </div>

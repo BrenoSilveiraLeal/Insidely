@@ -7,6 +7,7 @@ import { parseDbDate, shortDate, visibleEmail } from "@/lib/format";
 import { ageOn, formatCpf, maskCpf } from "@/lib/identity";
 import { requireUser } from "@/lib/session";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { nextEnforcementStep } from "@/lib/enforcement-policy";
 import { getStaffRatings, SUPPORT_RATINGS, supportRatingLabel } from "@/lib/support-threads";
 
 export const metadata = { title: "Usuário" };
@@ -57,12 +58,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const reactivationCount = reactivations.data?.length ?? 0;
   // Admins are staff, not customers or consultants: no reputation, warnings or identity record.
   const isAdmin = user.role === Role.ADMIN;
+  const { count: suspensionCount } = await supabase.from("AccountSuspension").select("id", { count: "exact", head: true }).eq("userId", id);
   const warningRows = (warnings.data ?? []) as { id: string; reason: string; createdAt: string }[];
   // Staff (admins and support) are rated by the people whose cases they closed.
   const service = user.role === Role.ADMIN || user.role === Role.SUPPORT ? await getStaffRatings(user.id) : null;
 
   return <DashboardShell mode="admin" title={user.name}>
-    {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "banida" ? "Advertência registrada. Era a 3ª suspensão: a conta foi banida." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
+    {query.ok && <p className="form-feedback" role="status">{query.ok === "advertida" ? "Advertência registrada e enviada à pessoa." : query.ok === "banida" ? "Advertência registrada. Esgotou as suspensões: a conta foi banida." : query.ok === "suspensa" ? `Conta suspensa.${Number(query.canceladas) > 0 ? ` ${query.canceladas} conversa(s) futura(s) cancelada(s) com reembolso integral; os clientes foram avisados.` : ""}` : "Suspensão encerrada."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     {Number(query.falhas) > 0 && <p className="form-error" role="alert">{query.falhas} conversa(s) não puderam ser canceladas automaticamente. Cancele pela lista de consultas do consultor ou contate o suporte de pagamentos.</p>}
     <div className="profile-management-stack">
@@ -103,7 +105,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       {!isAdmin && <section className="panel form-stack">
         <span className="eyebrow">Advertências · {warningRows.length}</span>
-        <p className="muted">Próximo passo sugerido: <strong>{suspended ? "aguardar o fim da suspensão" : warningRows.length === 0 ? "advertência" : warningRows.length === 1 ? "suspensão de 7 dias" : warningRows.length === 2 ? "suspensão de 30 dias" : "banimento"}</strong>, conforme o histórico desta conta.</p>
+        <p className="muted">Próximo passo sugerido: <strong>{suspended ? "aguardar o fim da suspensão" : nextEnforcementStep(warningRows.length, suspensionCount ?? 0).text}</strong>, conforme o histórico desta conta.</p>
         {warningRows.length > 0 && <div className="list">{warningRows.map((item) => <div className="list-row" key={item.id}><p>{item.reason}</p><span className="muted">{when(item.createdAt)}</span></div>)}</div>}
         {user.role !== Role.ADMIN && <form action={warnUserAction.bind(null, user.id)} className="form-stack"><label className="field"><span>Nova advertência (a pessoa recebe por e-mail e notificação)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label><button className="button button-ghost button-sm" type="submit">Registrar advertência</button></form>}
       </section>}
@@ -116,7 +118,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <form action={liftSuspensionAction.bind(null, user.id)}><button className="button button-dark button-sm" type="submit">Encerrar suspensão</button></form>
         </> : user.role === Role.ADMIN ? <p className="muted">Contas de administrador não podem ser suspensas por aqui.</p> : <form action={suspendUserAction.bind(null, user.id)} className="form-stack">
           <p className="muted">A conta fica sem acesso ao painel, não agenda, não recebe agendamentos e não envia mensagens. O perfil de consultor sai da busca e as conversas futuras já agendadas com ele são canceladas, com reembolso integral aos clientes. A suspensão continua valendo se a pessoa excluir a conta e voltar com o mesmo CPF.</p>
-          <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue={query.acao === "banir" ? "permanent" : "7"}><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option><option value="permanent">Permanente (banimento)</option></select></label>
+          <label className="field"><span>Duração</span><select className="select" name="duration" defaultValue={query.acao === "banir" ? "permanent" : "7"}><option value="7">7 dias</option><option value="30">30 dias (1 mês)</option><option value="permanent">Permanente (banimento)</option></select></label>
           <label className="field"><span>Motivo (aparece para a pessoa)</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required/></label>
           <button className="button button-danger button-sm" type="submit">Suspender conta</button>
         </form>}

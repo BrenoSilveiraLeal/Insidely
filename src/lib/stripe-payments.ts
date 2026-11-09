@@ -89,9 +89,6 @@ export async function createBookingCheckout({ bookingId, customerId, customerEma
   const { data: booking, error } = await supabase.from("Booking").select("id, customerId, totalCents, status, professionalProfileId, payment:Payment(*), professional:ProfessionalProfile(stripeAccountId, stripeOnboardingStatus, stripePayoutsEnabled, pixKey)").eq("id", bookingId).eq("customerId", customerId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!booking || booking.status !== "PENDING_PAYMENT") throw new Error("Este agendamento não está aguardando pagamento.");
-  // The slot stays open until paid: refuse to charge when someone else already took it.
-  const { data: slotRow } = await supabase.from("Booking").select("slot:Availability(isBooked)").eq("id", bookingId).maybeSingle();
-  if ((Array.isArray(slotRow?.slot) ? slotRow.slot[0] : slotRow?.slot)?.isBooked) throw new Error("Esse horário acabou de ser reservado por outra pessoa. Volte ao perfil e escolha outro horário.");
   const professional = (Array.isArray(booking.professional) ? booking.professional[0] : booking.professional) as StripeRow | null;
   if (!professional?.stripeAccountId || professional.stripeOnboardingStatus !== "COMPLETE" || !professional.stripePayoutsEnabled) throw new Error("O consultor ainda não está habilitado para receber pagamentos.");
   if (mockExternalIntegrationsEnabled()) {

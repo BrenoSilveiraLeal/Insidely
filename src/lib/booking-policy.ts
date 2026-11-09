@@ -22,9 +22,15 @@ export function canRetryTransfer(bookingStatus: string, paymentStatus: string) {
   return ["AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED"].includes(bookingStatus) && RETRYABLE_PAYMENT_STATUSES.has(paymentStatus);
 }
 
-// Mirrors expire_past_unpaid_bookings: 30 minutes after the request or the end of the conversation.
-export function paymentDeadline(createdAt: Date, startsAt: Date, durationMinutes: number) {
-  return new Date(Math.min(createdAt.getTime() + 30 * 60_000, startsAt.getTime() + durationMinutes * 60_000));
+// Mirrors expire_past_unpaid_bookings: choosing a time slot holds it for 5 minutes (message requests,
+// which have no slot, get 30), or until the end of the conversation if that comes first.
+export const SLOT_HOLD_MINUTES = 5;
+export const MESSAGE_PAYMENT_MINUTES = 30;
+export function holdMinutesFor(format?: string | null) {
+  return format === "MESSAGE" ? MESSAGE_PAYMENT_MINUTES : SLOT_HOLD_MINUTES;
+}
+export function paymentDeadline(createdAt: Date, startsAt: Date, durationMinutes: number, holdMinutes = SLOT_HOLD_MINUTES) {
+  return new Date(Math.min(createdAt.getTime() + holdMinutes * 60_000, startsAt.getTime() + durationMinutes * 60_000));
 }
 
 // The room opens exactly at the scheduled start (no early entry) and closes at the scheduled end.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRetryTransfer, compareBookingsForList, canReviewBooking, canSendBookingMessage, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
+import { canRetryTransfer, compareBookingsForList, canReviewBooking, canSendBookingMessage, holdMinutesFor, isMeetingRoomOpen, paymentDeadline } from "./booking-policy";
 
 describe("booking policy", () => {
   it("allows messages only while a confirmed conversation has not ended", () => {
@@ -35,12 +35,16 @@ describe("meeting room window", () => {
 });
 
 describe("payment deadline", () => {
-  it("allows 30 minutes for future bookings", () => {
-    expect(paymentDeadline(new Date("2026-10-20T12:00:00.000Z"), new Date("2026-10-21T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T12:30:00.000Z"));
+  it("holds the chosen slot for 5 minutes", () => {
+    expect(paymentDeadline(new Date("2026-10-20T12:00:00.000Z"), new Date("2026-10-21T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T12:05:00.000Z"));
+  });
+
+  it("gives message requests 30 minutes", () => {
+    expect(paymentDeadline(new Date("2026-10-20T12:00:00.000Z"), new Date("2026-10-21T15:00:00.000Z"), 30, holdMinutesFor("MESSAGE"))).toEqual(new Date("2026-10-20T12:30:00.000Z"));
   });
 
   it("keeps instant bookings payable until the conversation ends", () => {
-    expect(paymentDeadline(new Date("2026-10-20T15:20:00.000Z"), new Date("2026-10-20T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T15:30:00.000Z"));
+    expect(paymentDeadline(new Date("2026-10-20T15:28:00.000Z"), new Date("2026-10-20T15:00:00.000Z"), 30)).toEqual(new Date("2026-10-20T15:30:00.000Z"));
   });
 });
 

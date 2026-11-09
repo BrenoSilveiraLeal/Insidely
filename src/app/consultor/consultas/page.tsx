@@ -14,7 +14,7 @@ import { StartsIn } from "@/components/starts-in";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
 import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } from "@/lib/format";
-import { canReviewBooking, meetingRoomState, paymentDeadline } from "@/lib/booking-policy";
+import { canReviewBooking, meetingRoomState, paymentDeadline, holdMinutesFor } from "@/lib/booking-policy";
 import { getConsultantBookings, getConsultantMessages } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
@@ -67,7 +67,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
         <div className="booking-card-meta"><CalendarDays size={15} aria-hidden="true"/><span>{booking.format === "MESSAGE" ? `Responder até ${shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}` : `${shortDate(booking.startsAt)} · ${booking.durationMinutes} min`}</span>{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn key={booking.id} startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}</div>
         {booking.format === "MESSAGE" ? <p className="muted booking-card-goals-note">As perguntas do cliente chegam no chat, uma de cada vez: depois de responder, clique em “Enviar próxima pergunta”.</p> : null}
 
-        <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes))}. A conversa e a sala são liberadas depois da confirmação.`
+        <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes, holdMinutesFor(booking.format)))}. A conversa e a sala são liberadas depois da confirmação.`
           : booking.status === "EXPIRED" ? "Pagamento não concluído a tempo. O horário foi liberado."
           : booking.status === "DISPUTED" ? "Em análise pelo suporte. O repasse fica suspenso até a decisão."
           : booking.format === "MESSAGE" && booking.status === "CONFIRMED" ? "Pedido de perguntas por mensagem: responda pelo chat da conversa."

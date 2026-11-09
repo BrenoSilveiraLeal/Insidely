@@ -7,7 +7,7 @@ export const TERMS_CHANGES = [
   "“Perguntas por mensagem”: o cliente escreve até 5 perguntas no pedido; a primeira chega ao consultor assim que o pagamento é confirmado e as seguintes, uma a uma, quando ele termina de responder a anterior, dentro de 48 horas.",
   "Se o consultor não responder um pedido por mensagem em 48 horas, o pedido é cancelado, o cliente recebe 100% do valor de volta automaticamente e o chat é encerrado.",
   "Depois de responder a última pergunta, o consultor finaliza o atendimento; o valor fica retido por 24 horas, e o cliente pode contestar se as respostas não trataram do que foi perguntado.",
-  "Contestação aceita: o cliente recebe 100% de volta e o consultor recebe uma advertência. A cada 3 advertências, a conta é suspensa por 7 dias; na 3ª suspensão, ela é banida.",
+  "Contestação aceita: o cliente recebe 100% de volta e o consultor recebe uma advertência. A cada 3 advertências, a conta é suspensa (1ª vez: 1 semana; 2ª vez: 1 mês); depois de mais 3 advertências, ela é banida.",
   "O repasse ao consultor vai para a chave Pix cadastrada no perfil; sem chave, o valor fica retido até ela ser informada.",
   "Consultores podem ser funcionários atuais ou ex-funcionários de uma empresa, e podem falar de mais de uma empresa em que trabalharam.",
   "Cada experiência informa se a pessoa ainda trabalha lá, o período e o que fazia; o perfil mostra essa época ao cliente.",
