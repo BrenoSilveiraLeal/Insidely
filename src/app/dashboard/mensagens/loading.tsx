@@ -1,3 +1,3 @@
-import { SharedDashboardSkeleton } from "@/components/route-skeletons";
+import { PanelSkeleton } from "@/components/route-skeletons";
 
-export default function Loading() { return <SharedDashboardSkeleton useContext />; }
+export default function Loading() { return <PanelSkeleton area="shared" />; }

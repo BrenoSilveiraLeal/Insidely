@@ -1,3 +1,3 @@
-import { DashboardSkeleton } from "@/components/route-skeletons";
+import { PanelSkeleton } from "@/components/route-skeletons";
 
-export default function Loading() { return <DashboardSkeleton mode="consultant" />; }
+export default function Loading() { return <PanelSkeleton area="consultant" />; }

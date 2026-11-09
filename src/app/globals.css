@@ -1485,7 +1485,17 @@ html { scroll-padding-top: 120px; }
 
 /* Mobile page rhythm and menu motion. Keep section headings visible on the dark
    public canvas so they do not read as unexplained empty space. */
-.mobile-drawer[data-open="false"] { display: none; }
+/* The drawer slides open and closed at every width it appears (tablets and landscape phones included), not just on narrow phones. */
+.mobile-drawer, .mobile-drawer[data-open="false"] { display: grid; max-height: 0; margin-top: 0; padding-block: 0; overflow: hidden; border-color: transparent; opacity: 0; pointer-events: none; transform: translateY(-8px) scaleY(.985); animation: none; transition: max-height .34s ease, margin .24s ease, padding .24s ease, opacity .2s ease, transform .3s ease, border-color .2s ease; }
+.mobile-drawer[data-open="true"] { max-height: calc(100dvh - 88px - var(--safe-top) - var(--safe-bottom)); margin-top: 8px; padding-block: 10px; border-color: rgba(255,255,255,.18); opacity: 1; pointer-events: auto; transform: none; }
+.mobile-drawer a { opacity: 0; transform: translateY(-6px); animation: none; transition: opacity .2s ease, transform .24s ease; }
+.mobile-drawer[data-open="true"] a { opacity: 1; transform: translateY(0); }
+.mobile-drawer[data-open="true"] a:nth-child(2) { transition-delay: .025s; }
+.mobile-drawer[data-open="true"] a:nth-child(3) { transition-delay: .05s; }
+.mobile-drawer[data-open="true"] a:nth-child(4) { transition-delay: .075s; }
+.mobile-drawer[data-open="true"] a:nth-child(5) { transition-delay: .1s; }
+.mobile-drawer[data-open="true"] a:nth-child(6) { transition-delay: .125s; }
+.mobile-drawer[data-open="true"] a:nth-child(n+7) { transition-delay: .15s; }
 @media (max-width: 620px) {
   .page-hero { padding: 108px 0 50px; }
   .professional-search-surface { margin-top: 0; padding-top: 0; border-radius: 0; background: transparent; }
@@ -1878,7 +1888,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .appointment-card .meeting-policy + .meeting-policy { margin-top: 2px; }
 .appointment-card .meeting-policy > div { display: grid; gap: 6px; justify-items: start; }
 .appointment-card .meeting-policy .button, .appointment-card .meeting-policy form { margin: 4px 0 0 !important; }
-.appointment-card .meeting-policy :empty:not(input):not(textarea) { display: none; }
+/* Hide empty wrappers only — never the parts of an icon (an SVG <path> has no children either). */
+.appointment-card .meeting-policy :empty:not(input, textarea, svg, svg *) { display: none; }
 /* Agenda: day and time picked side by side. */
 .availability-when { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; }
 /* Sobre: room between label, heading and text inside the two large cards. */
@@ -2266,3 +2277,25 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
 .booking-card-head .booking-card-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
 .booking-card-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-weight: 750; font-size: .9rem; font-variant-numeric: tabular-nums; }
 @media (max-width: 1100px) { .booking-grid.two-columns { grid-template-columns: 1fr; } }
+
+/* Sala protegida: icon visible, the calendar note and Reagendar sit on one aligned row. */
+.appointment-card .meeting-policy > span svg { display: block; }
+.appointment-card .meeting-policy .about-actions { justify-content: flex-start; padding-top: 2px; }
+.appointment-card .meeting-policy .about-actions .calendar-added { min-height: 38px; }
+.appointment-card .meeting-policy .about-actions .button { gap: 7px; }
+
+/* Checkout: two balanced columns. The summary (with the hold and refund rules) stays in view beside the
+   payment form, so neither side leaves a tall empty area; the Pix code is sized to the column. */
+.checkout-layout { grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); gap: 28px; }
+.checkout-layout > .checkout-summary { position: sticky; top: 105px; }
+.checkout-layout > .booking-box { position: static; }
+.checkout-summary .meeting-policy { margin-top: 20px; }
+.checkout-rules { display: grid; gap: 6px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.checkout-rules strong { font-size: .9rem; }
+.checkout-rules-text { margin: 0; font-size: .86rem; line-height: 1.6; }
+.checkout-layout .booking-box > .muted { margin: 12px 0 18px; }
+.checkout-layout .direct-pix-qr, .checkout-layout .two-factor-qr { width: 180px; height: 180px; margin-inline: auto; }
+@media (max-width: 950px) {
+  .checkout-layout { grid-template-columns: 1fr; }
+  .checkout-layout > .checkout-summary { position: static; }
+}

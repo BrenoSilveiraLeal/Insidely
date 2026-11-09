@@ -90,7 +90,7 @@ function coverStoragePath(publicUrl: string | null | undefined, authUserId: stri
   } catch { return null; }
 }
 
-export type LoginState = { message: string; field?: "email" | "password"; hint?: "register" | "help"; suggestion?: string } | undefined;
+export type LoginState = { message: string; field?: "email" | "password"; hint?: "register" | "help"; suggestion?: string; redirectTo?: string } | undefined;
 
 // Checks a password without touching the caller's session cookies; the throwaway session is revoked right away.
 async function passwordMatches(email: string, password: string) {
@@ -124,7 +124,9 @@ export async function loginAction(_: LoginState, formData: FormData): Promise<Lo
   if (signIn.user) await recordAccess(signIn.user.id, "password");
   // Always pass through /continuar so MFA and onboarding run before the requested page.
   const next = safeInternalPath(String(formData.get("next") || ""), "");
-  redirect(next && next !== "/continuar" ? `/continuar?next=${encodeURIComponent(next)}` : "/continuar");
+  // The form does a full page load to this address (not an in-app navigation), so nothing the browser
+  // kept from a previous account (cached pages, remembered menu) can show up for this one.
+  return { message: "", redirectTo: next && next !== "/continuar" ? `/continuar?next=${encodeURIComponent(next)}` : "/continuar" };
 }
 
 export async function requestPasswordResetAction(_: string | undefined, formData: FormData) { const parsed = z.object({ email: z.string().email() }).safeParse(Object.fromEntries(formData)); if (!parsed.success) return "Digite um e-mail válido."; const done = "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; if (appEmailConfigured()) { const email = parsed.data.email.toLowerCase(); if (!await allowAuthEmail("recovery", email)) return "Muitas tentativas seguidas. Aguarde alguns minutos e tente novamente."; const { data, error } = await createSupabaseServiceClient().auth.admin.generateLink({ type: "recovery", email }); if (error || !data.properties?.hashed_token) return done; try { await sendAuthLinkEmail({ to: email, name: String(data.user?.user_metadata?.name ?? ""), kind: "recovery", link: `${getAppUrl()}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery` }); } catch (mailError) { console.error("recovery_email_failed", mailError); return "Não foi possível enviar o e-mail de recuperação."; } return done; } const supabase = await createSupabaseServerClient(); const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email.toLowerCase(), { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/redefinir-senha` }); if (error) return "Não foi possível enviar o e-mail de recuperação."; return "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha."; }

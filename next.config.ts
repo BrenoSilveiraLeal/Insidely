@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   experimental: {
     // Revisiting a page within 30s reuses what the browser already has instead of a new server round trip.
-    // Server actions still refresh the affected pages through revalidatePath.
+    // Safe across accounts because signing in and out are full page loads (loginAction, /auth/sair),
+    // which wipe this browser cache.
     staleTimes: { dynamic: 30 },
   },
   async headers() {

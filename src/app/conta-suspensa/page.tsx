@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { logoutAction } from "@/app/actions";
 import { parseDbDate } from "@/lib/format";
 import { getSuspension, requireUser } from "@/lib/session";
 
@@ -17,6 +16,6 @@ export default async function SuspendedPage() {
     <p>A equipe da Insidely suspendeu esta conta por descumprimento dos <Link className="text-link" href="/termos">Termos de Uso</Link>. Enquanto a suspensão durar, não é possível agendar, receber agendamentos nem enviar mensagens.</p>
     {suspension.reason && <p className="muted"><strong>Motivo:</strong> {suspension.reason}</p>}
     <p className="muted">Se acredita que houve um engano, <Link className="text-link" href="/suporte">fale com o suporte</Link>.</p>
-    <form action={logoutAction}><button className="button button-dark" type="submit">Sair</button></form>
+    <form action="/auth/sair" method="post"><button className="button button-dark" type="submit">Sair</button></form>
   </div></section></main>;
 }

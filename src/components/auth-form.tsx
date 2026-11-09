@@ -5,7 +5,7 @@ import { KeepValuesForm } from "@/components/keep-values-form";
 import { PasswordChecklist } from "@/components/password-checklist";
 import { RememberLogin } from "@/components/remember-login";
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { changePasswordAction, loginAction, type LoginState, registerAction, requestPasswordResetAction, updatePasswordAction } from "@/app/actions";
 
 function PasswordField({ name, label, autoComplete, minLength = 8, invalid, describedBy, onInput }: { name: string; label: string; autoComplete?: string; minLength?: number; invalid?: boolean; describedBy?: string; onInput?: () => void }) {
@@ -35,6 +35,8 @@ function LoginAlert({ state, onUseSuggestion }: { state: NonNullable<LoginState>
 
 export function LoginForm({ google, socialPending = false, next = "/continuar" }: { google: boolean; socialPending?: boolean; next?: string }) {
   const [state, action, pending] = useActionState(loginAction, undefined);
+  const redirectTo = state?.redirectTo;
+  useEffect(() => { if (redirectTo) window.location.assign(redirectTo); }, [redirectTo]);
   // The field stays marked until the person edits it after this error.
   const [edited, setEdited] = useState<{ state: LoginState; field: "email" | "password" } | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -46,7 +48,7 @@ export function LoginForm({ google, socialPending = false, next = "/continuar" }
     setEdited({ state, field: "email" });
     emailRef.current.form?.querySelector<HTMLInputElement>('input[name="password"]')?.focus();
   };
-  return <KeepValuesForm action={action} className="auth-form form-stack"><input type="hidden" name="next" value={next}/><span className="eyebrow">Acesso seguro</span><h2>Entre na sua conta.</h2>{state ? <LoginAlert state={state} onUseSuggestion={applySuggestion}/> : socialPending && <p className="form-error" role="alert">Não foi possível concluir o login social.</p>}<label htmlFor="login-email">E-mail</label><input ref={emailRef} className="input" id="login-email" name="email" type="email" autoComplete="username" required aria-invalid={invalid("email") || undefined} aria-describedby={invalid("email") ? "login-error" : undefined} onInput={markEdited("email")} /><PasswordField name="password" label="Senha" autoComplete="current-password" minLength={1} invalid={invalid("password")} describedBy="login-error" onInput={markEdited("password")} /><RememberLogin /><button type="submit" className="button button-accent button-block" disabled={pending}>{pending ? "Entrando..." : "Entrar"}</button><Link href="/recuperar-senha"><u>Esqueci minha senha</u></Link><SocialButtons google={google} /><p>Não tem uma conta? <Link href="/cadastro"><u>Cadastre-se</u></Link></p></KeepValuesForm>;
+  return <KeepValuesForm action={action} className="auth-form form-stack"><input type="hidden" name="next" value={next}/><span className="eyebrow">Acesso seguro</span><h2>Entre na sua conta.</h2>{state?.message ? <LoginAlert state={state} onUseSuggestion={applySuggestion}/> : socialPending && <p className="form-error" role="alert">Não foi possível concluir o login social.</p>}<label htmlFor="login-email">E-mail</label><input ref={emailRef} className="input" id="login-email" name="email" type="email" autoComplete="username" required aria-invalid={invalid("email") || undefined} aria-describedby={invalid("email") ? "login-error" : undefined} onInput={markEdited("email")} /><PasswordField name="password" label="Senha" autoComplete="current-password" minLength={1} invalid={invalid("password")} describedBy="login-error" onInput={markEdited("password")} /><RememberLogin /><button type="submit" className="button button-accent button-block" disabled={pending || Boolean(redirectTo)}>{pending || redirectTo ? "Entrando..." : "Entrar"}</button><Link href="/recuperar-senha"><u>Esqueci minha senha</u></Link><SocialButtons google={google} /><p>Não tem uma conta? <Link href="/cadastro"><u>Cadastre-se</u></Link></p></KeepValuesForm>;
 }
 
 export function RegisterForm({ google }: { google: boolean }) {
