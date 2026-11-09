@@ -2360,3 +2360,10 @@ label > small.muted:not(:last-child) { font-size: .76rem; font-weight: 500; }
   .sanctions-row-counts, .sanctions-row-state { grid-column: 1; }
   .sanctions-row-go { grid-column: 2; grid-row: 1; }
 }
+
+/* Chart tables: charts keep their own height (opening one never stretches its neighbour) and the table slides open/closed. */
+.admin-charts { align-items: start; }
+.bar-chart-table { interpolate-size: allow-keywords; }
+.bar-chart-table::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size .32s ease, opacity .22s ease, content-visibility .32s allow-discrete; }
+.bar-chart-table[open]::details-content { block-size: auto; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .bar-chart-table::details-content, .bar-chart-table summary::before { transition: none; } }
