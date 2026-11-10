@@ -95,7 +95,7 @@ export function RealtimeMessageThread({ bookingId, conversationId, currentUserId
         <div className={`message ${side}`}>
           <small>{own ? "Você" : otherName}</small>
           <span>{message.body}</span>
-          {message.automatic && <span className="message-automatic">Enviada automaticamente pela Insidely</span>}
+          {message.automatic && <span className="message-automatic">{message.senderId === consultantId ? "Enviada automaticamente pela Insidely" : "Escrita no pedido, entregue quando o pagamento foi confirmado"}</span>}
           <span className="message-meta">{messageTime(message.createdAt)}</span>
         </div>
         {lastOwn && <span className={`message-seen ${side}-seen`} title={message.readAt ? `Lida às ${messageTime(message.readAt)}` : undefined}>{message.readAt ? readLabel(message.readAt, now) : "Enviado"}</span>}

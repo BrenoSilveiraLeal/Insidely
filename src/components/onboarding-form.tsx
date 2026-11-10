@@ -22,8 +22,8 @@ const PROFILE_TEXTS:[string,string][]=[["Título profissional","headline"],["Car
 async function submitOnboarding(_:{text?:string;at:number}|undefined,formData:FormData){return {text:await completeOnboardingAction(undefined,formData),at:Date.now()};}
 
 const ROLES: { value: Role; icon: typeof Compass; title: string; lead: string; points: string[] }[] = [
-  { value: "USER", icon: Compass, title: "Quero conversar com profissionais", lead: "Para decidir uma vaga, um curso ou uma mudança de carreira.", points: ["Encontre quem trabalha na empresa ou área que te interessa", "Agende uma conversa por vídeo de 30 ou 60 minutos", "Pague pela Insidely, com o valor protegido até a conversa acontecer"] },
-  { value: "CONSULTANT", icon: Mic, title: "Quero compartilhar minha experiência", lead: "Para contar como é a rotina real do seu trabalho e ser pago por isso.", points: ["Monte um perfil público com o nível de privacidade que você escolher", "Defina seu valor e os horários em que pode conversar", "Receba por cada conversa realizada; você também pode agendar como cliente"] },
+  { value: "USER", icon: Compass, title: "Quero conversar com profissionais", lead: "Para decidir uma vaga, um curso ou uma mudança de carreira.", points: ["Encontre quem trabalha na empresa ou área que te interessa", "Converse por chat, sem horário marcado", "Pague pela Insidely, com o valor protegido até suas dúvidas serem respondidas"] },
+  { value: "CONSULTANT", icon: Mic, title: "Quero compartilhar minha experiência", lead: "Para contar como é a rotina real do seu trabalho e ser pago por isso.", points: ["Monte um perfil público, com seu nome ou anônimo", "Defina seu valor e responda os chats quando puder", "Receba por cada conversa realizada; você também pode agendar como cliente"] },
 ];
 
 // Sign-up completion as short guided steps: how the person will use the platform, then (consultants
@@ -98,14 +98,14 @@ export function OnboardingForm({firstName,initialRole,companies,professions,next
 
     {consultant&&<fieldset className="onboarding-step" hidden={current!==2} ref={(el)=>{steps.current[2]=el;}}>
       <h2 tabIndex={-1}>Seu perfil</h2>
-      <p className="onboarding-lead">É o que as pessoas leem antes de agendar. Tudo pode ser editado depois.</p>
+      <p className="onboarding-lead">É o que as pessoas leem antes de abrir um chat. Tudo pode ser editado depois.</p>
       <ConsultantProfileFields part="profile" companies={companies} professions={professions} jobTitles={jobTitles}/>
       <div className="onboarding-nav"><button type="button" className="button button-ghost" onClick={()=>go(1)}><ArrowLeft size={17}/>Voltar</button><button type="button" className="button button-accent" onClick={advance}>Continuar<ArrowRight size={17}/></button></div>
     </fieldset>}
 
     <fieldset className="onboarding-step" hidden={current!==last} ref={(el)=>{steps.current[last]=el;}}>
       <h2 tabIndex={-1}>Identificação</h2>
-      <p className="onboarding-lead">Toda conta na Insidely se identifica com CPF, para a segurança de quem agenda e de quem atende. O CPF nunca aparece no perfil.</p>
+      <p className="onboarding-lead">Toda conta na Insidely se identifica com CPF, para a segurança de quem pergunta e de quem responde. O CPF nunca aparece no perfil.</p>
       <CustomerIdentityFields/>
       <label className="check-row"><input name="terms" type="checkbox" required/><span>Li e concordo com os <Link href="/termos" target="_blank"><u>Termos de Uso</u></Link>, a <Link href="/privacidade" target="_blank"><u>Política de Privacidade</u></Link> e as regras de conversas da plataforma.</span></label>
       <div className="onboarding-nav"><button type="button" className="button button-ghost" onClick={()=>go(current-1)}><ArrowLeft size={17}/>Voltar</button><button className="button button-accent" type="submit" disabled={pending}>{pending?"Salvando…":"Concluir cadastro"}</button></div>
@@ -157,9 +157,10 @@ export function ConsultantProfileFields({companies,professions,jobTitles=[],part
     <div className="field"><label htmlFor="bio">Sobre você</label><textarea className="textarea" id="bio" name="bio" rows={4} minLength={BIO_MIN} required aria-describedby="bio-hint" onInput={(event)=>setBioLength(event.currentTarget.value.trim().length)} placeholder="Sobre o que você pode conversar? Ex.: Posso contar como era a rotina do time, o processo seletivo e o que eu gostaria de ter sabido antes."/><small id="bio-hint" className={`muted bio-counter${bioLength>=BIO_MIN?" is-ok":""}`}>{bioLength>=BIO_MIN?"Ótimo.":`Faltam ${BIO_MIN-bioLength} caracteres`}</small></div>
     <div className="profile-fields-row">
       <div className="field"><label htmlFor="location">Cidade</label><CityInput id="location" name="location" required/></div>
-      <div className="field"><label htmlFor="price30">Valor por 30 min (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/></div>
+      <div className="field"><label htmlFor="price30">Valor do chat (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/></div>
     </div>
-    <small className="muted">O valor é o que você recebe; a taxa da Insidely é somada ao preço do cliente.</small>
+    <small className="muted">O valor é o que você recebe por chat; a taxa da Insidely é somada ao preço do cliente.</small>
+    <div className="anonymity-warning" role="note"><strong>Pense na sua privacidade.</strong><p>Se usar seu nome e sua foto, seu chefe ou ex-chefe pode descobrir que você fala da empresa, mesmo que fale bem. Depois do cadastro, em Editar perfil, você pode ativar o modo anônimo: o perfil mostra só um apelido, a empresa e o cargo.</p></div>
     <label className="check-row"><input name="confidentiality" type="checkbox" required/><span>Não vou revelar segredos da empresa, dados internos ou informações de clientes e colegas. Falo só da minha experiência.</span></label>
   </div>;
   return <div className="profile-fields">{part!=="profile"&&experience}{part!=="experience"&&profile}</div>;

@@ -4,7 +4,7 @@ import { CityInput } from "@/components/city-input";
 import { SuggestInput } from "@/components/suggest-input";
 import { KeepValuesForm } from "@/components/keep-values-form";
 import { TimedMessage } from "@/components/timed-message";
-import { BriefcaseBusiness, ChevronDown, Plus, Trash2, Upload, UserRound, Wallet } from "lucide-react";
+import { BriefcaseBusiness, ChevronDown, EyeOff, Plus, Trash2, Upload, UserRound, Wallet } from "lucide-react";
 import { EditBox } from "@/components/edit-box";
 import { useActionState, useState } from "react";
 import { CatalogPicker } from "@/components/catalog-picker";
@@ -49,8 +49,8 @@ function ExperienceEditor({index,experience,companies,professions,jobTitles,onRe
   </fieldset>;
 }
 
-export function ProfessionalProfileForm({profile,companies,professions,jobTitles=[],messagePriceCents=null}:{profile:Profile;companies:Option[];professions:Option[];jobTitles?:string[];areas?:string[];messagePriceCents?:number|null}){
-  const [offersMessages,setOffersMessages]=useState(messagePriceCents!==null);
+export function ProfessionalProfileForm({profile,companies,professions,jobTitles=[],messagePriceCents=null,anonymous=false}:{profile:Profile;companies:Option[];professions:Option[];jobTitles?:string[];areas?:string[];messagePriceCents?:number|null;anonymous?:boolean}){
+  const [anonymousMode,setAnonymousMode]=useState(anonymous);
   const[message,action,pending]=useActionState(updateProfessionalProfileAction,undefined);
   // "Salvar perfil" floats only while there are unsaved changes, so it never sits between the boxes.
   // Pickers choose with a click on an option (no input event), hence the mousedown check.
@@ -78,6 +78,12 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
       <input type="hidden" name="region" value={profile.region||"Brasil"}/>
       <input type="hidden" name="yearsExperience" value={profile.yearsExperience}/>
 
+      <EditBox icon={<EyeOff size={20}/>} title="Modo anônimo" hint={anonymousMode?`Ligado · aparece como “${profile.pseudonym||"apelido"}”`:"Desligado · seu nome e foto podem aparecer"}>
+        <div className="anonymity-warning" role="note"><strong>Seu chefe ou ex-chefe pode descobrir que você fala da empresa.</strong><p>Mesmo falando bem, usar seu nome real e sua foto permite que alguém da empresa identifique você, inclusive abrindo um chat como se fosse um cliente. Isso pode trazer retaliação ou até demissão. No modo anônimo, a Insidely mostra só um apelido, a empresa e o cargo.</p></div>
+        <label className="check-row"><input type="checkbox" name="anonymousMode" checked={anonymousMode} onChange={(event)=>setAnonymousMode(event.target.checked)}/><span><strong>Usar modo anônimo</strong><small className="muted">Esconde nome, sobrenome, foto, capa, faixa etária, cidade e as datas exatas das experiências. A verificação continua: o comprovante só a equipe da Insidely vê, e o perfil mostra apenas o selo.</small></span></label>
+        {anonymousMode&&<div className="field"><label htmlFor="profile-pseudonym-anon">Apelido público</label><input className="input" id="profile-pseudonym-anon" name="pseudonym" maxLength={40} defaultValue={profile.pseudonym??""} placeholder="Ex.: Dev Backend SP" required/><small className="muted">Não use seu nome, e-mail ou algo que identifique você.</small></div>}
+      </EditBox>
+
       <EditBox icon={<UserRound size={20}/>} title="Como você aparece" hint={[profile.headline,profile.location].filter(Boolean).join(" · ")||"Título, apresentação e cidade"}>
         <div className="field"><label htmlFor="profile-headline">Título do perfil</label><input className="input" id="profile-headline" name="headline" defaultValue={profile.headline} placeholder="Ex.: Product Designer em fintech" required/></div>
         <div className="field"><label htmlFor="profile-bio">Sobre você</label><textarea className="textarea" id="profile-bio" name="bio" rows={4} defaultValue={profile.bio} placeholder="Sobre o que você pode conversar? Ex.: Posso contar como era a rotina do time, o processo seletivo e o que eu gostaria de ter sabido antes." required/></div>
@@ -89,7 +95,7 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
         <details className="profile-edit-more"><summary><span className="profile-edit-more-icon" aria-hidden="true"><UserRound size={18}/></span><span className="profile-edit-more-text"><strong>Nome e idade no perfil</strong><small>Opcional · nome fictício, sobrenome e faixa etária</small></span><ChevronDown className="profile-edit-more-chevron" size={18} aria-hidden="true"/></summary>
           <p className="muted">Por padrão o perfil não mostra seu nome. Você escolhe o que aparece em Privacidade do perfil.</p>
           <div className="profile-fields-row">
-            <div className="field"><label htmlFor="profile-pseudonym">Nome fictício</label><input className="input" id="profile-pseudonym" name="pseudonym" maxLength={40} defaultValue={profile.pseudonym??""} placeholder="Ex.: Dev Backend SP"/></div>
+            {!anonymousMode&&<div className="field"><label htmlFor="profile-pseudonym">Nome fictício</label><input className="input" id="profile-pseudonym" name="pseudonym" maxLength={40} defaultValue={profile.pseudonym??""} placeholder="Ex.: Dev Backend SP"/></div>}
             <div className="field"><label htmlFor="profile-surname">Sobrenome público</label><input className="input" id="profile-surname" name="publicSurname" defaultValue={profile.publicSurname??""}/></div>
           </div>
           <div className="field"><label htmlFor="profile-age">Faixa etária</label><select className="select" id="profile-age" name="ageRange" defaultValue={profile.ageRange??""}><option value="">Não informar</option><option value="UNDER_25">Até 24</option><option value="25_34">25–34</option><option value="35_44">35–44</option><option value="45_54">45–54</option><option value="55_PLUS">55+</option></select></div>
@@ -102,15 +108,8 @@ export function ProfessionalProfileForm({profile,companies,professions,jobTitles
         <small className="muted">Até 3 empresas. Você aparece na busca de cada uma delas.</small>
       </EditBox>
 
-      <EditBox icon={<Wallet size={20}/>} title="Valores e recebimento" hint={`30 min ${money(profile.price30Cents)} · 60 min ${money(profile.price60Cents)} · ${profile.pixKey?"Pix cadastrado":"falta a chave Pix"}`}>
-        <div className="profile-fields-row">
-          <div className="field"><label htmlFor="profile-price30">Conversa de 30 min (R$)</label><input className="input" id="profile-price30" type="number" name="price30Cents" min="10" step="0.01" defaultValue={(profile.price30Cents/100).toFixed(2)} required/></div>
-          <div className="field"><label htmlFor="profile-price60">Conversa de 60 min (R$)</label><input className="input" id="profile-price60" type="number" name="price60Cents" min="10" step="0.01" defaultValue={(profile.price60Cents/100).toFixed(2)} required/></div>
-        </div>
-        <div className="message-format-setting">
-          <label className="check-row"><input type="checkbox" name="messageEnabled" checked={offersMessages} onChange={(event)=>setOffersMessages(event.target.checked)}/><span><strong>Também aceito perguntas por mensagem</strong><small className="muted">O cliente paga, o chat abre na hora e você tem 48 horas para responder até 5 mensagens. Sem horário marcado.</small></span></label>
-          {offersMessages&&<div className="field"><label htmlFor="profile-message-price">Valor das perguntas por mensagem (R$)</label><input className="input" id="profile-message-price" type="number" name="messagePrice" min="10" step="0.01" defaultValue={((messagePriceCents??Math.max(1000,Math.round(profile.price30Cents*0.6/100)*100))/100).toFixed(2)} required/><small className="muted">Sugerimos 60% do valor da conversa de 30 minutos.</small></div>}
-        </div>
+      <EditBox icon={<Wallet size={20}/>} title="Valor e recebimento" hint={`Chat ${money(messagePriceCents??profile.price30Cents)} · ${profile.pixKey?"Pix cadastrado":"falta a chave Pix"}`}>
+        <div className="field"><label htmlFor="profile-chat-price">Valor do chat (R$)</label><input className="input" id="profile-chat-price" type="number" name="chatPrice" min="10" max="1000" step="0.01" defaultValue={((messagePriceCents??profile.price30Cents)/100).toFixed(2)} required/><small className="muted">O cliente paga uma vez e o chat abre na hora. Você tem 24 horas para responder depois da primeira mensagem do cliente; o chat fecha quando o cliente confirma que as dúvidas foram respondidas, quando você encerra, depois de 24 horas sem mensagens ou em 72 horas.</small></div>
         <PixKeyField defaultValue={profile.pixKey}/>
       </EditBox>
 
@@ -127,7 +126,7 @@ export function AccountDangerZone({email}:{email:string}){const[message,action,p
 // Posted in the chat on the consultant's behalf when a payment is confirmed.
 export function WelcomeMessageForm({ defaultValue }: { defaultValue: string }) {
   const [state, action, pending] = useActionState(saveWelcomeMessageAction, undefined);
-  return <section className="panel form-stack"><span className="eyebrow">Mensagem de boas-vindas</span><h2>Receba cada cliente no chat.</h2><p className="muted">Assim que um pagamento é confirmado, esta mensagem aparece no chat da conversa como se você tivesse escrito. Deixe vazio para não enviar. Contatos e palavrões não são permitidos.</p><form action={action} className="form-stack"><textarea className="textarea" name="welcomeMessage" maxLength={600} defaultValue={defaultValue} placeholder="Ex.: Olá! Obrigado por agendar. Se quiser, me conte aqui o que mais te preocupa na decisão, assim chego preparado."/>{state && <p className={state.status === "error" ? "form-error" : "form-feedback"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}<button className="button button-dark button-sm" disabled={pending}>{pending ? "Salvando…" : "Salvar mensagem"}</button></form></section>;
+  return <section className="panel form-stack"><span className="eyebrow">Mensagem de boas-vindas</span><h2>Receba cada cliente no chat.</h2><p className="muted">Assim que um pagamento é confirmado, esta mensagem aparece no chat da conversa como se você tivesse escrito. Deixe vazio para não enviar. Contatos e palavrões não são permitidos.</p><form action={action} className="form-stack"><textarea className="textarea" name="welcomeMessage" maxLength={600} defaultValue={defaultValue} placeholder="Ex.: Olá! Obrigado por abrir o chat. Se quiser, me conte aqui o que mais te preocupa na decisão, assim chego preparado."/>{state && <p className={state.status === "error" ? "form-error" : "form-feedback"} role={state.status === "error" ? "alert" : "status"}>{state.message}</p>}<button className="button button-dark button-sm" disabled={pending}>{pending ? "Salvando…" : "Salvar mensagem"}</button></form></section>;
 }
 
 const SALARY_OPTIONS = [["ATE_3K", "Até R$ 3 mil"], ["3K_6K", "R$ 3 a 6 mil"], ["6K_10K", "R$ 6 a 10 mil"], ["10K_15K", "R$ 10 a 15 mil"], ["15K_25K", "R$ 15 a 25 mil"], ["ACIMA_25K", "Acima de R$ 25 mil"]] as const;

@@ -78,21 +78,17 @@ test.describe("fluxo autenticado cliente + consultor", () => {
       await login(customer, state.customer);
       await login(consultant, state.consultant);
 
-      await test.step("cliente cria agendamento e consultor recebe solicitação", async () => {
+      await test.step("cliente abre um chat e consultor recebe o pedido", async () => {
         await customer.goto(`/agendar/${state.profileId}`);
-        await customer.locator('select[name="slot"]').selectOption(state.slotId);
-        await customer.locator('textarea[name="goals"]').fill("Quero entender a rotina real, a cultura e o processo de decisão.");
-        await customer.getByRole("button", { name: "Continuar para o checkout" }).click();
+        await customer.getByRole("button", { name: "Ir para o pagamento" }).click();
         await expect(customer).toHaveURL(/\/checkout\/[^?]+/);
         state.bookingId = new URL(customer.url()).pathname.split("/").pop();
         expect(state.bookingId).toBeTruthy();
 
         await customer.goto("/dashboard/mensagens");
-        await expect(customer.getByText(/Finalize o pedido/i)).toBeVisible();
-        await expect(customer.locator('input[aria-label^="Mensagem"]')).toHaveCount(0);
+        await expect(customer.getByText(/Aguardando pagamento/i).first()).toBeVisible();
         await consultant.goto("/consultor/consultas");
-        await expect(consultant.getByText(/Pedido ainda não pago/i)).toBeVisible();
-        await expect(consultant.locator('input[name="body"]')).toHaveCount(0);
+        await expect(consultant.getByText(/Aguardando pagamento/i).first()).toBeVisible();
       });
 
       await test.step("pagamento é iniciado e webhook mockado confirma", async () => {
@@ -106,32 +102,20 @@ test.describe("fluxo autenticado cliente + consultor", () => {
         expect(booking.payment.status).toBe("PAID_HELD");
       });
 
-      await test.step("notificações, Meet mockado e cron de Meet", async () => {
+      await test.step("chat aberto após o pagamento: cliente escreve e consultor responde", async () => {
         await customer.goto("/dashboard");
-        await expect(customer.getByText("Pagamento confirmado")).toBeVisible();
-        await consultant.goto("/consultor");
-        await expect(consultant.getByText("Pagamento confirmado")).toBeVisible();
-        // The room only exists once the conversation starts, so nobody can enter early.
-        expect((await readBooking()).meetingUrl).toBeNull();
-
-        const client = serviceClient();
-        const { data: original } = await client.from("Booking").select("startsAt").eq("id", state.bookingId!).single();
-        await client.from("Booking").update({ startsAt: new Date(Date.now() - 60_000).toISOString() }).eq("id", state.bookingId!);
-        const cron = await request.get("/api/cron/create-meetings", { headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? "e2e-cron-secret"}` } });
-        expect(cron.ok()).toBeTruthy();
-        expect((await cron.json()).created).toBe(1);
-        expect((await readBooking()).meetingUrl).toBe("https://meet.google.com/e2e-insidely-room");
-        await client.from("Booking").update({ startsAt: original!.startsAt }).eq("id", state.bookingId!);
-      });
-
-      await test.step("mensagens são liberadas após pagamento", async () => {
-        await customer.goto("/dashboard/mensagens");
-        const message = customer.locator('input[aria-label^="Mensagem"]');
-        await expect(message).toBeVisible();
-        await message.fill("Vamos conversar sobre autonomia e contexto.");
+        await expect(customer.getByText("Chat aberto").first()).toBeVisible();
+        await customer.goto(`/conversa/${state.bookingId}`);
+        const message = customer.locator('[aria-label^="Mensagem"]');
+        await message.fill("Quero entender a rotina real, a cultura e o processo de decisão.");
         await customer.getByRole("button", { name: "Enviar" }).click();
-        await consultant.goto("/consultor/consultas");
-        await expect(consultant.getByText("Vamos conversar sobre autonomia e contexto.")).toBeVisible();
+        await consultant.goto(`/conversa/${state.bookingId}`);
+        await expect(consultant.getByText("Quero entender a rotina real, a cultura e o processo de decisão.")).toBeVisible();
+        const reply = consultant.locator('[aria-label^="Mensagem"]');
+        await reply.fill("Claro! A rotina é bem colaborativa.");
+        await consultant.getByRole("button", { name: "Enviar" }).click();
+        await customer.goto(`/conversa/${state.bookingId}`);
+        await expect(customer.getByText("Claro! A rotina é bem colaborativa.")).toBeVisible();
       });
 
       await test.step("cliente cria relatório de suporte", async () => {
@@ -155,11 +139,11 @@ test.describe("fluxo autenticado cliente + consultor", () => {
         const { error: scheduleError } = await client.from("Booking").update({ startsAt: endedAt, autoReleaseAt: releaseAt }).eq("id", state.bookingId!);
         expect(scheduleError).toBeNull();
         expect((await readBooking()).status).toBe("CONFIRMED");
-        await consultant.goto("/consultor/consultas");
-        await consultant.getByRole("button", { name: "Informar fim da conversa" }).click({ timeout: 5000 });
+        await consultant.goto(`/conversa/${state.bookingId}`);
+        await consultant.getByRole("button", { name: "Encerrar conversa" }).click({ timeout: 5000 });
         await expect.poll(async () => (await readBooking()).consultantConfirmedAt, { timeout: 10_000 }).toBeTruthy();
-        await customer.goto("/dashboard/agendamentos");
-        await customer.getByRole("button", { name: "Confirmar conversa realizada" }).click();
+        await customer.goto(`/conversa/${state.bookingId}`);
+        await customer.getByRole("button", { name: "Sim, foram respondidas" }).click();
         await expect.poll(async () => (await readBooking()).customerConfirmedAt, { timeout: 10_000 }).toBeTruthy();
         await expect.poll(async () => (await readBooking()).payment.status, { timeout: 10_000 }).toBe("TRANSFER_FAILED");
         const failed = await readBooking();

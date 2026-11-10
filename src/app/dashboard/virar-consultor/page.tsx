@@ -18,7 +18,7 @@ export default async function Page() {
       <section className="panel">
         <span className="eyebrow">Mesma conta, dois modos</span>
         <h2>Compartilhe sua experiência profissional.</h2>
-        <p className="muted">Você continua com tudo o que já tem como cliente: agendamentos, mensagens, favoritos e avaliações. Depois de criar o perfil, alterne entre o modo consultor e o modo cliente pelo menu lateral. Foto, disponibilidade, verificação e demais detalhes do perfil ficam na área do consultor.</p>
+        <p className="muted">Você continua com tudo o que já tem como cliente: chats, favoritos e avaliações. Depois de criar o perfil, alterne entre o modo consultor e o modo cliente pelo menu lateral. Foto, disponibilidade, verificação e demais detalhes do perfil ficam na área do consultor.</p>
       </section>
       <section className="panel"><BecomeConsultantForm companies={companies} professions={professions} jobTitles={jobs.titles}/></section>
     </div>

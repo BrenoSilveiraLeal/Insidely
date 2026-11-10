@@ -1,5 +1,7 @@
 # Google Meet
 
+> **Obsoleto (novembro de 2026).** As conversas agora são só por chat e a integração com o Google Meet foi removida do código. Este guia fica apenas como histórico. Veja [CONVERSATIONS.md](CONVERSATIONS.md).
+
 A sala do Google Meet de uma conversa **só é criada quando a conversa começa**: na primeira visita a `/sala/<id>` a partir do horário marcado, a aplicação cria o espaço com a conta Google do projeto e salva o link em `Booking.meetingUrl` (e o nome do espaço em `Booking.meetingSpaceName`). Antes do horário o link do Meet simplesmente não existe, então ninguém entra antes. O link da Insidely chega aos dois participantes logo após o pagamento, por três caminhos:
 
 - uma **mensagem automática da Insidely fixada no chat** da conversa (cliente em `/dashboard/mensagens`, consultor em `/consultor/consultas`);

@@ -7,15 +7,15 @@ const STEPS = {
     ["Bem-vindo à Insidely!", "Aqui você conversa com quem vive ou já viveu a rotina de uma empresa ou profissão antes de tomar uma decisão de carreira."],
     ["Encontre alguém", "Em “Ver plataforma”, busque por empresa, profissão, cargo ou nome, e abra o perfil de quem você quer ouvir."],
     ["Atual ou ex-funcionário", "Você pode conversar com quem trabalha hoje na empresa ou com quem já trabalhou lá. O perfil mostra a época em que a pessoa esteve na empresa, e a busca tem o filtro “Vínculo com a empresa”."],
-    ["Agende e pague", "Escolha um horário livre e conte o que quer conversar. Depois do pagamento, a conversa aparece em Agendamentos e Mensagens."],
-    ["No dia da conversa", "O link da sala abre no horário marcado. Depois, avalie a conversa em Avaliações. Dúvidas? Veja a Central de ajuda."],
+    ["Abra um chat", "Pague para liberar o chat: ele abre na hora, sem horário marcado, e aparece em Mensagens. Aí é só escrever."],
+    ["Converse com calma", "O consultor tem 24 horas para responder. Quando suas dúvidas forem respondidas, encerre o chat e avalie a conversa. Dúvidas? Veja a Central de ajuda."],
   ],
   consultant: [
-    ["Bem-vindo, consultor!", "Você compartilha sua experiência e recebe por cada conversa. Este painel mostra seus pedidos, sua agenda e seus ganhos."],
-    ["Abra sua agenda", "Em Agenda, crie horários avulsos ou recorrentes. Sem horários livres, ninguém consegue agendar com você."],
+    ["Bem-vindo, consultor!", "Você compartilha sua experiência por chat e recebe por cada conversa. Este painel mostra seus chats e seus ganhos."],
+    ["Proteja sua identidade", "Em Editar perfil, ative o modo anônimo: seu chefe ou ex-chefe não descobre quem você é. Em Horários, diga quando costuma responder."],
     ["Trabalhou em mais de uma empresa?", "Em Editar perfil você pode cadastrar até 3 experiências, atuais ou anteriores. Assim seu perfil aparece na busca de cada uma dessas empresas."],
     ["Ganhe confiança", "Também em Editar perfil, complete seu perfil e envie o comprovante de vínculo para ganhar o selo. Vale crachá, holerite, carteira de trabalho ou termo de rescisão."],
-    ["Atenda e receba", "As conversas chegam em Consultas e mensagens. O valor é liberado em Ganhos depois que a conversa acontece."],
+    ["Atenda e receba", "Os chats chegam em Chats. Responda em até 24 horas depois da primeira mensagem do cliente. O valor é liberado em Ganhos quando o chat termina."],
   ],
 } as const;
 

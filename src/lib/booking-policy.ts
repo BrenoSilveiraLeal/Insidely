@@ -78,12 +78,14 @@ export function rescheduleDifferenceCents(newPriceCents: number, paidSubtotalCen
   return Math.max(0, newPriceCents - paidSubtotalCents);
 }
 
-// "Perguntas por mensagem": the chat opens when paid, for 48 hours. The customer's messages are the
-// questions written in the request (up to 5, posted when paid); unanswered requests are refunded.
-export const MESSAGE_WINDOW_MINUTES = 48 * 60;
-export const MESSAGE_QUESTION_LIMIT = 5;
-// Once the consultant concludes the last answer ("Concluir respostas"), Insidely posts this thank-you
-// on the customer's behalf (an automatic message); after it the consultant can finish the service.
+// The chat (the only conversation format): opens when paid. The consultant has 24 hours for the
+// first answer, or the customer is refunded; afterwards it closes after 24 hours with nobody writing,
+// or 72 hours after opening (close_idle_message_chats, migration 20261110100000).
+export const CHAT_FIRST_ANSWER_HOURS = 24;
+export const CHAT_IDLE_HOURS = 24;
+export const CHAT_MAX_HOURS = 72;
+export const MESSAGE_WINDOW_MINUTES = CHAT_MAX_HOURS * 60;
+// Older requests ("Perguntas por mensagem") ended with this automatic thank-you; kept to show them.
 export const MESSAGE_CLOSING_TEXT = "Obrigado pelos esclarecimentos! Essas eram todas as minhas perguntas.";
 export function isMessageClosing(message: { body: string; automatic?: boolean | null }) {
   return Boolean(message.automatic) && message.body === MESSAGE_CLOSING_TEXT;

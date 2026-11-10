@@ -55,7 +55,7 @@ export function BlockUserForm({ bookingId, otherName, returnTo, blocked = false 
     <summary><Ban size={14} aria-hidden="true"/><span>Bloquear</span><span className="sr-only"> {otherName}</span></summary>
     <form action={blockUserAction.bind(null, bookingId)} className="form-stack">
       <input type="hidden" name="returnTo" value={returnTo}/>
-      <p className="muted">Depois de bloquear, vocês não conseguem mais agendar conversas um com o outro. As conversas já marcadas continuam valendo; para cancelar, use o cartão da conversa. Para desfazer, vá em Configurações → Pessoas bloqueadas.</p>
+      <p className="muted">Depois de bloquear, vocês não conseguem mais abrir chats um com o outro. O histórico desta conversa continua guardado. Para desfazer, vá em Configurações → Pessoas bloqueadas.</p>
       <button className="button button-danger button-sm" type="submit">Confirmar bloqueio</button>
     </form>
   </details>;

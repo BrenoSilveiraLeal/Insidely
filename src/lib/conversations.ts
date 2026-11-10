@@ -5,6 +5,10 @@ export type ConversationMessage = { id: string; body: string; senderId: string; 
 export type ConversationView = {
   bookingId: string; conversationId: string; status: string; format: "VIDEO" | "MESSAGE"; startsAt: string; durationMinutes: number; meetingUrl: string | null;
   customerId: string; consultantId: string; viewerIsConsultant: boolean; otherName: string; messages: ConversationMessage[];
+  // Photo of the other person as the viewer may see it (null: anonymous, hidden or none).
+  otherImage: string | null;
+  // Whether the consultant hides their identity (anonymous mode): the chat reminds them not to reveal it.
+  consultantAnonymous: boolean;
   // "Perguntas por mensagem": questions in the request and how many were sent so far (one at a time).
   questionsTotal: number; questionsSent: number;
   // When the held amount is released if nobody contests (set when the consultant finishes).
@@ -29,25 +33,32 @@ export async function getConversationForParticipant(bookingId: string, userId: s
   if (!profile || !conversation || ![booking.customerId, profile.userId].includes(userId)) return null;
   // A customer self-booking their own profile counts as the consultant (it is their own profile).
   const viewerIsConsultant = profile.userId === userId;
-  const [{ data: messages }, otherName] = await Promise.all([
+  const [{ data: messages }, other, consultantCard] = await Promise.all([
     supabase.from("Message").select("id, body, senderId, createdAt, readAt, automatic").eq("conversationId", conversation.id).order("createdAt", { ascending: true }).limit(1000),
-    viewerIsConsultant ? customerName(supabase, booking.customerId) : consultantPublicName(supabase, booking.professionalProfileId),
+    viewerIsConsultant ? customerName(supabase, booking.customerId) : Promise.resolve(null),
+    consultantPublicCard(supabase, booking.professionalProfileId),
   ]);
-  return { autoReleaseAt: booking.autoReleaseAt ?? null, goals: String(booking.goals ?? "").trim(), questionsTotal: Array.isArray(booking.questions) ? booking.questions.length : 0, questionsSent: Number(booking.questionsSent ?? 0), bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, messages: messages ?? [] };
+  const otherName = other?.name ?? consultantCard.name;
+  const otherImage = other ? other.image : consultantCard.image;
+  return { autoReleaseAt: booking.autoReleaseAt ?? null, goals: String(booking.goals ?? "").trim(), questionsTotal: Array.isArray(booking.questions) ? booking.questions.length : 0, questionsSent: Number(booking.questionsSent ?? 0), bookingId, conversationId: conversation.id, status: booking.status, format: (booking as { format?: string }).format === "MESSAGE" ? "MESSAGE" : "VIDEO", startsAt: booking.startsAt, durationMinutes: booking.durationMinutes, meetingUrl: booking.meetingUrl, customerId: booking.customerId, consultantId: profile.userId, viewerIsConsultant, otherName, otherImage, consultantAnonymous: consultantCard.anonymous, messages: messages ?? [] };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function customerName(supabase: any, customerId: string) {
-  const { data } = await supabase.from("User").select("name").eq("id", customerId).maybeSingle();
-  return data?.name || "Cliente";
+  const { data } = await supabase.from("User").select("name, image").eq("id", customerId).maybeSingle();
+  return { name: data?.name || "Cliente", image: (data?.image as string | null) ?? null };
 }
 
-// The name customers already see on the profile (real name or pseudonym, per the privacy settings).
+// The name and photo customers already see on the profile (real name or pseudonym, photo only when
+// shown, per the privacy settings), and whether the consultant is in anonymous mode.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function consultantPublicName(supabase: any, profileId: string) {
-  const { data } = await supabase.from("public_profile_cards").select("user").eq("id", profileId).maybeSingle();
-  const user = Array.isArray(data?.user) ? data.user[0] : data?.user;
-  return (user as { name?: string } | undefined)?.name || "Consultor";
+async function consultantPublicCard(supabase: any, profileId: string) {
+  const [{ data }, { data: own }] = await Promise.all([
+    supabase.from("public_profile_cards").select("user").eq("id", profileId).maybeSingle(),
+    supabase.from("ProfessionalProfile").select("privacyMode").eq("id", profileId).maybeSingle(),
+  ]);
+  const user = (Array.isArray(data?.user) ? data.user[0] : data?.user) as { name?: string; image?: string | null } | undefined;
+  return { name: user?.name || "Consultor", image: user?.image ?? null, anonymous: own?.privacyMode === "PSEUDONYM" };
 }
 
 // Opening the conversation reads everything the other side sent: the badge resets and each of those

@@ -141,15 +141,14 @@ export function moderateChatMessage(raw: string, options: { countScatteredDigits
 
 // Feedback shown above the chat after a message was refused (the ?mensagem= code of sendMessageAction).
 export function chatFeedbackText(code: string) {
-  if (code === "aguarde-resposta") return "Aguarde o consultor responder todas as perguntas antes de encerrar o pedido.";
+  if (code === "sem-resposta" || code === "aguarde-resposta") return "Aguarde a primeira resposta do consultor antes de encerrar o chat.";
   if (code === "longa") return "A mensagem passou de 2.000 caracteres.";
   if (code === "ofensiva") return "Mensagem bloqueada: palavrões, ofensas e ameaças não são permitidos. Tentativas repetidas são analisadas pela equipe e podem levar ao bloqueio da conta.";
   if (code === "limite") return "Muitas mensagens em pouco tempo. Aguarde um minuto e tente novamente.";
-  if (code === "fechado") return "O chat desta conversa não está aberto agora.";
-  if (code === "responda-antes") return "Responda a pergunta atual antes de liberar a próxima.";
-  if (code === "finalizada") return "Atendimento finalizado. O valor fica retido por 24 horas para o cliente conferir as respostas e depois segue para o seu repasse.";
-  if (code === "encerrada") return "Pedido encerrado. Obrigado! Agora você pode avaliar a conversa em Avaliações.";
-  if (code === "limite-perguntas") return "Suas perguntas já foram enviadas neste pedido. Aguarde as respostas do consultor ou faça um novo pedido.";
+  if (code === "fechado") return "Este chat já foi encerrado.";
+  if (code === "responda-antes") return "Responda ao cliente antes de encerrar a conversa.";
+  if (code === "finalizada") return "Conversa encerrada. O valor fica retido por 24 horas para o cliente conferir e depois segue para o seu repasse.";
+  if (code === "encerrada") return "Chat encerrado. Obrigado! Agora você pode avaliar a conversa em Avaliações.";
   if (code === "erro") return "Não foi possível enviar a mensagem agora. Tente novamente.";
   return "Mensagem não enviada: por segurança, não é permitido compartilhar telefone, e-mail, links, redes sociais ou combinar pagamento por fora. A conversa e o pagamento acontecem pela Insidely, que protege os dois lados.";
 }

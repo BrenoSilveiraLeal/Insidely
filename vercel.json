@@ -6,10 +6,6 @@
     {
       "path": "/api/cron/release-bookings",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/cron/create-meetings",
-      "schedule": "30 4 * * *"
     }
   ]
 }

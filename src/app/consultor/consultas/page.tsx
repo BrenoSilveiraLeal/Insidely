@@ -1,4 +1,4 @@
-import { CalendarDays, ShieldCheck, Video } from "lucide-react";
+import { CalendarDays, ShieldCheck } from "lucide-react";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { TwoColumns } from "@/components/two-columns";
 import { ConversationLink } from "@/components/conversation-link";
@@ -6,24 +6,21 @@ import { getUnreadCounts } from "@/lib/conversations";
 import { BlockUserForm, ConversationReportForm, CustomerFeedbackForm, customerFeedbackText, reportFeedbackText } from "@/components/conversation-safety";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { chatFeedbackText } from "@/lib/chat-moderation";
-import { cancelBookingAction, completeBookingAction, confirmConversationAction, disputeBookingAction, updateConsultantRecordingConsentAction } from "@/app/actions";
+import { cancelBookingAction, confirmConversationAction, disputeBookingAction } from "@/app/actions";
 import { getBlockedBookingIds } from "@/lib/blocks";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { GoogleCalendarAddLink } from "@/components/google-calendar-add-link";
-import { StartsIn } from "@/components/starts-in";
 import { PaginationControls } from "@/components/pagination-controls";
 import { Role } from "@/lib/domain";
-import { bookingStatusLabel, meetingRoomOpeningText, parseDbDate, shortDate } from "@/lib/format";
-import { canReviewBooking, meetingRoomState, paymentDeadline, holdMinutesFor } from "@/lib/booking-policy";
+import { bookingStatusLabel, parseDbDate, shortDate } from "@/lib/format";
+import { CHAT_FIRST_ANSWER_HOURS, canReviewBooking, paymentDeadline, holdMinutesFor } from "@/lib/booking-policy";
 import { getConsultantBookings, getConsultantMessages } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
-import { GoogleCalendarFeedback } from "@/components/google-calendar-feedback";
 import { getCustomersForConsultant, type ConsultantCustomerInfo } from "@/lib/customer-identity";
 
 export const metadata = { title: "Consultas e mensagens" };
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; calendar?: string; denuncia?: string; avaliacao?: string; bloqueio?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; cancelamento?: string; mensagem?: string; contestacao?: string; denuncia?: string; avaliacao?: string; bloqueio?: string }> }) {
   const user = await requireUser([Role.CONSULTANT]);
   // Opening the page counts its notifications as seen (the menu count goes away).
   await markPageNotificationsRead(user.id, "/consultor/consultas");
@@ -35,51 +32,46 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   // The RPC returns newest first (for pagination); show each chat oldest to newest.
   for (const list of byConversation.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const blockedBookings = await getBlockedBookingIds(user.id, bookings.items.map((booking) => booking.id));
-  const roomStates = new Map(bookings.items.map((booking) => [booking.id, meetingRoomState(booking.startsAt, booking.durationMinutes)]));
   // CustomerFeedback is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: feedbackRows } = bookings.items.length ? await (createSupabaseServiceClient() as any).from("CustomerFeedback").select("bookingId").in("bookingId", bookings.items.map((booking) => booking.id)) : { data: [] };
   const rated = new Set((feedbackRows ?? []).map((row: { bookingId: string }) => row.bookingId));
   const unread = await getUnreadCounts(user.id, bookings.items.flatMap((booking) => booking.conversation ? [booking.conversation.id] : []));
   const customers = await getCustomersForConsultant(user.id, bookings.items.filter((booking) => booking.status !== "EXPIRED").map((booking) => booking.id));
-  return <DashboardShell mode="consultant" title="Consultas e solicitações"><GoogleCalendarFeedback code={query.calendar}/><div className="consultas-feedback">
+  return <DashboardShell mode="consultant" title="Chats"><div className="consultas-feedback">
     {query.mensagem && <p className="form-error" role="alert">{chatFeedbackText(query.mensagem)}</p>}
     {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
-    {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder agendar conversas." : "Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro."}</p>}
+    {query.bloqueio && <p className="form-feedback" role="status">{query.bloqueio === "removido" ? "Bloqueio removido. Vocês voltam a poder conversar." : "Pessoa bloqueada. Vocês não conseguem mais abrir novos chats um com o outro."}</p>}
     {query.avaliacao && <p className={query.avaliacao === "ok" ? "form-feedback" : "form-error"} role={query.avaliacao === "ok" ? "status" : "alert"}>{customerFeedbackText(query.avaliacao)}</p>}
     {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres para abrir a contestação.</p>}{query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente novamente ou fale com o suporte.</p>}{query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação registrada. O suporte vai analisar o caso.</p>}
-    {query.cancelamento === "ok" && <p className="form-success" role="status">Conversa cancelada. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
+    {query.cancelamento === "ok" && <p className="form-success" role="status">Chat recusado. O reembolso integral foi iniciado e o cliente foi avisado por e-mail.</p>}
     {query.cancelamento === "motivo" && <p className="form-error" role="alert">Informe um motivo com pelo menos 10 caracteres para cancelar.</p>}
-    {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar esta conversa. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
+    {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível recusar este chat. Nenhuma alteração foi confirmada; tente novamente ou contate o suporte.</p>}
     </div><TwoColumns key={bookings.page} className="paginated-bookings booking-grid">{bookings.items.map(booking => {
-      const roomState = roomStates.get(booking.id);
       const info = customers.get(booking.id);
       const paid = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"].includes(booking.status);
-      const upcoming = ["PENDING_PAYMENT", "CONFIRMED"].includes(booking.status) && booking.startsAt > new Date();
+      const isChat = booking.format === "MESSAGE";
+      // A chat with no answer yet can still be declined (the customer gets 100% back).
+      const cancellable = booking.status === "PENDING_PAYMENT" || (booking.status === "CONFIRMED" && (isChat ? !(byConversation.get(booking.conversation?.id ?? "") ?? []).some((message) => message.senderId === user.id) : booking.startsAt > new Date()));
       return <article className="panel booking-card" key={booking.id}>
         <header className="booking-card-top">
           <div className="booking-card-who">
             <h2>{booking.customer.name}</h2>
             {info?.reputation ? <span className={`booking-reputation ${info.reputation.label === "Atenção" ? "reputation-bad" : ""}`}>★ {info.reputation.average.toFixed(1)} · {info.reputation.label}</span> : info ? <span className="booking-reputation booking-reputation-neutral"><ShieldCheck size={13} aria-hidden="true"/> Cliente identificado</span> : null}
           </div>
-          <span className="booking-card-chips">{booking.format === "MESSAGE" && <span className="format-chip">Por mensagem</span>}<span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span></span>
+          <span className="booking-card-chips">{!isChat && <span className="format-chip">Vídeo (antigo)</span>}<span className={`booking-chip booking-chip-${booking.status.toLowerCase()}`}>{bookingStatusLabel(booking.status)}</span></span>
         </header>
-        <div className="booking-card-meta"><CalendarDays size={15} aria-hidden="true"/><span>{booking.format === "MESSAGE" ? `Responder até ${shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}` : `${shortDate(booking.startsAt)} · ${booking.durationMinutes} min`}</span>{booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <StartsIn key={booking.id} startsAt={booking.startsAt.toISOString()} durationMinutes={booking.durationMinutes}/>}</div>
-        {booking.format === "MESSAGE" ? <p className="muted booking-card-goals-note">As perguntas do cliente chegam no chat, uma de cada vez: depois de responder, clique em “Enviar próxima pergunta”.</p> : null}
+        <div className="booking-card-meta"><CalendarDays size={15} aria-hidden="true"/><span>{isChat ? (booking.status === "CONFIRMED" ? `Chat aberto até ${shortDate(new Date(booking.startsAt.getTime() + booking.durationMinutes * 60_000))}` : `Chat aberto em ${shortDate(booking.startsAt)}`) : `${shortDate(booking.startsAt)} · ${booking.durationMinutes} min`}</span></div>
 
-        <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes, holdMinutesFor(booking.format)))}. A conversa e a sala são liberadas depois da confirmação.`
-          : booking.status === "EXPIRED" ? "Pagamento não concluído a tempo. O horário foi liberado."
+        <p className="booking-card-note">{booking.status === "PENDING_PAYMENT" ? `Aguardando pagamento até ${shortDate(paymentDeadline(booking.createdAt, booking.startsAt, booking.durationMinutes, holdMinutesFor(booking.format)))}. O chat abre depois da confirmação.`
+          : booking.status === "EXPIRED" ? "Pagamento não concluído a tempo."
           : booking.status === "DISPUTED" ? "Em análise pelo suporte. O repasse fica suspenso até a decisão."
-          : booking.format === "MESSAGE" && booking.status === "CONFIRMED" ? "Pedido de perguntas por mensagem: responda pelo chat da conversa."
-          : booking.status === "CONFIRMED" && roomState === "upcoming" ? meetingRoomOpeningText(booking.startsAt)
-          : booking.status === "CONFIRMED" && roomState === "open" ? "A sala está aberta agora."
-          : booking.status === "AWAITING_CONFIRMATION" ? (booking.consultantConfirmedAt ? "Você confirmou que a conversa aconteceu. Aguardando o cliente ou o prazo automático." : "Confirme que a conversa aconteceu para liberar o repasse.")
+          : isChat && booking.status === "CONFIRMED" ? `Chat aberto: responda pelo chat em até ${CHAT_FIRST_ANSWER_HOURS} horas depois da primeira mensagem do cliente.`
+          : booking.status === "AWAITING_CONFIRMATION" ? (booking.consultantConfirmedAt ? "Chat encerrado. O repasse é liberado se o cliente confirmar ou não contestar em 24 horas." : "Confirme que a conversa aconteceu para liberar o repasse.")
           : null}</p>
 
         <div className="booking-card-actions">
           {booking.conversation && <ConversationLink bookingId={booking.id} unread={unread.get(booking.conversation.id) ?? 0} total={(byConversation.get(booking.conversation.id) ?? []).length}/>}
-          {booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && roomState === "open" && <a className="button button-accent" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer">Entrar na sala</a>}
-          {booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && booking.startsAt <= new Date() && <form action={completeBookingAction.bind(null, booking.id)}><button className="button button-ghost">Informar fim da conversa</button></form>}
           {booking.status === "AWAITING_CONFIRMATION" && !booking.consultantConfirmedAt && <form action={confirmConversationAction.bind(null, booking.id)}><button className="button button-accent">Confirmar conversa realizada</button></form>}
         </div>
         {info !== undefined && !rated.has(booking.id) && canReviewBooking(booking.status, booking.startsAt, booking.durationMinutes) && <CustomerFeedbackForm bookingId={booking.id} customerName={booking.customer.name}/>}
@@ -88,16 +80,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
           <summary>Mais opções</summary>
           <div className="booking-card-more-body">
             {customers.has(booking.id) && <CustomerInfo info={info ?? null}/>}
-            {paid && booking.format !== "MESSAGE" && <div className="booking-card-option"><div><strong>Sala da conversa</strong><p className="muted">Link fixo da Insidely: abre o Google Meet só no horário marcado.</p></div><div className="booking-option-actions"><a className="button button-ghost button-sm" href={`/sala/${booking.id}`} target="_blank" rel="noreferrer"><Video size={15} aria-hidden="true"/> Abrir sala</a><GoogleCalendarAddLink bookingId={booking.id} returnTo="/consultor/consultas" className="button button-ghost button-sm"/></div></div>}
-            {booking.format !== "MESSAGE" && booking.status === "CONFIRMED" && <form action={updateConsultantRecordingConsentAction.bind(null, booking.id)} className="booking-card-option"><div><strong>Gravação</strong><label className="check-row"><input name="recordingConsent" type="checkbox" defaultChecked={booking.consultantRecordingConsent}/><span>Autorizo a gravação apenas se o cliente também aceitar.</span></label></div><div className="booking-option-actions"><button className="button button-ghost button-sm">Salvar</button></div></form>}
             {booking.status === "AWAITING_CONFIRMATION" && <form className="booking-card-option" action={disputeBookingAction.bind(null, booking.id)}><strong>Problema com o pagamento ou a conversa?</strong><input type="hidden" name="returnTo" value="/consultor/consultas"/><textarea className="textarea" name="description" aria-label="Descreva o problema" minLength={20} maxLength={2000} required placeholder="Explique para o suporte o que aconteceu."/><button className="button button-ghost button-sm">Abrir contestação</button></form>}
             {paid && customers.has(booking.id) && <div className="conversation-safety-row"><ConversationReportForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas"/><BlockUserForm bookingId={booking.id} otherName={booking.customer.name} returnTo="/consultor/consultas" blocked={blockedBookings.has(booking.id)}/></div>}
-            {upcoming && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Cancelar conversa</span></summary><div className="cancel-booking-confirmation"><h3>Precisa cancelar esta conversa?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo do cancelamento</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo do cancelamento."/></label>{booking.format !== "MESSAGE" && <fieldset className="cancel-slot-choice"><legend>E o horário?</legend><label className="check-row"><input type="radio" name="slot" value="reopen" defaultChecked/><span>Deixar disponível de novo para outra pessoa reservar</span></label><label className="check-row"><input type="radio" name="slot" value="remove"/><span>Remover o horário da minha agenda</span></label></fieldset>}<button className="button button-danger button-sm" type="submit">Confirmar cancelamento</button></form></div></details>}
+            {cancellable && <details className="cancel-booking-details consultant-cancel-details"><summary><span>Recusar chat</span></summary><div className="cancel-booking-confirmation"><h3>Não pode atender este chat?</h3><p className="muted">O cliente será avisado por e-mail e, se já tiver pago, receberá o valor integral de volta.</p><form action={cancelBookingAction.bind(null, booking.id)} className="form-stack"><label className="field"><span>Motivo</span><textarea className="textarea" name="reason" minLength={10} maxLength={500} required placeholder="Explique brevemente o motivo."/></label><button className="button button-danger button-sm" type="submit">Recusar e devolver o valor</button></form></div></details>}
           </div>
         </details>}
       </article>;
     })}
-  </TwoColumns>{!bookings.items.length && <p className="panel muted">Nenhuma consulta nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
+  </TwoColumns>{!bookings.items.length && <p className="panel muted">Nenhum chat nesta página.</p>}<PaginationControls page={bookings.page} total={bookings.total} pageSize={bookings.pageSize} basePath="/consultor/consultas"/></DashboardShell>;
 }
 
 // Basic data about who booked: enough to recognize the person and, if something serious happens,

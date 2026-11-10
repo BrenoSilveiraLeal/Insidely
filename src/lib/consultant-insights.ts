@@ -14,8 +14,8 @@ export async function getProfileCompleteness(userId: string): Promise<{ percent:
     supabase.from("ProfessionalProfile").select("id, bio, verificationStatus, welcomeMessage, salaryRange, areaPro, pixKey").eq("userId", userId).maybeSingle(),
   ]);
   if (!profile) return { percent: 0, items: [] };
-  const [{ count: freeSlots }, { data: cover }] = await Promise.all([
-    supabase.from("Availability").select("id", { count: "exact", head: true }).eq("professionalProfileId", profile.id).eq("isBooked", false).gt("startsAt", new Date().toISOString()),
+  const [{ data: hours }, { data: cover }] = await Promise.all([
+    supabase.from("ProfessionalProfile").select("chatHours").eq("id", profile.id).maybeSingle(),
     supabase.from("ProfileCover").select("image").eq("professionalProfileId", profile.id).maybeSingle(),
   ]);
   const bioLength = (profile.bio ?? "").trim().length;
@@ -24,9 +24,9 @@ export async function getProfileCompleteness(userId: string): Promise<{ percent:
     { label: "Foto de capa", detail: "A imagem grande no topo do seu perfil público (diferente da foto de perfil).", done: Boolean(cover?.image), href: "/consultor/perfil" },
     { label: "Apresentação", detail: bioLength >= 120 ? "Pronta." : `${bioLength} de 120 caracteres: conte mais sobre o que você pode contextualizar.`, done: bioLength >= 120, href: "/consultor/perfil" },
     { label: "Chave Pix", detail: "Para onde vai o valor das suas conversas.", done: Boolean(profile.pixKey?.trim()), href: "/consultor/perfil" },
-    { label: "Horários livres", detail: "Pelo menos um horário livre na agenda.", done: (freeSlots ?? 0) > 0, href: "/consultor/agenda" },
+    { label: "Horários de atendimento", detail: "Quando você costuma responder chats.", done: Array.isArray(hours?.chatHours) && hours.chatHours.length > 0, href: "/consultor/agenda" },
     { label: "Vínculo verificado", detail: "Envie o comprovante (crachá, holerite ou carteira de trabalho) em Editar perfil.", done: profile.verificationStatus === "VERIFIED", href: "/consultor/perfil" },
-    { label: "Mensagem de boas-vindas", detail: "O texto enviado no chat quando alguém agenda com você.", done: Boolean(profile.welcomeMessage), href: "/consultor/perfil" },
+    { label: "Mensagem de boas-vindas", detail: "O texto enviado no chat quando alguém abre um chat com você.", done: Boolean(profile.welcomeMessage), href: "/consultor/perfil" },
     { label: "Sobre a sua área", detail: "Faixa salarial, uma coisa boa e uma difícil da rotina.", done: Boolean(profile.salaryRange || profile.areaPro), href: "/consultor/perfil" },
   ];
   return { percent: Math.round(items.filter((item) => item.done).length / items.length * 100), items };

@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import { getAppUrl } from "./app-url";
-import { buildConversationIcs } from "./calendar";
 import { parseDbDate } from "./format";
 
 type BookingRecipient = { email: string; name: string };
@@ -73,50 +72,27 @@ export async function sendTransactionalEmail({ to, subject, html: content, ics }
   return false;
 }
 
-// Confirmation (right after payment) and reminder (about an hour before) for both participants,
-// with the room link, date/time, a shortcut to the booking chat and a calendar invite.
+// Right after payment: the chat is open. Both participants get a shortcut to it; the consultant is
+// reminded of the 24-hour first-answer deadline. The consultant is named as the profile shows them
+// (pseudonym in anonymous mode), never by their account name.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function sendBookingRoomEmails(supabase: any, bookingId: string, kind: "confirmation" | "reminder" | "rescheduled") {
+export async function sendBookingConfirmationEmails(supabase: any, bookingId: string) {
   if (!emailConfigured()) return;
-  const { data: booking, error } = await supabase.from("Booking").select("id, startsAt, durationMinutes, goals, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
+  const { data: booking, error } = await supabase.from("Booking").select("id, customerId, professionalProfileId").eq("id", bookingId).maybeSingle();
   if (error || !booking) throw new Error(`booking_email_lookup: ${error?.message ?? "not_found"}`);
   const { data: customer } = await supabase.from("User").select("email, name").eq("id", booking.customerId).maybeSingle();
   const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
   const { data: consultant } = profile ? await supabase.from("User").select("email, name").eq("id", profile.userId).maybeSingle() : { data: null };
   const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
   const consultantPublicName = (Array.isArray(publicProfile?.user) ? publicProfile.user[0]?.name : (publicProfile?.user as { name?: string } | null)?.name) || "a pessoa da comunidade";
-  const startsAt = parseDbDate(booking.startsAt);
-  const date = startsAt.toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const time = startsAt.toLocaleString("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  const appUrl = getAppUrl();
-  // Share the schedule-checked Insidely room link; the raw Meet link would work at any time.
-  const roomUrl = `${appUrl}/sala/${booking.id}`;
-  const ics = buildConversationIcs({ id: booking.id, startsAt, durationMinutes: booking.durationMinutes, goals: booking.goals, roomUrl });
-  const room = `<p><strong>Link da sala:</strong> <a href="${escapeHtml(roomUrl)}">${escapeHtml(roomUrl)}</a></p><p>A sala do Google Meet só é liberada no horário marcado e é encerrada ao fim da conversa (é preciso estar logado na Insidely).</p>`;
+  const chatUrl = `${getAppUrl()}/conversa/${booking.id}`;
   const recipients = [
-    customer?.email ? { email: customer.email, name: customer.name, with: consultantPublicName, chat: "/dashboard/mensagens" } : null,
-    consultant?.email ? { email: consultant.email, name: consultant.name, with: customer?.name || "seu cliente", chat: "/consultor/consultas" } : null,
-  ].filter((recipient): recipient is BookingRecipient & { with: string; chat: string } => Boolean(recipient)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
+    customer?.email ? { email: customer.email, name: customer.name, intro: `Seu chat com ${escapeHtml(consultantPublicName)} está aberto. Escreva sua primeira mensagem: o consultor tem 24 horas para responder depois dela; sem resposta, o valor volta integralmente para você.` } : null,
+    consultant?.email ? { email: consultant.email, name: consultant.name, intro: "Um cliente abriu um chat com você. Depois da primeira mensagem dele, você tem 24 horas para responder; sem resposta, o valor volta para o cliente." } : null,
+  ].filter((recipient): recipient is BookingRecipient & { intro: string } => Boolean(recipient)).filter((recipient, index, list) => list.findIndex((item) => item.email === recipient.email) === index);
   for (const recipient of recipients) {
-    const subject = kind === "confirmation" ? "Sua conversa na Insidely foi confirmada" : kind === "rescheduled" ? "Sua conversa na Insidely mudou de horário" : `Lembrete: sua conversa na Insidely começa às ${time}`;
-    const intro = kind === "confirmation" ? `Sua conversa com ${escapeHtml(recipient.with)} foi confirmada.` : kind === "rescheduled" ? `A conversa com ${escapeHtml(recipient.with)} foi reagendada. O horário anterior foi liberado.` : `Sua conversa com ${escapeHtml(recipient.with)} começa em breve.`;
-    await sendTransactionalEmail({ to: recipient.email, subject, ics: kind === "reminder" ? undefined : ics, html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${intro}</p><p><strong>Quando:</strong> ${escapeHtml(date)} (horário de Brasília), ${booking.durationMinutes} minutos.</p>${room}<p>${emailButton(appUrl + recipient.chat, "Abrir o chat da conversa")}</p>${kind === "rescheduled" ? "<p>O convite em anexo traz o novo horário. Se você tinha adicionado a conversa à sua agenda, apague o evento antigo.</p>" : kind === "confirmation" ? "<p>O convite em anexo adiciona a conversa à sua agenda, com aviso 30 minutos antes.</p>" : "<p><strong>Antes de entrar:</strong></p><ul><li>Teste câmera e microfone em meet.google.com.</li><li>Escolha um lugar silencioso e com boa internet.</li><li>Releia o que foi combinado e anote suas perguntas.</li><li>A sala abre exatamente no horário marcado.</li></ul>"}` });
+    await sendTransactionalEmail({ to: recipient.email, subject: "Seu chat na Insidely está aberto", html: `<p>Olá, ${escapeHtml(recipient.name || "!")}</p><p>${recipient.intro}</p><p>${emailButton(chatUrl, "Abrir o chat")}</p>` });
   }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendBookingConfirmationEmails(supabase: any, bookingId: string) {
-  await sendBookingRoomEmails(supabase, bookingId, "confirmation");
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendBookingRescheduledEmails(supabase: any, bookingId: string) {
-  await sendBookingRoomEmails(supabase, bookingId, "rescheduled");
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendBookingReminderEmails(supabase: any, bookingId: string) {
-  await sendBookingRoomEmails(supabase, bookingId, "reminder");
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,9 +104,8 @@ export async function sendPaymentInstructionsEmail(supabase: any, bookingId: str
   if (!customer?.email) return;
   const { data: publicProfile } = await supabase.from("public_profile_cards").select("user").eq("id", booking.professionalProfileId).maybeSingle();
   const professionalUser = Array.isArray(publicProfile?.user) ? publicProfile.user[0] : publicProfile?.user;
-  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   // The checkout is a simulation: never e-mail a real Pix code that someone could actually pay.
-  await sendTransactionalEmail({ to: customer.email, subject: "Finalize o pagamento da sua conversa na Insidely", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>Sua conversa com ${escapeHtml(professionalUser?.name || "o consultor")} está reservada para <strong>${escapeHtml(date)}</strong>, com duração de ${booking.durationMinutes} minutos.</p><p><a href="${escapeHtml(checkoutUrl)}">Abrir checkout</a></p><p>O pagamento desta versão é demonstrativo e nenhum valor é cobrado. A conversa é liberada assim que o pagamento for confirmado no checkout.</p>` });
+  await sendTransactionalEmail({ to: customer.email, subject: "Finalize o pagamento do seu chat na Insidely", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>Seu chat com ${escapeHtml(professionalUser?.name || "o consultor")} abre assim que o pagamento for confirmado.</p><p><a href="${escapeHtml(checkoutUrl)}">Abrir checkout</a></p><p>O pagamento desta versão é demonstrativo e nenhum valor é cobrado. </p>` });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -142,9 +117,8 @@ export async function sendBookingCancellationEmail(supabase: any, bookingId: str
   if (!customer?.email) return;
   const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
   const professionalUser = Array.isArray(professional?.user) ? professional.user[0] : professional?.user;
-  const date = parseDbDate(booking.startsAt).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
   const refundMessage = refunded ? "O reembolso integral foi solicitado ao meio de pagamento utilizado. O prazo para aparecer na sua conta depende da instituição financeira." : "Como o pagamento ainda não havia sido confirmado, não houve cobrança concluída.";
-  await sendTransactionalEmail({ to: customer.email, subject: "Sua conversa na Insidely foi cancelada", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>O consultor ${escapeHtml(professionalUser?.name || "responsável pela conversa")} precisou cancelar a conversa marcada para <strong>${escapeHtml(date)}</strong>.</p><p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p><p>${refundMessage}</p><p>Você pode voltar à plataforma para escolher outro profissional e horário.</p>` });
+  await sendTransactionalEmail({ to: customer.email, subject: "Seu chat na Insidely foi recusado", html: `<p>Olá, ${escapeHtml(customer.name || "!")}</p><p>O consultor ${escapeHtml(professionalUser?.name || "responsável pela conversa")} não pôde atender o seu chat.</p><p><strong>Motivo informado:</strong> ${escapeHtml(reason)}</p><p>${refundMessage}</p><p>Você pode voltar à plataforma e abrir um chat com outro profissional.</p>` });
 }
 
 // Sign-up confirmation and password recovery links, sent through the app's own mail transport.

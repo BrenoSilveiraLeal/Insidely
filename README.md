@@ -1,6 +1,6 @@
 # Insidely
 
-Marketplace de conversas profissionais para conhecer empresas e profissões antes de tomar decisões de carreira. O produto conecta clientes a consultores por videochamada ou por perguntas respondidas no chat.
+Marketplace de conversas profissionais para conhecer empresas e profissões antes de tomar decisões de carreira. O produto conecta clientes a consultores (funcionários atuais ou ex-funcionários) por um **chat pago**, com a opção de o consultor aparecer de forma **anônima**.
 
 **Stack:** Next.js 16 · React 19 · TypeScript · Supabase · Vercel
 
@@ -8,13 +8,16 @@ Marketplace de conversas profissionais para conhecer empresas e profissões ante
 
 ## O produto
 
-- **Busca de profissionais:** página responsiva com palavra-chave, empresa, profissão e modalidade, além de filtros por preço, avaliação, senioridade, disponibilidade, vínculo e ordenação. Resultados e contadores vêm do banco de dados.
-- **Conversas por vídeo:** reserva de horário, chat protegido, sala Google Meet no horário marcado e confirmação após o encontro.
-- **Perguntas por mensagem:** pedido de uma a cinco perguntas; o consultor responde uma de cada vez dentro de 48 horas.
-- **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat, bloqueios, denúncias, contestações e histórico preservado.
-- **Painéis separados:** áreas para clientes, consultores e administração, com notificações, agenda e controles de privacidade.
+- **Busca de profissionais:** página responsiva com palavra-chave, empresa, profissão e modalidade, além de filtros por preço, avaliação, senioridade, vínculo e ordenação. Resultados e contadores vêm do banco de dados.
+- **Chat pago, sem horário marcado:** o cliente paga para liberar o chat, que abre na hora. O consultor tem 24 horas para responder depois da primeira mensagem do cliente e pode atender vários chats ao mesmo tempo. O chat fecha quando o cliente confirma que as dúvidas foram respondidas, quando o consultor encerra, após 24 horas sem mensagens ou em 72 horas.
+- **Pagamento protegido:** o valor fica retido até o chat terminar. Sem resposta do consultor, o cliente recebe 100% de volta. Antes da primeira resposta, o cliente pode cancelar com reembolso integral; depois, pode contestar, e o suporte decide entre reembolso total, parcial ou nenhum.
+- **Modo anônimo:** o consultor pode aparecer só com um apelido, a empresa e o cargo, para que o empregador ou ex-empregador não descubra quem fala da empresa. A verificação de vínculo continua, visível só para a equipe.
+- **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat com advertência automática (no máximo uma a cada 24 horas), suspensões progressivas, recurso contra advertências e suspensões, bloqueios, denúncias, contestações e histórico preservado.
+- **Painéis separados:** áreas para clientes, consultores, suporte e administração, com notificações, horários de atendimento e controles de privacidade.
 
-Veja os estados e as regras de cada formato em [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md).
+> Até novembro de 2026 a plataforma também tinha conversas por vídeo (Google Meet) e um formato de "5 perguntas por mensagem". Os dois foram removidos depois da apresentação do TCC: por vídeo o consultor é reconhecido pelo rosto e pela voz, o que o expõe a retaliação. Conversas antigas continuam no histórico.
+
+Veja o ciclo completo do chat, os prazos e as regras de reembolso, anonimato e advertências em [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md).
 
 ## Começar localmente
 
@@ -46,6 +49,8 @@ npx supabase db query --linked -f supabase/migrations/<arquivo>.sql
 npx supabase migration repair --status applied <versao> --linked
 ```
 
+As migrations do formato só por chat são `20261110100000_chat_only.sql`, `20261110110000_chat_pay_first.sql` e `20261110120000_auto_warnings_and_appeals.sql`, aplicadas nessa ordem. Elas agendam o fechamento automático dos chats com `pg_cron`, quando a extensão existe.
+
 Consulte [docs/DEPLOY.md](docs/DEPLOY.md) e o histórico em `supabase/migrations`. A Edge Function de exclusão de conta fica em `supabase/functions/delete-account` e é publicada com:
 
 ```bash
@@ -54,7 +59,6 @@ npx supabase functions deploy delete-account
 
 ## Integrações opcionais
 
-- **Google Meet:** `GOOGLE_MEET_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Veja [docs/GOOGLE-MEET-SETUP.md](docs/GOOGLE-MEET-SETUP.md).
 - **E-mail:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, ou Resend com `RESEND_API_KEY` e `RESEND_FROM_EMAIL`. Veja [docs/EMAIL-SETUP.md](docs/EMAIL-SETUP.md).
 - **Stripe:** `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. O checkout atual permanece demonstrativo. Veja [docs/STRIPE-SETUP.md](docs/STRIPE-SETUP.md) e [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md).
 - **Web push:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` habilitam notificações push no navegador.
@@ -95,7 +99,7 @@ Os testes autenticados usam duas contas configuradas no ambiente E2E. Consulte [
 | Documento | Assunto |
 | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Camadas, autorização, dados e rotas principais. |
-| [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md) | Ciclo de vídeo e perguntas por mensagem. |
+| [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md) | Ciclo do chat, prazos, reembolsos, modo anônimo, advertências e recursos. |
 | [ROADMAP.md](ROADMAP.md) | Entregas atuais e próximos pontos operacionais. |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Ordem de publicação e verificação de deployment. |
 | [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md) | Simulação atual e integração financeira prevista. |

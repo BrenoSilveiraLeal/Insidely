@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { parseChatHours, WEEKDAY_LABELS, type ChatWindow } from "@/lib/chat-hours";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { notFound, redirect } from "next/navigation";
@@ -10,7 +11,7 @@ import { getAuthenticatedUser, getSuspension, requireUser } from "@/lib/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
-import { maskUnsafeGoal, safeInternalPath } from "@/lib/security";
+import { safeInternalPath } from "@/lib/security";
 import { findUnsafeProfileText, moderateChatMessage, unsafeProfileTextMessage } from "@/lib/chat-moderation";
 import { CONVERSATION_REPORT_CATEGORIES } from "@/lib/reports";
 import { VERIFICATION_METHODS } from "@/lib/verification";
@@ -20,9 +21,7 @@ import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { TERMS_VERSION } from "@/lib/terms";
 import { conversationIdForParticipant, markConversationRead } from "@/lib/conversations";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
-import { calendarLinkReturnPath } from "@/lib/google-agenda-sync";
-import { removeCalendarLink, syncCalendar } from "@/lib/google-calendar-link";
-import { canReviewBooking, canSendBookingMessage, isMessageClosing, MESSAGE_CLOSING_TEXT } from "@/lib/booking-policy";
+import { canReviewBooking, canSendBookingMessage } from "@/lib/booking-policy";
 import { ageOn, cpfDigits, isValidCpf } from "@/lib/identity";
 import { detectPixKeyType, normalizePixKey, PIX_KEY_TYPES, pixKeyError, type PixKeyType } from "@/lib/pix-key";
 import { catalogKey, catalogSlug, cleanCatalogName, UNLISTED_COMPANY_ID, UNLISTED_IDS, UNLISTED_PROFESSION_ID } from "@/lib/catalog";
@@ -32,11 +31,11 @@ import { createEmailChangeToken } from "@/lib/email-change-token";
 import { allowAuthEmail, allowIdentityAttempt, allowLoginAttempt, consumeQuota } from "@/lib/auth-email-throttle";
 import { accountHasPassword } from "@/lib/auth-user";
 import { parseDbDate, shortDate } from "@/lib/format";
-import { suspendAccount, warnAccount } from "@/lib/enforcement";
+import { autoWarnForChat, suspendAccount, warnAccount } from "@/lib/enforcement";
+import { createAppeal, decideAppeal } from "@/lib/appeals";
 import { resolveDispute } from "@/lib/disputes";
-import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundCustomerCancellation, releaseBookingTransfer } from "@/lib/stripe-payments";
-import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendBookingCancellationEmail, sendCustomerCancellationEmail, sendBookingConfirmationEmails, sendBookingRescheduledEmails, sendPaymentInstructionsEmail, appEmailConfigured } from "@/lib/email";
-import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
+import { cancelBookingAndRefund, createBookingCheckout, createConnectOnboardingLink, refundChatInFull, releaseBookingTransfer } from "@/lib/stripe-payments";
+import { emailButton, sendSecurityEmail, sendTransactionalEmail, sendAuthLinkEmail, sendEmailChangeConfirmation, sendBookingCancellationEmail, sendBookingConfirmationEmails, appEmailConfigured } from "@/lib/email";
 import { HOME_STORY_LIMIT } from "@/lib/story-limits";
 import { formatPersonName } from "@/lib/person-name";
 import { isRepetitive, tidyHeadline, tidyPresentation } from "@/lib/profile-text";
@@ -478,37 +477,6 @@ export async function becomeConsultantAction(_: string | undefined, formData: Fo
 }
 
 export async function toggleFavoriteAction(profileId: string) { const user = await requireUser(); const { data: target } = await createSupabaseServiceClient().from("ProfessionalProfile").select("userId").eq("id", profileId).maybeSingle(); if (target?.userId === user.id) return; /* no favoriting your own profile */ await rpc("toggle_favorite", { p_profile_id: profileId }); revalidatePath("/dashboard/favoritos"); revalidatePath("/dashboard"); revalidatePath(`/profissional/${profileId}`); }
-export async function createBookingAction(profileId: string, _previousState: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
-  const slot = String(formData.get("slot") || "");
-  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
-  let goals = maskUnsafeGoal(String(formData.get("goals") || "").trim());
-  for (const namePart of user.name.split(/\s+/).filter((part) => part.length >= 3)) {
-    goals = goals.replace(new RegExp(`\\b${namePart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "giu"), (match) => "*".repeat(match.length));
-  }
-  if (!slot) return { status: "error", message: "Selecione um horário antes de continuar. Seus temas e seu texto continuam salvos aqui." };
-  if (goals.length < 12) return { status: "error", message: "Conte um pouco mais sobre o que você precisa decidir (mínimo de 12 caracteres)." };
-  let booking: string;
-  try {
-    booking = await rpc("create_booking", { p_profile_id: profileId, p_slot_id: slot, p_duration: duration, p_topics: formData.getAll("topics").map(String), p_goals: goals });
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (process.env.E2E_MOCK_EXTERNALS === "true") console.error("[E2E] create_booking failed", message);
-    if (message.includes("slot_too_soon") || message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro horário; seus temas e seu texto continuam salvos." };
-    if (message.includes("unauthorized")) return { status: "error", message: "Sua sessão expirou. Entre novamente para continuar." };
-    if (message.includes("own_profile")) return { status: "error", message: "Você não pode agendar uma conversa com o seu próprio perfil." };
-    if (message.includes("blocked")) return { status: "error", message: "Não é possível agendar com este consultor." };
-    if (message.includes("consultant_paused")) return { status: "error", message: "Este consultor está com a agenda pausada no momento." };
-    if (message.includes("account_suspended")) return { status: "error", message: "Este agendamento não está disponível no momento." };
-    if (message.includes("consultant_identity_required")) return { status: "error", message: "Este consultor ainda não concluiu o cadastro e não pode receber agendamentos no momento." };
-    if (message.includes("identity_required")) return { status: "error", message: "Antes de agendar, registre seu CPF e sua data de nascimento. Recarregue a página para ver o formulário." };
-    return { status: "error", message: "Não foi possível criar a solicitação agora. Seus dados continuam no formulário; tente novamente." };
-  }
-  // Sent after the response so the checkout opens without waiting on the mail server.
-  const checkoutUrl = `${getAppUrl()}/checkout/${booking}`;
-  after(() => sendPaymentInstructionsEmail(createSupabaseServiceClient(), booking, checkoutUrl).catch((error) => console.error("payment_instructions_email_failed", { booking, error })));
-  redirect(`/checkout/${booking}`);
-}
 
 export async function createStripeCheckoutAction(id: string) {
   const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]);
@@ -555,24 +523,20 @@ export async function simulateBookingPaymentAction(id: string, formData: FormDat
       status: "CONFIRMED", paymentConfirmedAt: now, updatedAt: now,
     }).eq("id", id).eq("status", "PENDING_PAYMENT");
     if (confirmError?.message.includes("slot_taken")) redirect(`/checkout/${id}?erro=${encodeURIComponent("Esse horário acabou de ser reservado por outra pessoa. Nada foi cobrado: volte ao perfil e escolha outro horário.")}`);
-    if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível confirmar o agendamento. Tente de novo.")}`);
+    if (confirmError) redirect(`/checkout/${id}?erro=${encodeURIComponent("Não foi possível confirmar o pedido. Tente de novo.")}`);
     const { error } = await supabase.from("Payment").update({
       status: "PAID_HELD", provider: "SIMULATION", providerRef: `demo-${method.toLowerCase()}-${id}`,
       paidAt: now, updatedAt: now,
     }).eq("id", payment.id).eq("status", "PENDING");
-    if (error) redirect(`/checkout/${id}?erro=${encodeURIComponent("Agendamento confirmado, mas não foi possível registrar o pagamento simulado.")}`);
-    // The Meet room is only created once the conversation starts (/sala creates it on the first
-    // visit); this only does anything for an immediate conversation that is already under way.
-    try { await ensureGoogleMeetForBooking(supabase, id); }
-    catch (error) { console.error("simulated_payment_meet_creation_failed", { bookingId: id, error }); }
+    if (error) redirect(`/checkout/${id}?erro=${encodeURIComponent("Pedido confirmado, mas não foi possível registrar o pagamento simulado.")}`);
     await postWelcomeMessage(supabase, id).catch((error) => console.error("welcome_message_failed", { bookingId: id, error }));
     // Notifications and e-mails run after the response: the payment is already confirmed, so the
     // customer sees the confirmation without waiting on them.
     after(async () => {
       const { data: consultantProfile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
       const notificationRows = [
-        { id: crypto.randomUUID(), userId: booking.customerId, title: "Conversa confirmada", body: `Sua conversa é em ${shortDate(parseDbDate(booking.startsAt))}. O link da sala está no chat da conversa e no seu e-mail; ele abre no horário marcado.`, href: "/dashboard/mensagens", createdAt: now },
-        ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Nova conversa confirmada", body: `Conversa marcada para ${shortDate(parseDbDate(booking.startsAt))}. O link da sala está no chat da consulta e no seu e-mail; ele abre no horário marcado.`, href: "/consultor/consultas", createdAt: now }] : []),
+        { id: crypto.randomUUID(), userId: booking.customerId, title: "Chat aberto", body: "Pagamento confirmado: o chat está aberto. Escreva sua primeira mensagem; o consultor tem 24 horas para responder depois dela.", href: `/conversa/${id}`, createdAt: new Date().toISOString() },
+        ...(consultantProfile?.userId ? [{ id: crypto.randomUUID(), userId: consultantProfile.userId, title: "Novo chat aberto", body: "Um cliente abriu um chat com você. Depois da primeira mensagem dele, você tem 24 horas para responder; sem resposta, o valor volta para o cliente.", href: `/conversa/${id}`, createdAt: new Date().toISOString() }] : []),
       ];
       const { error: notificationError } = await supabase.from("Notification").insert(notificationRows);
       if (notificationError) console.error("simulated_payment_notification_failed", { bookingId: id, error: notificationError });
@@ -599,47 +563,12 @@ export async function startStripeConnectOnboardingAction() {
   }
 }
 
-export async function createAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser([Role.CONSULTANT]);
-  const startsAt = new Date(String(formData.get("startsAt") || ""));
-  const duration = Number(formData.get("duration"));
-  if (Number.isNaN(startsAt.getTime()) || ![30, 60].includes(duration)) return { status: "error", message: "Escolha uma data e duração válidas." };
-  try {
-    await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + duration * 60_000).toISOString() });
-    revalidatePath("/consultor/agenda");
-    revalidatePath("/buscar");
-    after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
-    return { status: "success", message: "Horário adicionado à sua agenda e ao seu perfil." };
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (message.includes("invalid_time_range")) return { status: "error", message: "Escolha um horário que não tenha terminado há mais de um minuto." };
-    if (message.includes("availability_conflict")) return { status: "error", message: "Esse horário se sobrepõe a outro da sua agenda." };
-    return { status: "error", message: "Não foi possível salvar este horário. Tente novamente." };
-  }
-}
 
-export async function createInstantAvailabilityAction(): Promise<FormState> {
-  const user = await requireUser([Role.CONSULTANT]);
-  const startsAt = new Date();
-  try {
-    await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + 30 * 60_000).toISOString() });
-    revalidatePath("/consultor/agenda");
-    revalidatePath("/buscar");
-    after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
-    return { status: "success", message: "Disponibilidade imediata aberta por 30 minutos." };
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (message.includes("availability_conflict")) return { status: "error", message: "Esse horário se sobrepõe a outro da sua agenda." };
-    return { status: "error", message: "Não foi possível abrir a disponibilidade imediata. Tente novamente." };
-  }
-}
-export async function removeAvailabilityAction(id: string) { await requireUser([Role.CONSULTANT]); try { await rpc("remove_consultant_availability", { p_availability_id: id }); } catch (error) { console.error("remove_availability_failed", { id, error }); /* booked meanwhile: the refreshed agenda shows it as reserved */ } revalidatePath("/consultor/agenda"); revalidatePath("/buscar"); }
 export async function completeBookingAction(id: string) { await requireUser([Role.CONSULTANT]); await confirmConversationAction(id); }
 export async function confirmConversationAction(id: string) { await requireUser(); await rpc("confirm_booking", { p_booking_id: id }); // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const service = createSupabaseServiceClient() as any; const { data: payment } = await service.from("Payment").select("provider").eq("bookingId", id).maybeSingle(); if (payment?.provider !== "SIMULATION") { try { await releaseBookingTransfer(id); } catch { /* O webhook/cron pode concluir o repasse depois. */ } } revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/ganhos"); }
 export async function disputeBookingAction(id: string, formData: FormData) { await requireUser(); const returnTo = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/agendamentos"); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`${returnTo}?contestacao=curta`); let ok = true; try { await rpc("dispute_booking", { p_booking_id: id, p_description: description }); } catch (error) { ok = false; console.error("dispute_failed", { bookingId: id, error }); } if (ok) after(() => notifyDisputeStaff(id, description)); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas"); redirect(`${returnTo}?contestacao=${ok ? "ok" : "erro"}`); }
 export async function submitReviewAction(_: FormState, formData: FormData): Promise<FormState> { await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const rating = Number(formData.get("rating")); const comment = String(formData.get("comment") || ""); if (!Number.isInteger(rating) || rating < 0 || rating > 5 || comment.length > 2000) return { status: "error", message: "Revise sua avaliação." }; const commentCheck = comment.trim() ? moderateChatMessage(comment, { countScatteredDigits: false }) : { allowed: true as const }; if (!commentCheck.allowed) return { status: "error", message: reviewTextError(commentCheck.reason) }; try { await rpc("create_review", { p_booking_id: String(formData.get("bookingId")), p_rating: rating, p_comment: comment.trim().slice(0, 2000) }); } catch { return { status: "error", message: "Esta conversa já foi avaliada ou não pode ser avaliada." }; } revalidatePath("/dashboard/avaliacoes"); revalidatePath("/profissional/[id]", "page"); return { status: "success", message: "Avaliação publicada." }; }
-export async function updateConsultantRecordingConsentAction(id: string, formData: FormData) { await requireUser([Role.CONSULTANT]); await rpc("set_recording_consent", { p_booking_id: id, p_consented: formData.get("recordingConsent") === "on" }); revalidatePath("/consultor/consultas"); }
 export async function cancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser([Role.CONSULTANT]);
   const reason = String(formData.get("reason") || "").trim();
@@ -674,12 +603,16 @@ export async function sendMessageAction(id: string, formData: FormData) {
     // Capped per hour so a script cannot fill the table; the message is refused either way.
     const { error } = !await consumeQuota(`moderation-log:${user.id}`, 30, 3600) ? { error: null } : await createSupabaseServiceClient().from("ChatModerationEvent" as never).insert({ userId: user.id, conversationId: id, reason: moderation.reason, excerpt: body.slice(0, 500) } as never);
     if (error) console.error("chat_moderation_log_failed", { error });
-    redirect(`${returnTo}?mensagem=${moderation.reason === "offensive" ? "ofensiva" : "bloqueada"}`);
+    // One automatic warning per 24 hours, however many attempts (lib/enforcement.ts).
+    const warned = await autoWarnForChat(createSupabaseServiceClient(), user.id, moderation.reason === "offensive" ? "offensive" : "contact").catch((warnError) => { console.error("auto_warning_failed", { error: warnError }); return false; });
+    redirect(`${returnTo}?mensagem=${moderation.reason === "offensive" ? "ofensiva" : "bloqueada"}${warned ? "&advertencia=1" : ""}`);
   }
   try { await rpc("send_message", { p_conversation_id: id, p_body: body }); }
   catch (error) {
     const message = error instanceof Error ? error.message : "";
-    redirect(`${returnTo}?mensagem=${message.includes("offensive_language") ? "ofensiva" : message.includes("contact_sharing") ? "bloqueada" : message.includes("question_limit") ? "limite-perguntas" : message.includes("rate_limited") ? "limite" : "erro"}`);
+    const refused = message.includes("offensive_language") ? "offensive" : message.includes("contact_sharing") ? "contact" : null;
+    const warned = refused ? await autoWarnForChat(createSupabaseServiceClient(), user.id, refused).catch((warnError) => { console.error("auto_warning_failed", { error: warnError }); return false; }) : false;
+    redirect(`${returnTo}?mensagem=${refused === "offensive" ? "ofensiva" : refused === "contact" ? "bloqueada" : message.includes("rate_limited") ? "limite" : "erro"}${warned ? "&advertencia=1" : ""}`);
   }
   revalidatePath(returnTo);
   revalidatePath("/dashboard/mensagens");
@@ -687,7 +620,7 @@ export async function sendMessageAction(id: string, formData: FormData) {
 }
 export async function updateAccountNameAction(_: FormState, formData: FormData): Promise<FormState> { const user = await requireUser([Role.USER, Role.CONSULTANT, Role.ADMIN]); const name = formatPersonName(String(formData.get("name") || "")); if (name.length < 2 || name.length > 80) return { status: "error", message: "Digite um nome entre 2 e 80 caracteres." }; const supabase = await createSupabaseServerClient(); const { error } = await supabase.from("User").update({ name, updatedAt: new Date().toISOString() }).eq("id", user.id); if (error) return { status: "error", message: "Não foi possível atualizar seu nome agora." }; revalidatePath("/dashboard"); revalidatePath("/dashboard/configuracoes"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor"); return { status: "success", message: "Nome atualizado." }; }
 export async function updatePrivacyAction(formData: FormData) { await requireUser([Role.CONSULTANT]); const keys = ["showRealName", "showSurname", "showPhoto", "showAgeRange", "showCurrentCompany", "showFullHistory", "showExactDates", "showCity", "searchableByCompany", "searchableByProfession"]; const payload = Object.fromEntries(keys.map((key) => [key, formData.get(key) === "on"])); await rpc("update_privacy", { p_payload: payload }); revalidatePath("/consultor/privacidade"); redirect("/consultor/privacidade?salvo=1"); }
-export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const tidyError = tidyProfileTexts(formData); if (tidyError) return tidyError; const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const pixText = String(formData.get("pixKey") || ""); const requestedPixType = String(formData.get("pixKeyType") || ""); const pixType: PixKeyType = PIX_KEY_TYPES.some((item) => item.value === requestedPixType) ? requestedPixType as PixKeyType : detectPixKeyType(pixText); const pixKey = normalizePixKey(pixType, pixText); if (!pixKey) return pixKeyError(pixType); formData.set("pixKey", pixKey); formData.delete("pixKeyType"); const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const price30 = Number(String(formData.get("price30Cents") || "").replace(",", ".")); const price60 = Number(String(formData.get("price60Cents") || "").replace(",", ".")); if (!Number.isFinite(price30) || !Number.isFinite(price60) || price30 < 10 || price60 < 10) return "O valor mínimo é R$ 10,00 por sessão."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt);
+export async function updateProfessionalProfileAction(_: string | undefined, formData: FormData) { const user = await requireUser([Role.CONSULTANT]); const tidyError = tidyProfileTexts(formData); if (tidyError) return tidyError; const textError = profileTextError(formData, [["Título profissional", "headline"], ["Sobrenome público", "publicSurname"], ["Nome público", "pseudonym"], ["Cidade/UF", "location"], ["Apresentação", "bio"], ["Temas", "topics"], ["Limites", "boundaries"], ...[0, 1, 2].flatMap((index): [string, string][] => [[`Cargo da experiência ${index + 1}`, `title${index}`], [`Área da experiência ${index + 1}`, `area${index}`], [`Resumo da experiência ${index + 1}`, `summary${index}`], [`Empresa da experiência ${index + 1}`, `companyId${index}Name`], [`Profissão da experiência ${index + 1}`, `professionId${index}Name`]])]); if (textError) return textError; const pixText = String(formData.get("pixKey") || ""); const requestedPixType = String(formData.get("pixKeyType") || ""); const pixType: PixKeyType = PIX_KEY_TYPES.some((item) => item.value === requestedPixType) ? requestedPixType as PixKeyType : detectPixKeyType(pixText); const pixKey = normalizePixKey(pixType, pixText); if (!pixKey) return pixKeyError(pixType); formData.set("pixKey", pixKey); formData.delete("pixKeyType"); const catalog = [0, 1, 2].map((index) => applyUnlistedCatalog(formData, `companyId${index}`, `professionId${index}`, `title${index}`)); const payload = formText(formData); const pseudonym = String(formData.get("pseudonym") || "").trim(); if (/[\w.+-]+@[\w.-]+[.][a-z]{2,}/i.test(pseudonym) || pseudonym.replace(/\D/g, "").length >= 10) return "O nome público não pode conter e-mail ou telefone."; const chatPrice = Number(String(formData.get("chatPrice") || "").replace(",", ".")); if (!Number.isFinite(chatPrice) || chatPrice < 10 || chatPrice > 1000) return "O valor do chat precisa ficar entre R$ 10,00 e R$ 1.000,00."; const anonymousMode = formData.get("anonymousMode") === "on"; if (anonymousMode && pseudonym.length < 3) return "No modo anônimo, escolha um apelido público com pelo menos 3 letras."; const experiences = [0, 1, 2].map((index) => ({ id: String(formData.get(`experienceId${index}`) || ""), companyId: String(formData.get(`companyId${index}`) || ""), professionId: String(formData.get(`professionId${index}`) || ""), title: String(formData.get(`title${index}`) || ""), area: String(formData.get(`area${index}`) || ""), isCurrent: formData.get(`isCurrent${index}`) === "on", startedAt: String(formData.get(`startedAt${index}`) || ""), endedAt: String(formData.get(`endedAt${index}`) || ""), summary: String(formData.get(`summary${index}`) || "") })).filter((item) => item.companyId && item.professionId && item.title && item.startedAt);
   // Current or former job: a former one needs the date the person left, after the date they joined.
   const thisMonth = new Date().toISOString().slice(0, 7);
   for (const [index, item] of experiences.entries()) {
@@ -703,10 +636,13 @@ export async function updateProfessionalProfileAction(_: string | undefined, for
   const service = createSupabaseServiceClient() as any;
   const { data: ownProfile } = await service.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
   const { data: proofLinks } = ownProfile ? await service.from("Verification").select("id, experienceId").eq("professionalProfileId", ownProfile.id).not("experienceId", "is", null) : { data: [] };
-  const before = await mainVerifiedCompany(user.id); await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: String(Math.round(price30 * 100)), price60Cents: String(Math.round(price60 * 100)), experiences } }); // Message format: on with its price, or off (null). Column from migration 20261101103000.
-  const messagePrice = Number(String(formData.get("messagePrice") || "").replace(",", "."));
-  if (ownProfile) await service.from("ProfessionalProfile").update({ messagePriceCents: formData.get("messageEnabled") === "on" && Number.isFinite(messagePrice) && messagePrice >= 10 ? Math.round(messagePrice * 100) : null }).eq("id", ownProfile.id);
-  for (const link of (proofLinks ?? []) as { id: string; experienceId: string }[]) { if (experiences.some((item) => item.id === link.experienceId)) await service.from("Verification").update({ experienceId: link.experienceId }).eq("id", link.id); } await recordCatalogRequests(user.id, catalog); const dropped = await dropVerificationIfCompanyChanged(user.id, before); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/profissional/me"); return dropped ? "Perfil atualizado. Como a empresa principal mudou, o selo de vínculo verificado saiu; envie um comprovante da nova empresa em Verificação." : catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
+  const before = await mainVerifiedCompany(user.id); // One price per chat; the old 30/60-minute columns mirror it so search and sorting keep working.
+  const chatCents = String(Math.round(chatPrice * 100));
+  await rpc("update_professional_profile", { p_payload: { ...payload, price30Cents: chatCents, price60Cents: chatCents, experiences } });
+  if (ownProfile) await service.from("ProfessionalProfile").update({ messagePriceCents: Number(chatCents), privacyMode: anonymousMode ? "PSEUDONYM" : "PUBLIC" }).eq("id", ownProfile.id);
+  // Anonymous mode hides everything that identifies the person (company and role stay: they are the subject).
+  if (anonymousMode) await rpc("update_privacy", { p_payload: { showRealName: false, showSurname: false, showPhoto: false, showAgeRange: false, showCity: false, showExactDates: false } });
+  for (const link of (proofLinks ?? []) as { id: string; experienceId: string }[]) { if (experiences.some((item) => item.id === link.experienceId)) await service.from("Verification").update({ experienceId: link.experienceId }).eq("id", link.id); } await recordCatalogRequests(user.id, catalog); const dropped = await dropVerificationIfCompanyChanged(user.id, before); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor/privacidade"); revalidatePath("/profissional/me"); return dropped ? "Perfil atualizado. Como a empresa principal mudou, o selo de vínculo verificado saiu; envie um comprovante da nova empresa em Verificação." : catalog.some(Boolean) ? "Perfil profissional atualizado. As empresas ou áreas novas foram enviadas para análise." : "Perfil profissional atualizado."; }
 export async function submitVerificationAction(_: string | undefined, formData: FormData) { await requireUser([Role.CONSULTANT]); const file = formData.get("document"); if (!(file instanceof File) || file.size === 0) return "Anexe um comprovante."; const allowed = ["application/pdf","image/jpeg","image/png","image/webp"]; if (!allowed.includes(file.type) || file.size > 5*1024*1024 || !await hasValidFileSignature(file)) return "Envie um PDF, JPG, PNG ou WEBP válido de até 5 MB."; const supabase = await createSupabaseServerClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user)return "Sua sessão expirou."; const extension=file.type==="application/pdf"?"pdf":file.type==="image/jpeg"?"jpg":file.type.split("/")[1]; const path = `${user.id}/${crypto.randomUUID()}.${extension}`; const upload = await supabase.storage.from("verification-documents").upload(path, file, { upsert: false, contentType:file.type }); if (upload.error) return "Não foi possível enviar o documento."; const method = String(formData.get("method") || ""); if (!VERIFICATION_METHODS.some((item) => item.value === method)) { await supabase.storage.from("verification-documents").remove([path]); return "Escolha o tipo de comprovante."; } const experienceId = String(formData.get("experienceId") || ""); const document = { p_storage_key: path, p_original_name: file.name.replace(/[^\p{L}\p{N}._ -]/gu,"_").slice(0,120), p_mime_type: file.type, p_size_bytes: file.size, p_method: method }; try { /* One proof per experience (migration 20261101106000); before it, the old signature plus linkVerificationExperience. */ try { await rpc("submit_verification", { ...document, p_experience_id: experienceId }); } catch (error) { if (!(error instanceof Error && error.message.includes("Could not find the function"))) throw error; await rpc("submit_verification", document); await linkVerificationExperience(formData); } } catch (error) { await supabase.storage.from("verification-documents").remove([path]); const text = error instanceof Error ? error.message : ""; return text.includes("verification_pending") ? "Já existe um comprovante em análise para essa empresa. Você pode enviar o de outra empresa enquanto isso." : text.includes("already_verified") ? "Essa experiência já está verificada." : text.includes("invalid_experience") ? "Escolha uma das experiências do seu perfil." : "Não foi possível enviar o comprovante agora. Tente novamente."; } revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); return "Comprovante enviado. A equipe da Insidely vai analisar e você recebe uma notificação com o resultado."; }
 export async function updateProfileImageAction(_: string | undefined, formData: FormData) { const stored = await requireUser(); const file = formData.get("image"); if (!(file instanceof File)) return "Escolha uma foto."; if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || !await hasValidFileSignature(file)) return "Use uma imagem PNG, JPG ou WEBP válida."; if (file.size > 3 * 1024 * 1024) return "A foto deve ter no máximo 3 MB."; const moderation = await moderateImage(file); if (!moderation.allowed) return imageModerationMessage(moderation.reason, "foto de perfil"); const supabase = await createSupabaseServerClient(); const { data: authData, error: authError } = await supabase.auth.getUser(); if (authError || !authData.user) return "Sua sessão expirou. Entre novamente."; const path = `avatars/${authData.user.id}/${crypto.randomUUID()}-${file.name}`; const bucket = supabase.storage.from("avatars"); const upload = await bucket.upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" }); if (upload.error) return `Não foi possível enviar a foto: ${upload.error.message}`; const oldPath = avatarStoragePath(stored.image, authData.user.id); const { data } = bucket.getPublicUrl(path); const { error } = await supabase.rpc("update_profile_image", { p_image: data.publicUrl }); if (error) { await bucket.remove([path]); return `A foto foi enviada, mas não pôde ser salva no perfil: ${error.message}`; } if (oldPath && oldPath !== path) await bucket.remove([oldPath]); revalidatePath("/dashboard/configuracoes"); revalidatePath("/consultor"); revalidatePath("/consultor/perfil"); revalidatePath("/consultor"); return "Foto atualizada."; }
 export async function removeProfileImageAction() {
@@ -791,55 +727,28 @@ export async function reviewVerificationAction(id: string, decision: "VERIFIED" 
   redirect(`/admin/verificacoes?ok=${decision === "VERIFIED" ? "aprovado" : "recusado"}`);
 }
 export async function resolveReportAction(id: string) { const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_report", null, id)); await adminAction("resolve_report", id); revalidatePath("/admin/denuncias"); revalidatePath("/admin/suporte"); revalidatePath("/admin"); }
-// Rescheduling (migration 20261101104000): step 1 holds the new slot, step 2 is the (simulated)
-// payment of the fee plus any price difference, which moves the conversation.
-export async function requestRescheduleAction(bookingId: string, _previousState: FormState, formData: FormData): Promise<FormState> {
-  await requireUser();
-  const slot = String(formData.get("slot") || "");
-  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
-  if (!slot) return { status: "error", message: "Escolha um novo horário." };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (await createSupabaseServerClient() as any).rpc("request_booking_reschedule", { p_booking_id: bookingId, p_slot_id: slot, p_duration: duration });
-  if (error) {
-    const message = String(error.message || "");
-    if (message.includes("slot_unavailable")) return { status: "error", message: "Esse horário acabou de ficar indisponível. Escolha outro." };
-    if (message.includes("too_late")) return { status: "error", message: "Faltam menos de 2 horas para a conversa; não dá mais para reagendar." };
-    if (message.includes("already_rescheduled")) return { status: "error", message: "Esta conversa já foi reagendada uma vez." };
-    if (message.includes("invalid_duration")) return { status: "error", message: "O reagendamento mantém ou aumenta a duração da conversa." };
-    return { status: "error", message: "Não foi possível reagendar esta conversa agora." };
-  }
-  revalidatePath(`/reagendar/${bookingId}`);
-  redirect(`/reagendar/${bookingId}`);
-}
 
-export async function payRescheduleAction(bookingId: string, rescheduleId: string, formData: FormData) {
-  const user = await requireUser();
-  const method = String(formData.get("method") || "");
-  if (!["PIX", "CREDIT_CARD", "DEBIT_CARD"].includes(method)) redirect(`/reagendar/${bookingId}?erro=metodo`);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
-  const { data: pending } = await supabase.from("BookingReschedule").select("id").eq("id", rescheduleId).eq("bookingId", bookingId).eq("customerId", user.id).eq("status", "PENDING_PAYMENT").maybeSingle();
-  if (!pending) redirect(`/reagendar/${bookingId}?erro=expirado`);
-  const { error } = await supabase.rpc("apply_booking_reschedule", { p_reschedule_id: rescheduleId, p_method: method });
-  if (error) { console.error("reschedule_apply_failed", { bookingId, error }); redirect(`/reagendar/${bookingId}?erro=expirado`); }
-  after(() => sendBookingRescheduledEmails(supabase, bookingId).catch((mailError) => console.error("reschedule_email_failed", { bookingId, error: mailError })));
-  revalidatePath("/dashboard/agendamentos"); revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); revalidatePath("/consultor/agenda");
-  redirect("/dashboard/agendamentos?reagendamento=ok");
-}
 
+// The customer cancels a chat before the consultant's first answer: full refund (or no charge while
+// unpaid). After the first answer there is no cancellation: the customer contests when it closes.
 export async function customerCancelBookingAction(id: string, formData: FormData) {
   const user = await requireUser();
-  let ok = true;
+  const back = safeInternalPath(String(formData.get("returnTo") || ""), `/conversa/${id}`);
   const reason = String(formData.get("reason") || "").trim().slice(0, 300);
-  if (reason.length < 10) redirect("/dashboard/agendamentos?cancelamento=motivo");
+  let result = "ok";
   try {
-    await refundCustomerCancellation({ bookingId: id, customerId: user.id });
-    await rpc("customer_cancel_booking", { p_booking_id: id, p_reason: reason });
+    await refundChatInFull({ bookingId: id, customerId: user.id });
+    // customer_cancel_chat is added by a migration beyond the generated types.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (await createSupabaseServerClient() as any).rpc("customer_cancel_chat", { p_booking_id: id, p_reason: reason });
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    result = message.includes("already_answered") ? "respondido" : "erro";
+    if (result === "erro") console.error("customer_cancel_failed", { bookingId: id, error });
   }
-  catch (error) { ok = false; console.error("customer_cancel_failed", { bookingId: id, error }); }
-  if (ok) { try { await sendCustomerCancellationEmail(createSupabaseServiceClient(), id, reason); } catch (error) { console.error("customer_cancellation_email_failed", { bookingId: id, error }); } }
-  revalidatePath("/dashboard"); revalidatePath("/dashboard/agendamentos"); revalidatePath("/consultor/consultas");
-  redirect(`/dashboard/agendamentos?cancelamento=${ok ? "ok" : "erro"}`);
+  revalidatePath("/dashboard/mensagens"); revalidatePath("/consultor/consultas"); revalidatePath(`/conversa/${id}`);
+  redirect(`${back}${back.includes("?") ? "&" : "?"}cancelamento=${result}`);
 }
 
 // Admin catalog queue: a typed company/area becomes a new entry (or is matched to an existing one),
@@ -1133,58 +1042,26 @@ export async function unblockUserAction(blockedId: string, consultantContext = f
 
 const BRASILIA_OFFSET = "-03:00";
 
-// Creates the same weekly slots ("toda terça 19:00") for the next weeks, in Brasília time. Slots that
-// overlap something already on the agenda are skipped instead of failing the whole batch.
-export async function createRecurringAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser([Role.CONSULTANT]);
-  const weekdays = formData.getAll("weekday").map(Number).filter((day) => day >= 0 && day <= 6);
-  const time = String(formData.get("time") || "");
-  const duration = Number(formData.get("duration")) === 60 ? 60 : 30;
-  const weeks = Math.min(8, Math.max(1, Number(formData.get("weeks")) || 4));
-  if (!weekdays.length || !/^\d{2}:\d{2}$/.test(time)) return { status: "error", message: "Escolha os dias da semana e o horário." };
-  const todayInBrasilia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-  let created = 0, skipped = 0;
-  for (let offset = 0; offset < weeks * 7; offset++) {
-    const day = new Date(new Date(`${todayInBrasilia}T12:00:00${BRASILIA_OFFSET}`).getTime() + offset * 86_400_000);
-    const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(day);
-    if (!weekdays.includes(new Date(`${date}T12:00:00Z`).getUTCDay())) continue;
-    const startsAt = new Date(`${date}T${time}:00${BRASILIA_OFFSET}`);
-    if (startsAt.getTime() <= Date.now() + 10 * 60_000) continue;
-    try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: startsAt.toISOString(), p_ends_at: new Date(startsAt.getTime() + duration * 60_000).toISOString() }); created++; }
-    catch { skipped++; }
-  }
-  if (created) after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
-  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
-  return created
-    ? { status: "success", message: `${created} ${created === 1 ? "horário criado" : "horários criados"}${skipped ? ` (${skipped} já ocupado${skipped === 1 ? "" : "s"} na agenda, ignorado${skipped === 1 ? "" : "s"})` : ""}.` }
-    : { status: "error", message: "Nenhum horário novo: os dias escolhidos já estão ocupados ou já passaram." };
-}
 
-// Copies every slot of the next 7 days (free or booked) to the following weeks.
-export async function duplicateWeekAction(_: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser([Role.CONSULTANT]);
-  const weeks = Math.min(8, Math.max(1, Number(formData.get("weeks")) || 1));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
-  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", user.id).maybeSingle();
-  if (!profile) return { status: "error", message: "Perfil não encontrado." };
-  const now = Date.now();
-  const { data: slots } = await supabase.from("Availability").select("startsAt, endsAt").eq("professionalProfileId", profile.id).gte("startsAt", new Date(now).toISOString()).lt("startsAt", new Date(now + 7 * 86_400_000).toISOString());
-  if (!slots?.length) return { status: "error", message: "Não há horários nos próximos 7 dias para copiar." };
-  let created = 0, skipped = 0;
-  for (let week = 1; week <= weeks; week++) for (const slot of slots as { startsAt: string; endsAt: string }[]) {
-    const start = parseDbDate(slot.startsAt).getTime() + week * 7 * 86_400_000, end = parseDbDate(slot.endsAt).getTime() + week * 7 * 86_400_000;
-    try { await rpc("create_consultant_availability", { p_user_id: user.id, p_starts_at: new Date(start).toISOString(), p_ends_at: new Date(end).toISOString() }); created++; }
-    catch { skipped++; }
-  }
-  if (created) after(() => notifyAvailabilityWatchers(user.id).catch((error) => console.error("availability_watch_failed", { error })));
-  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
-  return created
-    ? { status: "success", message: `${created} ${created === 1 ? "horário copiado" : "horários copiados"}${skipped ? ` (${skipped} já existia${skipped === 1 ? "" : "m"})` : ""}.` }
-    : { status: "error", message: "Esses horários já existem nas próximas semanas." };
-}
 
 // Pause: allowed only when no conversation is booked inside the pause; the profile leaves search.
+// Weekly hours the consultant usually answers chats (shown on the profile; they never block a purchase).
+export async function saveChatHoursAction(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser([Role.CONSULTANT]);
+  const windows: ChatWindow[] = [];
+  for (let day = 0; day <= 6; day++) {
+    if (formData.get(`on${day}`) !== "on") continue;
+    const start = String(formData.get(`start${day}`) || ""), end = String(formData.get(`end${day}`) || "");
+    if (!parseChatHours([{ day, start, end }]).length) return { status: "error", message: `${WEEKDAY_LABELS[day]}: o horário de término precisa ser depois do início.` };
+    windows.push({ day, start, end });
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (createSupabaseServiceClient() as any).from("ProfessionalProfile").update({ chatHours: windows, updatedAt: new Date().toISOString() }).eq("userId", user.id);
+  if (error) return { status: "error", message: "Não foi possível salvar agora. Tente novamente." };
+  revalidatePath("/consultor/agenda"); revalidatePath("/buscar");
+  return { status: "success", message: windows.length ? "Horários salvos. Eles aparecem no seu perfil." : "Horários removidos do seu perfil." };
+}
+
 export async function pauseProfileAction(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser([Role.CONSULTANT]);
   const untilRaw = String(formData.get("until") || "");
@@ -1217,41 +1094,7 @@ export async function resumeProfileAction() {
   redirect("/consultor/agenda?pausa=retomada");
 }
 
-// "Avise-me quando abrir horário" on a profile without free slots.
-export async function toggleAvailabilityWatchAction(profileId: string) {
-  const user = await requireUser(undefined, { nextPath: `/profissional/${profileId}` });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
-  const { data: existing } = await supabase.from("AvailabilityWatch").select("userId").eq("userId", user.id).eq("professionalProfileId", profileId).maybeSingle();
-  if (existing) await supabase.from("AvailabilityWatch").delete().eq("userId", user.id).eq("professionalProfileId", profileId);
-  else await supabase.from("AvailabilityWatch").insert({ userId: user.id, professionalProfileId: profileId });
-  revalidatePath(`/profissional/${profileId}`);
-}
 
-// New slots: everyone who asked to be warned gets a notification and an e-mail (once, then the
-// request ends); people who favorited the profile get a notification at most once a day.
-async function notifyAvailabilityWatchers(consultantUserId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createSupabaseServiceClient() as any;
-  const { data: profile } = await supabase.from("ProfessionalProfile").select("id").eq("userId", consultantUserId).maybeSingle();
-  if (!profile) return;
-  const { data: card } = await supabase.from("public_profile_cards").select("user").eq("id", profile.id).maybeSingle();
-  const name = (Array.isArray(card?.user) ? card.user[0]?.name : card?.user?.name) || "Um consultor";
-  const href = `/profissional/${profile.id}`;
-  const now = new Date().toISOString();
-  const { data: watches } = await supabase.from("AvailabilityWatch").select("userId, user:User(email, name)").eq("professionalProfileId", profile.id);
-  for (const watch of (watches ?? []) as { userId: string; user: { email: string; name: string } | { email: string; name: string }[] | null }[]) {
-    const person = Array.isArray(watch.user) ? watch.user[0] : watch.user;
-    await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: watch.userId, title: "Novo horário disponível", body: `${name} abriu horários na agenda.`, href, createdAt: now });
-    if (person?.email) await sendTransactionalEmail({ to: person.email, subject: `${name} abriu horários na Insidely`, html: `<p>Olá, ${person.name || ""}!</p><p>Você pediu para ser avisado: <strong>${name}</strong> acabou de abrir horários para conversa.</p><p><a href="${getAppUrl()}${href}">Ver horários disponíveis</a></p>` }).catch(() => undefined);
-  }
-  if (watches?.length) await supabase.from("AvailabilityWatch").delete().eq("professionalProfileId", profile.id);
-  if (!await consumeQuota(`favorite-slots:${profile.id}`, 1, 86_400)) return;
-  const { data: favorites } = await supabase.from("Favorite").select("userId").eq("professionalProfileId", profile.id);
-  const watched = new Set((watches ?? []).map((watch: { userId: string }) => watch.userId));
-  const rows = (favorites ?? []).filter((favorite: { userId: string }) => !watched.has(favorite.userId)).map((favorite: { userId: string }) => ({ id: crypto.randomUUID(), userId: favorite.userId, title: "Novo horário de um favorito", body: `${name} abriu horários na agenda.`, href, createdAt: now }));
-  if (rows.length) await supabase.from("Notification").insert(rows);
-}
 
 // The consultant's welcome message (posted automatically when a payment is confirmed).
 export async function saveWelcomeMessageAction(_: FormState, formData: FormData): Promise<FormState> {
@@ -1535,117 +1378,82 @@ export async function rateSupportCaseAction(reportId: string, formData: FormData
 
 // "Perguntas por mensagem": no time slot; the chat opens for 48 hours once paid (migration
 // 20261101103000). Goes to the same checkout as a video conversation.
-export async function requestMessageBookingAction(profileId: string, _: string | undefined, formData: FormData) {
-  await requireUser(undefined, { nextPath: `/agendar/${profileId}?formato=mensagem` });
-  // Up to 5 questions (unused ones are not sent); each becomes its own chat message once paid.
-  const questions = formData.getAll("question").map((value) => String(value).trim()).filter(Boolean).slice(0, 5);
-  if (!questions.length) return "Escreva pelo menos uma pergunta.";
-  if (questions.some((question) => question.length < 5)) return "Cada pergunta precisa ter pelo menos 5 caracteres. Se não for usar uma delas, marque “Não vou usar esta pergunta”.";
-  // One question per field: a field with several questions would turn 5 questions into many.
-  const crowded = questions.findIndex((question) => question.length > 150 || /[\r\n]/.test(question) || (question.match(/\?/g) ?? []).length > 1);
-  if (crowded >= 0) return `Pergunta ${crowded + 1}: escreva uma pergunta por campo (até 150 caracteres). Use os outros campos para as demais.`;
-  for (const [index, question] of questions.entries()) {
-    const moderation = moderateChatMessage(question, { countScatteredDigits: false });
-    if (!moderation.allowed) return `Pergunta ${index + 1}: ${moderation.reason === "offensive" ? "o texto tem palavrões ou ofensas. Reescreva para continuar." : "o texto parece ter contato ou combinação por fora. As conversas acontecem pela Insidely."}`;
-  }
-  const greeting = String(formData.get("greeting") || "").trim().slice(0, 140);
-  if (greeting && !moderateChatMessage(greeting, { countScatteredDigits: false }).allowed) return "A apresentação parece ter contato, combinação por fora ou ofensas. Reescreva para continuar.";
-  const goals = [greeting, ...(questions.length === 1 ? questions : questions.map((question, index) => `${index + 1}. ${question}`))].filter(Boolean).join("\n\n");
-  // create_message_booking is added by a migration beyond the generated types. With p_questions
-  // (migration 20261101110000); before it, the questions go joined as a single text.
+// "Abrir chat": the customer pays first; the chat opens once paid and only then they write.
+export async function requestMessageBookingAction(profileId: string): Promise<string | undefined> {
+  await requireUser(undefined, { nextPath: `/agendar/${profileId}` });
+  // create_message_booking is added by a migration beyond the generated types (no questions since
+  // migration 20261110110000: nothing is written before paying).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = await createSupabaseServerClient() as any;
-  const topics = formData.getAll("topics").map(String);
-  // With p_greeting (migration 20261101111000), before it without.
-  let { data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions, p_greeting: greeting });
-  if (error?.message.includes("Could not find the function")) ({ data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals, p_questions: questions }));
-  if (error?.message.includes("Could not find the function")) ({ data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: topics, p_goals: goals }));
+  const { data: bookingId, error } = await supabase.rpc("create_message_booking", { p_profile_id: profileId, p_topics: [], p_goals: "", p_questions: [] });
   if (error || !bookingId) {
     const message = error?.message ?? "";
-    if (message.includes("format_not_offered")) return "Este consultor não oferece perguntas por mensagem no momento.";
-    if (message.includes("own_profile")) return "Você não pode fazer perguntas para o seu próprio perfil.";
+    if (message.includes("format_not_offered")) return "Este consultor não está aceitando chats no momento.";
+    if (message.includes("own_profile")) return "Você não pode abrir um chat com o seu próprio perfil.";
     if (message.includes("blocked")) return "Não é possível conversar com este perfil.";
-    if (message.includes("invalid_questions")) return "Escreva de 1 a 5 perguntas, cada uma com pelo menos 5 caracteres.";
+    if (message.includes("consultant_paused")) return "Este consultor está com o perfil pausado no momento.";
     return "Não foi possível criar o pedido agora. Tente novamente.";
   }
   revalidatePath("/dashboard/mensagens");
   redirect(`/checkout/${bookingId}`);
 }
 
-// After the consultant finished a message booking, the customer confirms the questions were answered:
-// final (it cannot be undone), the held amount goes to the consultant. Otherwise they contest
-// (disputeBookingAction), which opens a case for support.
+// Whether the consultant already wrote in this chat (a message of their own, not an automatic one).
+// Before that, nobody can close the chat by hand: with no answer in 24 hours it is refunded.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function consultantHasAnswered(supabase: any, conversationId: string | null, consultantId: string | null) {
+  if (!conversationId || !consultantId) return false;
+  const { count } = await supabase.from("Message").select("id", { count: "exact", head: true }).eq("conversationId", conversationId).eq("senderId", consultantId).eq("automatic", false);
+  return Boolean(count);
+}
+
+type ChatBooking = { id: string; customerId: string; format: string; status: string; startsAt: string; disputedAt: string | null; consultantId: string | null; conversationId: string | null };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadChatBooking(supabase: any, bookingId: string): Promise<ChatBooking | null> {
+  const { data: booking } = await supabase.from("Booking").select("id, customerId, format, status, startsAt, disputedAt, professionalProfile:ProfessionalProfile(userId), conversation:Conversation(id)").eq("id", bookingId).maybeSingle();
+  if (!booking) return null;
+  const one = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
+  return { ...booking, consultantId: (one(booking.professionalProfile) as { userId?: string } | null)?.userId ?? null, conversationId: (one(booking.conversation) as { id?: string } | null)?.id ?? null };
+}
+
+// "Minhas dúvidas foram respondidas": final (it cannot be undone). The chat closes and the held
+// amount goes to the consultant. While the chat is open it needs at least one answer; once the
+// consultant ended it, the customer can confirm instead of waiting for the 24-hour contest window.
 export async function confirmMessageAnswersAction(bookingId: string) {
   const user = await requireUser();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: booking } = await (createSupabaseServiceClient() as any).from("Booking").select("customerId, format, status, startsAt, durationMinutes").eq("id", bookingId).maybeSingle();
-  // Also past the answer deadline when the consultant never finished (still CONFIRMED).
-  const deadlinePassed = booking && Date.now() > parseDbDate(booking.startsAt).getTime() + Number(booking.durationMinutes) * 60_000;
-  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || !(booking.status === "AWAITING_CONFIRMATION" || (booking.status === "CONFIRMED" && deadlinePassed))) redirect(`/conversa/${bookingId}`);
-  try { await confirmConversationAction(bookingId); } catch (error) { console.error("message_confirm_failed", { bookingId, error }); redirect(`/conversa/${bookingId}?mensagem=erro`); }
-  revalidatePath(`/conversa/${bookingId}`);
-  redirect(`/conversa/${bookingId}?mensagem=encerrada`);
-}
-
-// The consultant releases the next question once they finished answering the current one (migration
-// 20261101115000: a reply alone, such as a greeting, no longer releases it).
-export async function sendNextQuestionAction(bookingId: string) {
-  await requireUser([Role.CONSULTANT]);
   const back = `/conversa/${bookingId}`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (await createSupabaseServerClient() as any).rpc("send_next_message_question", { p_booking_id: bookingId });
-  if (error) redirect(`${back}?mensagem=${error.message.includes("not_answered") ? "responda-antes" : "erro"}`);
-  revalidatePath(back);
-  redirect(back);
-}
-
-// Where a message booking stands for its consultant: every question sent and the last one answered
-// (a reply of theirs after it), and whether they already concluded (the automatic thank-you is posted).
-async function messageBookingProgress(bookingId: string, userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
-  const { data: booking } = await supabase.from("Booking").select("id, startsAt, status, format, customerId, questions, questionsSent, professionalProfile:ProfessionalProfile(userId), conversation:Conversation(id)").eq("id", bookingId).maybeSingle();
-  const one = <T,>(value: T | T[] | null) => Array.isArray(value) ? value[0] ?? null : value;
-  const consultantId = (one(booking?.professionalProfile) as { userId?: string } | null)?.userId;
-  if (!booking || consultantId !== userId || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") return null;
-  const total = Array.isArray(booking.questions) ? booking.questions.length : 0;
-  const conversationId = (one(booking.conversation) as { id?: string } | null)?.id ?? null;
-  const { data: messages } = conversationId ? await supabase.from("Message").select("senderId, body, createdAt, automatic").eq("conversationId", conversationId) : { data: [] };
-  const rows = (messages ?? []) as { senderId: string; body: string; createdAt: string; automatic: boolean }[];
-  const concluded = rows.some((row) => row.senderId === booking.customerId && isMessageClosing(row));
-  const lastQuestionAt = Math.max(0, ...rows.filter((row) => row.senderId === booking.customerId && !isMessageClosing(row)).map((row) => parseDbDate(row.createdAt).getTime()));
-  const answeredLast = rows.some((row) => row.senderId === userId && !row.automatic && parseDbDate(row.createdAt).getTime() > lastQuestionAt);
-  return { supabase, booking, conversationId, allAnswered: Number(booking.questionsSent ?? 0) >= total && answeredLast, concluded };
+  const booking = await loadChatBooking(supabase, bookingId);
+  if (!booking || booking.customerId !== user.id || booking.format !== "MESSAGE" || booking.disputedAt || !["CONFIRMED", "AWAITING_CONFIRMATION"].includes(booking.status)) redirect(back);
+  if (booking.status === "CONFIRMED" && !await consultantHasAnswered(supabase, booking.conversationId, booking.consultantId)) redirect(`${back}?mensagem=sem-resposta`);
+  // The customer's word is enough: the consultant's side is recorded too, so confirm_booking completes
+  // the booking (simulated payments are released at once, real ones by the release job, now due).
+  const now = new Date().toISOString();
+  await supabase.from("Booking").update({ consultantConfirmedAt: now }).eq("id", bookingId).is("consultantConfirmedAt", null);
+  await supabase.from("Booking").update({ autoReleaseAt: now, updatedAt: now }).eq("id", bookingId);
+  try { await confirmConversationAction(bookingId); } catch (error) { console.error("message_confirm_failed", { bookingId, error }); redirect(`${back}?mensagem=erro`); }
+  if (booking.consultantId) await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.consultantId, title: "Dúvidas respondidas", body: "O cliente confirmou que as dúvidas foram respondidas. O chat foi encerrado e o pagamento foi liberado para você.", href: back, createdAt: now });
+  revalidatePath(back); revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/mensagens");
+  redirect(`${back}?mensagem=encerrada`);
 }
 
-// After answering the last question the consultant presses "Concluir respostas": Insidely thanks them
-// on the customer's behalf, which tells both that the questions are over and the service can be finished.
-export async function concludeMessageAnswersAction(bookingId: string) {
-  const user = await requireUser([Role.CONSULTANT]);
-  const back = `/conversa/${bookingId}`;
-  const progress = await messageBookingProgress(bookingId, user.id);
-  if (!progress || !progress.conversationId || progress.concluded) redirect(back);
-  if (!progress.allAnswered) redirect(`${back}?mensagem=responda-antes`);
-  await progress.supabase.from("Message").insert({ id: crypto.randomUUID(), conversationId: progress.conversationId, senderId: progress.booking.customerId, body: MESSAGE_CLOSING_TEXT, automatic: true, createdAt: new Date().toISOString() });
-  revalidatePath(back);
-  redirect(back);
-}
-
-// The consultant finishes a message booking once they concluded the answers: the chat closes,
-// the consultant's confirmation is recorded and the amount stays held 24 hours, during which the
-// customer can contest; with no contest it is released (autoReleaseAt).
+// "Encerrar conversa" by the consultant, after answering at least once: the chat closes and the amount
+// stays held 24 hours, during which the customer can contest; with no contest it is released (autoReleaseAt).
 export async function finishMessageByConsultantAction(bookingId: string) {
   const user = await requireUser([Role.CONSULTANT]);
   const back = `/conversa/${bookingId}`;
-  const progress = await messageBookingProgress(bookingId, user.id);
-  if (!progress || !progress.concluded) redirect(back);
-  const { supabase, booking } = progress;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createSupabaseServiceClient() as any;
+  const booking = await loadChatBooking(supabase, bookingId);
+  if (!booking || booking.consultantId !== user.id || booking.format !== "MESSAGE" || booking.status !== "CONFIRMED") redirect(back);
+  if (!await consultantHasAnswered(supabase, booking.conversationId, booking.consultantId)) redirect(`${back}?mensagem=responda-antes`);
   const now = new Date();
   const elapsed = Math.max(1, Math.ceil((now.getTime() - parseDbDate(booking.startsAt).getTime()) / 60_000));
   const releaseAt = new Date(now.getTime() + 24 * 60 * 60_000);
   await supabase.from("Booking").update({ durationMinutes: elapsed, status: "AWAITING_CONFIRMATION", consultantConfirmedAt: now.toISOString(), autoReleaseAt: releaseAt.toISOString(), updatedAt: now.toISOString() }).eq("id", bookingId).eq("status", "CONFIRMED");
-  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Suas perguntas foram respondidas", body: `O consultor respondeu todas as perguntas e finalizou o atendimento. Se as respostas não responderam ao que você perguntou, conteste até ${shortDate(releaseAt)} pelo chat.`, href: back, createdAt: now.toISOString() });
-  revalidatePath(back); revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/agendamentos");
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "O consultor encerrou o chat", body: `Se suas dúvidas não foram respondidas, conteste até ${shortDate(releaseAt)} pelo chat. Depois disso, o pagamento é liberado ao consultor.`, href: back, createdAt: now.toISOString() });
+  revalidatePath(back); revalidatePath("/consultor/consultas"); revalidatePath("/dashboard/mensagens");
   redirect(`${back}?mensagem=finalizada`);
 }
 
@@ -1683,21 +1491,31 @@ async function notifyCaseStaff(supabase: any, reportId: string, title: string, b
   if (rows.length) await supabase.from("Notification").insert(rows);
 }
 
-// Google Agenda link (lib/google-calendar-link.ts): sync now, or disconnect (events already created stay).
-export async function syncCalendarNowAction(returnTo: string) {
-  const user = await requireUser([Role.USER, Role.CONSULTANT]);
-  const back = calendarLinkReturnPath(returnTo, user.role === Role.CONSULTANT);
-  let target = `${back}?sync=agora`;
-  try { const synced = await syncCalendar(user.id); target += `&adicionadas=${synced.added}&removidos=${synced.removedSlots}`; }
-  catch (error) { const reason = error instanceof Error ? error.message : ""; target = `${back}?sync=${reason === "calendar_api_disabled" ? "api-disabled" : reason === "calendar_permission_missing" ? "permission-error" : "error"}`; }
-  revalidatePath(back);
-  redirect(target);
+
+
+// Appeal against a warning or a suspension (lib/appeals.ts). Allowed while suspended: the suspended
+// page has the form for the suspension in force.
+export async function submitAppealAction(formData: FormData) {
+  const user = await requireUser(undefined, { allowSuspended: true, allowIncomplete: true });
+  const back = safeInternalPath(String(formData.get("returnTo") || ""), "/dashboard/advertencias");
+  const kind = formData.get("kind") === "SUSPENSION" ? "SUSPENSION" : "WARNING";
+  const sanctionId = String(formData.get("sanctionId") || "");
+  const reason = String(formData.get("reason") || "").trim().slice(0, 2000);
+  if (reason.length < 20) redirect(`${back}?recurso=curto`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await createAppeal(createSupabaseServiceClient() as any, { userId: user.id, kind, sanctionId, reason });
+  revalidatePath(back); revalidatePath("/admin/sancoes");
+  redirect(`${back}?recurso=${result === "ok" ? "ok" : result === "duplicate" ? "duplicado" : "erro"}`);
 }
 
-export async function disconnectCalendarAction(returnTo: string) {
-  const user = await requireUser([Role.USER, Role.CONSULTANT]);
-  const back = calendarLinkReturnPath(returnTo, user.role === Role.CONSULTANT);
-  await removeCalendarLink(user.id);
-  revalidatePath(back);
-  redirect(`${back}?sync=desconectado`);
+// Support decides an appeal: accepted removes the warning or suspension; rejected keeps it.
+export async function decideAppealAction(appealId: string, formData: FormData) {
+  const staff = await requireUser([Role.ADMIN, Role.SUPPORT]);
+  const accept = formData.get("decision") === "accept";
+  const note = String(formData.get("note") || "").trim().slice(0, 500);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await decideAppeal(createSupabaseServiceClient() as any, { appealId, accept, staffUserId: staff.id, note });
+  after(() => logAdminAction(staff.id, accept ? "accept_appeal" : "reject_appeal", null, appealId));
+  revalidatePath("/admin/sancoes");
+  redirect("/admin/sancoes?recurso=decidido#recursos");
 }

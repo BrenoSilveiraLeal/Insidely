@@ -1,68 +1,33 @@
 import { canReviewBooking } from "@/lib/booking-policy";
-import { sendBookingReminderEmails } from "@/lib/email";
-import { closeEndedMeetings } from "@/lib/google-meet";
-import { checkNoShows } from "@/lib/attendance";
 import { reactivateExpiredPauses } from "@/lib/pause";
 import { emailUnreadMessages } from "@/lib/conversation-extras";
 import { recordCronRun } from "@/lib/admin-log";
 import { sendPendingPushes } from "@/lib/push";
-import { syncLinkedCalendars } from "@/lib/google-calendar-link";
-import { alertAdmins } from "@/lib/ops-alerts";
 import { consumeQuota } from "@/lib/auth-email-throttle";
-import { parseDbDate, shortDate } from "@/lib/format";
+import { parseDbDate } from "@/lib/format";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
-const WINDOW_MS = 65 * 60_000;
-
-// Called every 5 minutes by pg_cron (see migration 20261016000300). Sends one reminder per confirmed
-// conversation about an hour before it starts. Safe to call by anyone: each booking is claimed
-// atomically through "reminderSentAt", so repeated calls never send duplicates. Also invites the
-// customer to rate each conversation once it ends (claimed through "reviewPromptSentAt") and locks
-// the Google Meet room of every conversation whose time is over, warning when only one side came.
+// Called every 5 minutes by pg_cron (see migration 20261016000300). Closes idle chats (also scheduled
+// on its own by migration 20261110100000; calling it here covers databases without that job),
+// invites the customer to rate each conversation once it ends (claimed through "reviewPromptSentAt"),
+// brings paused profiles back, and sends the unread-message e-mails and pending pushes.
 export async function GET() {
   // The endpoint has no secret (pg_cron calls it plainly), so repeated calls from outside are cut to
   // one real run per minute; the job itself runs every 5 minutes.
   if (!await consumeQuota("cron:reminders", 1, 55)) return Response.json({ ok: true, skipped: "rate_limited" }, { status: 429 });
-  // reminderSentAt is added by a migration beyond the generated legacy types.
+  // Columns and functions added by migrations beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createSupabaseServiceClient() as any;
   const now = new Date();
-  const { data: bookings, error } = await supabase.from("Booking")
-    .select("id, startsAt, paymentConfirmedAt, customerId, professionalProfileId")
-    .eq("status", "CONFIRMED").is("reminderSentAt", null)
-    .gt("startsAt", now.toISOString()).lte("startsAt", new Date(now.getTime() + WINDOW_MS).toISOString())
-    .limit(50);
-  if (error) { await recordCronRun(supabase, "reminders", false, error.message); await alertAdmins("cron:reminders", "A tarefa de lembretes falhou", "A tarefa que roda a cada 5 minutos (lembretes, salas e avisos) não conseguiu consultar o banco."); return Response.json({ error: "reminder_lookup_failed" }, { status: 500 }); }
-
-  let reminded = 0, skipped = 0;
-  for (const booking of bookings ?? []) {
-    const { data: claimed } = await supabase.from("Booking").update({ reminderSentAt: now.toISOString() }).eq("id", booking.id).is("reminderSentAt", null).select("id").maybeSingle();
-    if (!claimed) continue;
-    const startsAt = parseDbDate(booking.startsAt);
-    // Paid within the reminder window: the confirmation (with link and time) was just delivered.
-    if (booking.paymentConfirmedAt && startsAt.getTime() - parseDbDate(booking.paymentConfirmedAt).getTime() < WINDOW_MS) { skipped++; continue; }
-    const { data: profile } = await supabase.from("ProfessionalProfile").select("userId").eq("id", booking.professionalProfileId).maybeSingle();
-    const when = shortDate(startsAt);
-    const rows = [
-      { id: crypto.randomUUID(), userId: booking.customerId, title: "Sua conversa começa em breve", body: `Começa em ${when}. O link da sala está no chat da conversa e abre no horário marcado.`, href: "/dashboard/mensagens", createdAt: now.toISOString() },
-      ...(profile?.userId && profile.userId !== booking.customerId ? [{ id: crypto.randomUUID(), userId: profile.userId, title: "Sua conversa começa em breve", body: `Começa em ${when}. O link da sala está no chat da consulta.`, href: "/consultor/consultas", createdAt: now.toISOString() }] : []),
-    ];
-    const { error: notificationError } = await supabase.from("Notification").insert(rows);
-    if (notificationError) console.error("reminder_notification_failed", { bookingId: booking.id, error: notificationError });
-    try { await sendBookingReminderEmails(supabase, booking.id); }
-    catch (mailError) { console.error("reminder_email_failed", { bookingId: booking.id, error: mailError }); }
-    reminded++;
-  }
+  const { data: closedChats, error: closeError } = await supabase.rpc("close_idle_message_chats");
+  if (closeError) console.error("close_idle_chats_failed", { error: closeError });
   const reviewPrompts = await sendReviewPrompts(supabase, now);
-  const closedRooms = await closeEndedMeetings(supabase, now);
-  const noShows = await checkNoShows(supabase, now);
   const resumedPauses = await reactivateExpiredPauses(supabase, now).catch(() => 0);
   const unreadEmails = await emailUnreadMessages(supabase, now).catch((error) => { console.error("unread_scan_failed", { error }); return 0; });
   const pushes = await sendPendingPushes(supabase, now).catch((error) => { console.error("push_scan_failed", { error }); return 0; });
-  const calendars = await syncLinkedCalendars(supabase, now).catch((error) => { console.error("calendar_scan_failed", { error }); return 0; });
-  const result = { ok: true, reminded, skipped, reviewPrompts, closedRooms, noShows, resumedPauses, unreadEmails, pushes, calendars };
+  const result = { ok: true, closedChats: closedChats ?? 0, reviewPrompts, resumedPauses, unreadEmails, pushes };
   await recordCronRun(supabase, "reminders", true, result);
   return Response.json(result);
 }
@@ -84,7 +49,7 @@ async function sendReviewPrompts(supabase: any, now: Date) {
     if (!profile || profile.userId === booking.customerId) continue;
     const { data: claimed } = await supabase.from("Booking").update({ reviewPromptSentAt: now.toISOString() }).eq("id", booking.id).is("reviewPromptSentAt", null).select("id").maybeSingle();
     if (!claimed) continue;
-    const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Avalie sua conversa", body: "O horário da conversa terminou. Dê uma nota de 0 a 5 e deixe um comentário, se quiser.", href: "/dashboard/avaliacoes", createdAt: now.toISOString() });
+    const { error: notificationError } = await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: booking.customerId, title: "Avalie sua conversa", body: "Sua conversa terminou. Dê uma nota de 0 a 5 e deixe um comentário, se quiser.", href: "/dashboard/avaliacoes", createdAt: now.toISOString() });
     if (notificationError) console.error("review_prompt_notification_failed", { bookingId: booking.id, error: notificationError });
     else prompted++;
   }

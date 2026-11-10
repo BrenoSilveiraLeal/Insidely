@@ -2,9 +2,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Role } from "@/lib/domain";
 import { appEmailConfigured, smtpConfigured } from "@/lib/email";
 import { parseDbDate, shortDate } from "@/lib/format";
-import { checkGoogleMeet } from "@/lib/google-meet";
 import { checkStripe } from "@/lib/stripe";
-import { calendarLastSuccessAt, checkGoogleCalendarLinks, GOOGLE_CALENDAR_ERRORS } from "@/lib/google-calendar-link";
 import { imageModerationConfigured } from "@/lib/image-moderation";
 import { explainError } from "@/lib/error-text";
 import { requireUser } from "@/lib/session";
@@ -25,7 +23,7 @@ async function measureDatabase(supabase: any) {
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 const minutesSince = (date: Date) => Math.round((Date.now() - date.getTime()) / 60_000);
 
-// Health of the pieces the platform depends on: database, Google Meet, payments, e-mail and scheduled jobs.
+// Health of the pieces the platform depends on: database, payments, e-mail and scheduled jobs.
 const RUN_LABELS: Record<string, string> = {
   reminded: "lembrete(s) enviado(s)", reviewPrompts: "pedido(s) de avaliação", closedRooms: "sala(s) encerrada(s)", noShows: "ausência(s) registrada(s)",
   resumedPauses: "pausa(s) encerrada(s)", unreadEmails: "e-mail(s) de mensagem não lida", pushes: "notificação(ões) push",
@@ -49,13 +47,9 @@ export default async function Page() {
   const { error: dbError, ms: dbMs } = await measureDatabase(supabase);
   // The 5-minute job writes ~300 rows a day, so the daily run is fetched on its own: a shared
   // "latest 60" list would push it out within five hours and the page would call it missing.
-  const [calendarSuccessAt, calendarLinks, meet, { data: runs }, { data: dailyRuns }, { count: fallbackRooms }, { data: errors }] = await Promise.all([
-    calendarLastSuccessAt(supabase),
-    checkGoogleCalendarLinks(supabase),
-    checkGoogleMeet(),
+  const [{ data: runs }, { data: dailyRuns }, { data: errors }] = await Promise.all([
     supabase.from("CronRun").select("job, ok, detail, createdAt").order("createdAt", { ascending: false }).limit(60),
     supabase.from("CronRun").select("job, ok, detail, createdAt").eq("job", "daily").order("createdAt", { ascending: false }).limit(5),
-    supabase.from("Booking").select("id", { count: "exact", head: true }).like("meetingUrl", "https://meet.jit.si%").gte("startsAt", daysAgo(7)),
     // Photos refused by the moderation are the moderation working, not a system problem.
     supabase.from("ErrorEvent").select("path, routeType, message, createdAt").neq("routeType", "image-moderation").gte("createdAt", daysAgo(7)).order("createdAt", { ascending: false }).limit(30),
   ]);
@@ -80,23 +74,15 @@ export default async function Page() {
     if (group) group.count++; else groups.set(key, { key, text, routeType: row.routeType, last: row.createdAt, count: 1 });
     return groups;
   }, new Map<string, { key: string; text: ReturnType<typeof explainError>; routeType: string; last: string; count: number }>()).values()]
-    // Resolved: for the Google Agenda, a sync worked after the last error; otherwise it has not
-    // happened again for a day. Pending ones come first.
-    .map((group) => {
-      const lastAt = parseDbDate(group.last).getTime();
-      const calendar = GOOGLE_CALENDAR_ERRORS.includes(group.routeType);
-      const resolved = calendar ? Boolean(calendarSuccessAt && new Date(calendarSuccessAt).getTime() > lastAt) : minutesSince(parseDbDate(group.last)) > 24 * 60;
-      return { ...group, resolved, resolvedWhy: calendar ? "a sincronização voltou a funcionar depois disso" : "não voltou a acontecer nas últimas 24 h" };
-    })
+    // Resolved: it has not happened again for a day. Pending ones come first.
+    .map((group) => ({ ...group, resolved: minutesSince(parseDbDate(group.last)) > 24 * 60, resolvedWhy: "não voltou a acontecer nas últimas 24 h" }))
     .sort((a, b) => Number(a.resolved) - Number(b.resolved));
   const checks: Check[] = [
     { name: "Banco de dados", ok: !dbError, message: dbError ? `Erro: ${dbError.message}` : `Respondendo (${dbMs} ms).` },
-    { name: "Google Meet", ok: meet.ok, message: meet.message + (fallbackRooms ? ` ${fallbackRooms} sala(s) usaram o Jitsi nos últimos 7 dias.` : "") },
-    { name: "Google Agenda", ...calendarLinks },
     { name: "Pagamentos (Stripe)", ...checkStripe() },
     { name: "Envio de e-mails", ok: appEmailConfigured(), message: appEmailConfigured() ? (smtpConfigured() ? "Configurado via SMTP (Gmail)." : "Configurado via Resend.") : "Nenhum provedor configurado: e-mails não são enviados." },
     { name: "Moderação de fotos", ok: imageModerationConfigured(), message: imageModerationConfigured() ? "Fotos de perfil e capas são verificadas automaticamente antes de serem publicadas." : "DESLIGADA: falta a variável OPENAI_API_KEY na Vercel. Sem ela, qualquer foto é aceita." },
-    jobCheck("reminders", "Tarefa de 5 minutos (lembretes, salas, avisos)", 20),
+    jobCheck("reminders", "Tarefa de 5 minutos (chats parados, avaliações, avisos)", 20),
     jobCheck("daily", "Tarefa diária (expirações, retenção, avisos)", 26 * 60),
   ];
   return <DashboardShell mode="admin" title="Status do sistema">

@@ -23,7 +23,7 @@ export async function ProfessionalCard({ profile, index = 0 }: { profile: Profil
       <div className="card-meta"><span className={`badge${profile.verificationStatus === "VERIFIED" ? "" : " badge-unverified"}`}>{profile.verificationStatus === "VERIFIED" ? <ShieldCheck size={13}/> : null}{verificationLabel}</span>{isNew && <span className="badge badge-new">Novo</span>}{identityVerified && <span className="badge" title="CPF registrado na Insidely"><ShieldCheck size={12}/> ID verificado</span>}<span className="badge">{profile.workMode === "REMOTE" ? "Remoto" : profile.workMode === "HYBRID" ? "Híbrido" : "Presencial"}</span></div>
       <h3>{name}</h3><span className="muted">{profile.headline}</span>
       <div className="card-meta">{profile.experiences[0] && <span className="badge" title={profile.experiences[0].isCurrent === false ? "Já trabalhou nesta empresa" : "Trabalha nesta empresa"}><BriefcaseBusiness size={12}/>{profile.experiences[0].isCurrent === false ? `Ex-${profile.experiences[0].company.name}` : profile.experiences[0].company.name}</span>}{profile.location && <span className="badge"><MapPin size={12}/>{profile.location}</span>}</div>
-      <div className="card-footer"><span><strong>{money(profile.price30Cents)}</strong> / 30 min</span><span className="rating">{rating ? <><Star size={14} fill="currentColor"/> {rating.toFixed(1)}</> : <span className="muted">Sem avaliações</span>}</span></div>
+      <div className="card-footer"><span><strong>{money(profile.price30Cents)}</strong> / chat</span><span className="rating">{rating ? <><Star size={14} fill="currentColor"/> {rating.toFixed(1)}</> : <span className="muted">Sem avaliações</span>}</span></div>
     </div>
   </Link>;
 }

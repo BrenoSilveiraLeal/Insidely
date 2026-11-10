@@ -40,10 +40,12 @@ export async function suspendAccount(supabase: Service, { userId, days, reason, 
 }
 
 // Records a warning (notification and e-mail) and applies the graduated enforcement.
-export async function warnAccount(supabase: Service, { userId, adminUserId, reason }: { userId: string; adminUserId: string; reason: string }) {
-  await supabase.from("AccountWarning").insert({ userId, adminUserId, reason });
+// adminUserId is null for automatic warnings (chat moderation, migration 20261110120000).
+export async function warnAccount(supabase: Service, { userId, adminUserId, reason, automatic = false }: { userId: string; adminUserId: string | null; reason: string; automatic?: boolean }) {
+  const { error: insertError } = await supabase.from("AccountWarning").insert(automatic ? { userId, adminUserId, reason, automatic: true } : { userId, adminUserId, reason });
+  if (insertError) throw new Error(insertError.message);
   const now = new Date().toISOString();
-  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Advertência na sua conta", body: `${reason} ${enforcementSummary()}`, href: "/termos", createdAt: now });
+  await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId, title: "Advertência na sua conta", body: `${reason} ${enforcementSummary()} Se achar que foi injusta, você pode recorrer.`, href: "/dashboard/advertencias", createdAt: now });
   const { data: warned } = await supabase.from("User").select("email, name").eq("id", userId).maybeSingle();
   if (warned?.email) await sendSecurityEmail(warned.email, warned.name, "warning", { reason }).catch((error) => console.error("warning_email_failed", { error }));
   const { count: warnings } = await supabase.from("AccountWarning").select("id", { count: "exact", head: true }).eq("userId", userId);
@@ -75,4 +77,20 @@ export async function liftExpiredSuspensions(supabase: Service, userId?: string)
     await supabase.from("Notification").insert({ id: crypto.randomUUID(), userId: user.id, title: "Suspensão encerrada", body: "O prazo da suspensão terminou e sua conta voltou a funcionar normalmente.", href: "/continuar", createdAt: now });
   }
   return (lifted ?? []).length;
+}
+
+// Chat moderation refused a message: one automatic warning, at most once every 24 hours, so several
+// attempts in a row (minutes or hours apart) count as a single warning. Returns whether one was given.
+export const AUTO_WARNING_WINDOW_HOURS = 24;
+export async function autoWarnForChat(supabase: Service, userId: string, kind: "contact" | "offensive") {
+  const { data: person } = await supabase.from("User").select("role").eq("id", userId).maybeSingle();
+  if (!person || person.role === "ADMIN" || person.role === "SUPPORT") return false;
+  const since = new Date(Date.now() - AUTO_WARNING_WINDOW_HOURS * 60 * 60_000).toISOString();
+  const { count, error } = await supabase.from("AccountWarning").select("id", { count: "exact", head: true }).eq("userId", userId).eq("automatic", true).gte("createdAt", since);
+  if (error || count) return false;
+  const reason = kind === "offensive"
+    ? "Advertência automática: tentativa de enviar palavrões, ofensas ou ameaças no chat."
+    : "Advertência automática: tentativa de passar contato ou combinar pagamento por fora da Insidely no chat.";
+  await warnAccount(supabase, { userId, adminUserId: null, reason, automatic: true });
+  return true;
 }

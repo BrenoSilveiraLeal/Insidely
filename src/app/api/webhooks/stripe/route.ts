@@ -1,7 +1,6 @@
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { ensureGoogleMeetForBooking } from "@/lib/google-meet";
 import { postWelcomeMessage } from "@/lib/conversation-extras";
 import { sendBookingConfirmationEmails } from "@/lib/email";
 
@@ -20,7 +19,7 @@ async function notifyBookingParticipants(supabase: any, bookingId: string) {
   const professional = Array.isArray(booking.professional) ? booking.professional[0] : booking.professional;
   const userIds = [booking.customerId, professional?.userId].filter((id, index, list): id is string => Boolean(id) && list.indexOf(id) === index);
   if (!userIds.length) return;
-  const { error: insertError } = await supabase.from("Notification").insert(userIds.map((userId) => ({ id: crypto.randomUUID(), userId, title: "Pagamento confirmado", body: "Sua conversa foi confirmada. Acesse o painel para acompanhar a sala e as próximas etapas.", href: userId === booking.customerId ? "/dashboard/agendamentos" : "/consultor/consultas", createdAt: new Date().toISOString() })));
+  const { error: insertError } = await supabase.from("Notification").insert(userIds.map((userId) => ({ id: crypto.randomUUID(), userId, title: "Chat aberto", body: "Pagamento confirmado: o chat já está aberto. O consultor tem 24 horas para responder depois da primeira mensagem do cliente.", href: `/conversa/${bookingId}`, createdAt: new Date().toISOString() })));
   if (insertError) throw new Error(`booking_notification_insert: ${insertError.message}`);
 }
 
@@ -68,7 +67,6 @@ export async function POST(request: Request) {
       await ensureUpdated(confirmed, "booking_confirmed");
       await notifyBookingParticipants(supabase, bookingId);
       try {
-        await ensureGoogleMeetForBooking(supabase, bookingId);
         await postWelcomeMessage(supabase, bookingId).catch((error) => console.error("welcome_message_failed", { bookingId, error }));
         await sendBookingConfirmationEmails(supabase, bookingId);
       } catch (error) {

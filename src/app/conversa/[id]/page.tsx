@@ -1,45 +1,36 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { confirmMessageAnswersAction, disputeBookingAction, finishMessageByConsultantAction, concludeMessageAnswersAction, sendMessageAction, sendNextQuestionAction } from "@/app/actions";
+import { EyeOff } from "lucide-react";
+import { confirmMessageAnswersAction, customerCancelBookingAction, disputeBookingAction, finishMessageByConsultantAction, sendMessageAction } from "@/app/actions";
 import { ChatMessageForm } from "@/components/chat-message-form";
 import { ChoiceWithReport } from "@/components/choice-with-report";
 import { BlockUserForm, ConversationReportForm, reportFeedbackText } from "@/components/conversation-safety";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { MeetingRoomMessage } from "@/components/meeting-room-message";
 import { RealtimeMessageThread } from "@/components/realtime-message-thread";
-import { StartsIn } from "@/components/starts-in";
-import { PrepChecklist } from "@/components/prep-checklist";
-import { canSendBookingMessage, chatClosedReason, chatOpensAt, isMessageClosing } from "@/lib/booking-policy";
+import { CHAT_FIRST_ANSWER_HOURS, CHAT_IDLE_HOURS, canSendBookingMessage, chatClosedReason } from "@/lib/booking-policy";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getBlockedBookingIds } from "@/lib/blocks";
 import { chatFeedbackText } from "@/lib/chat-moderation";
 import { getConversationForParticipant, markConversationRead } from "@/lib/conversations";
 import { markPageNotificationsRead } from "@/lib/nav-badges";
 import { Role } from "@/lib/domain";
-import { bookingStatusLabel, parseDbDate, shortDate } from "@/lib/format";
+import { bookingStatusLabel, initials, parseDbDate, shortDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Conversa" };
 export const dynamic = "force-dynamic";
-
-// The preparation checklist appears in the 24 hours before the conversation and while it happens.
-function showChecklist(startsAt: Date, durationMinutes: number) {
-  const now = Date.now();
-  return startsAt.getTime() - now < 24 * 60 * 60_000 && startsAt.getTime() + durationMinutes * 60_000 > now;
-}
-
-function chatNotOpenYet(startsAt: Date) {
-  return Date.now() < chatOpensAt(startsAt).getTime();
-}
 
 function isFuture(date: Date | null) {
   return date !== null && date.getTime() > Date.now();
 }
 
 const REPORTABLE = ["CONFIRMED", "AWAITING_CONFIRMATION", "COMPLETED_RELEASE_PENDING", "COMPLETED", "DISPUTED"];
+const HOUR = 60 * 60_000;
 
-// One conversation on its own page, so a long history never stretches the booking cards.
-export default async function ConversationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ mensagem?: string; denuncia?: string; bloqueio?: string; contestacao?: string }> }) {
+// One chat on its own page. Rules (lib/booking-policy.ts): the consultant has 24 hours for the first
+// answer (or the customer is refunded); then both write freely until the customer says the questions
+// were answered, the consultant ends it, 24 hours pass with nobody writing or 72 hours since it opened.
+export default async function ConversationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ mensagem?: string; denuncia?: string; bloqueio?: string; contestacao?: string; cancelamento?: string; advertencia?: string }> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const user = await requireUser([Role.USER, Role.CONSULTANT], { nextPath: `/conversa/${id}` });
   const conversation = await getConversationForParticipant(id, user.id);
@@ -55,70 +46,67 @@ export default async function ConversationPage({ params, searchParams }: { param
   const { data: blockedRows } = await (createSupabaseServiceClient() as any).from("ChatModerationEvent").select("id, reason, createdAt").eq("conversationId", conversation.conversationId).eq("userId", user.id).order("createdAt").limit(50);
   const blockedHere = (await getBlockedBookingIds(user.id, [id])).has(id);
   const isMessage = conversation.format === "MESSAGE";
-  // In a message booking the customer's messages are the questions sent with the request (up to
-  // MESSAGE_QUESTION_LIMIT, posted when paid); the consultant answers freely.
-  const questionsUsedUp = isMessage && conversation.viewerIsConsultant === false;
-  const canSend = canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes) && !questionsUsedUp;
-  const notOpenYet = conversation.status === "CONFIRMED" && chatNotOpenYet(startsAt);
-  // After answering the last question (a reply of their own after it) the consultant concludes, which
-  // posts Insidely's thank-you, and then finishes. Then the amount stays held 24 hours for the customer to contest.
-  const concluded = conversation.messages.some((message) => message.senderId === conversation.customerId && isMessageClosing(message));
-  const lastQuestionAt = Math.max(0, ...conversation.messages.filter((message) => message.senderId === conversation.customerId && !isMessageClosing(message)).map((message) => parseDbDate(message.createdAt).getTime()));
-  const answeredLast = conversation.messages.some((message) => message.senderId === conversation.consultantId && !message.automatic && parseDbDate(message.createdAt).getTime() > lastQuestionAt);
-  const allAnswered = isMessage && conversation.questionsSent >= conversation.questionsTotal && answeredLast;
-  // Past the answer deadline without the consultant finishing (some answers, no "Finalizar"), the
-  // customer gets the same choice as after a finish: answered, or contest. The amount stays held 24
-  // hours after the deadline, as releaseBookingTransfer does.
-  const answersUntil = new Date(startsAt.getTime() + conversation.durationMinutes * 60_000);
-  const deadlinePassed = !isFuture(answersUntil);
-  const unfinishedPastDeadline = isMessage && conversation.status === "CONFIRMED" && deadlinePassed;
-  const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : unfinishedPastDeadline ? new Date(answersUntil.getTime() + 24 * 60 * 60_000) : null;
-  const canContest = isMessage && !consultantMode && (conversation.status === "AWAITING_CONFIRMATION" || unfinishedPastDeadline) && isFuture(contestUntil);
+  const open = isMessage && conversation.status === "CONFIRMED";
+  const canSend = isMessage && canSendBookingMessage(conversation.status, startsAt, conversation.durationMinutes);
+  const answered = conversation.messages.some((message) => message.senderId === conversation.consultantId && !message.automatic);
+  // The consultant's 24 hours count from the customer's first message (the customer pays first and
+  // writes afterwards); with no message yet, nothing is counting.
+  const firstQuestion = conversation.messages.find((message) => message.senderId === conversation.customerId);
+  const firstAnswerUntil = firstQuestion ? new Date(parseDbDate(firstQuestion.createdAt).getTime() + CHAT_FIRST_ANSWER_HOURS * HOUR) : null;
+  const chatUntil = new Date(startsAt.getTime() + conversation.durationMinutes * 60_000);
+  const contestUntil = conversation.autoReleaseAt ? parseDbDate(conversation.autoReleaseAt) : null;
+  const canContest = isMessage && !consultantMode && conversation.status === "AWAITING_CONFIRMATION" && isFuture(contestUntil);
+  const otherFirstName = conversation.otherName.split(" ")[0];
   return <DashboardShell mode={consultantMode ? "consultant" : "user"} title={`Conversa com ${conversation.otherName}`} activeHref={backHref} canConsultant={user.role === Role.CONSULTANT}>
     <div className="conversation-page">
-      <div className="conversation-header"><Link className="text-link" href={backHref}>← Voltar</Link><span className="eyebrow">{bookingStatusLabel(conversation.status)} · {isMessage ? `Perguntas por mensagem · respostas até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}` : `${shortDate(startsAt)} · ${conversation.durationMinutes} min`}</span>{!isMessage && conversation.status === "CONFIRMED" && <StartsIn key={id} startsAt={startsAt.toISOString()} durationMinutes={conversation.durationMinutes}/>}</div>
-      {query.bloqueio === "ok" && <p className="form-feedback" role="status">Pessoa bloqueada. Vocês não conseguem mais agendar novas conversas um com o outro.</p>}
-      {query.bloqueio === "removido" && <p className="form-feedback" role="status">Bloqueio removido. Vocês voltam a poder agendar conversas.</p>}
+      <div className="conversation-header">
+        <Link className="text-link" href={backHref}>← Voltar</Link>
+        <div className="conversation-person">
+          {conversation.otherImage
+            ? <span className="conversation-avatar avatar-photo" style={{ backgroundImage: `url(${conversation.otherImage})` }} aria-hidden="true"/>
+            : <span className="conversation-avatar" aria-hidden="true">{!consultantMode && conversation.consultantAnonymous ? <EyeOff size={18}/> : initials(conversation.otherName)}</span>}
+          <div><strong>{conversation.otherName}</strong><span className="eyebrow">{bookingStatusLabel(conversation.status)}{open ? ` · chat aberto até ${shortDate(chatUntil)}` : ""}</span></div>
+        </div>
+      </div>
+      {query.bloqueio === "ok" && <p className="form-feedback" role="status">Pessoa bloqueada. Vocês não conseguem mais abrir novos chats um com o outro.</p>}
+      {query.bloqueio === "removido" && <p className="form-feedback" role="status">Bloqueio removido. Vocês voltam a poder conversar.</p>}
       {query.denuncia && <p className={query.denuncia === "ok" ? "form-feedback" : "form-error"} role={query.denuncia === "ok" ? "status" : "alert"}>{reportFeedbackText(query.denuncia)}</p>}
-      {!isMessage && conversation.status === "CONFIRMED" && showChecklist(startsAt, conversation.durationMinutes) && <PrepChecklist/>}
-      {!isMessage && <MeetingRoomMessage booking={{ id, status: conversation.status, startsAt, durationMinutes: conversation.durationMinutes, meetingUrl: conversation.meetingUrl }} calendarSide={consultantMode ? "consultant" : "customer"}/>}
-      {/* The customer only follows the answers (the consultant finishes; afterwards the customer can contest),
-          so their bar goes away once the consultant concluded: the closing notice in the chat says what comes next. */}
-      {isMessage && conversation.status === "CONFIRMED" && (deadlinePassed ? consultantMode && concluded : consultantMode || !concluded) && <section className="panel message-booking-bar">
-        <div><strong>Perguntas por mensagem</strong><p className="muted">{consultantMode ? `Responda pelo chat até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.${conversation.questionsTotal > 1 ? ` Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal}: ${conversation.questionsSent < conversation.questionsTotal ? "quando terminar de responder, clique em “Enviar próxima pergunta”." : "todas as perguntas já foram enviadas."}` : ""}` : `${conversation.questionsTotal > 1 ? `Pergunta ${Math.max(1, conversation.questionsSent)} de ${conversation.questionsTotal} enviada${conversation.questionsSent < conversation.questionsTotal ? "; a próxima vai quando o consultor terminar de responder" : ""}` : "Sua pergunta foi enviada"}. As respostas chegam aqui até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; sem resposta até lá, o valor volta integralmente para você.`}</p></div>
-        {/* The consultant releases the next question once they finished answering (a greeting alone does not). */}
-        {consultantMode && conversation.questionsSent < conversation.questionsTotal && (answeredLast
-          ? <form action={sendNextQuestionAction.bind(null, id)}><button className="button button-dark button-sm">Enviar próxima pergunta</button></form>
-          : <small className="muted">Responda a pergunta atual para liberar a próxima.</small>)}
-        {consultantMode && conversation.questionsSent >= conversation.questionsTotal && (concluded
-          ? <form action={finishMessageByConsultantAction.bind(null, id)}><button className="button button-dark button-sm">Finalizar atendimento</button></form>
-          : allAnswered
-            ? <form action={concludeMessageAnswersAction.bind(null, id)}><button className="button button-dark button-sm">Concluir respostas</button></form>
-            : <small className="muted">Responda a última pergunta para concluir.</small>)}
+      {consultantMode && conversation.consultantAnonymous && open && <p className="section-note chat-anonymity-note"><strong>Você está no modo anônimo.</strong> Evite contar detalhes que identifiquem você: nome do seu gestor, projetos específicos, datas exatas ou o nome do seu time.</p>}
+      {open && <section className="panel message-booking-bar">
+        <div><strong>{answered ? "Conversa em andamento" : !firstQuestion ? (consultantMode ? "Aguardando a primeira mensagem do cliente" : "Chat aberto: escreva sua primeira mensagem") : consultantMode ? "Responda para começar" : "Aguardando a primeira resposta"}</strong><p className="muted">{answered
+          ? (consultantMode ? `Converse à vontade até ${shortDate(chatUntil)}. Se o chat ficar ${CHAT_IDLE_HOURS} horas sem mensagens, ele fecha sozinho. Quando terminar, clique em “Encerrar conversa”.` : `Pergunte à vontade até ${shortDate(chatUntil)}. Quando suas dúvidas forem respondidas, encerre o chat: o pagamento só vai para o consultor nesse momento.`)
+          : !firstQuestion || !firstAnswerUntil
+            ? (consultantMode ? `O cliente já pagou. Quando ele escrever, você terá ${CHAT_FIRST_ANSWER_HOURS} horas para responder. Se quiser, mande uma saudação.` : `Conte quem você é e o que quer saber. O consultor tem ${CHAT_FIRST_ANSWER_HOURS} horas para responder depois da sua primeira mensagem; sem resposta, o valor volta integralmente para você.`)
+            : (consultantMode ? `Envie a primeira resposta até ${shortDate(firstAnswerUntil)}. Sem resposta até lá, o valor volta para o cliente e o chat é encerrado.` : `O consultor tem até ${shortDate(firstAnswerUntil)} para responder. Sem resposta até lá, o valor volta integralmente para você.`)}</p></div>
+        {consultantMode && answered && <form action={finishMessageByConsultantAction.bind(null, id)}><button className="button button-dark button-sm">Encerrar conversa</button></form>}
+        {!consultantMode && answered && <form action={confirmMessageAnswersAction.bind(null, id)}><button className="button button-accent button-sm">Minhas dúvidas foram respondidas</button></form>}
       </section>}
+      {open && !consultantMode && !answered && <details className="cancel-booking-details"><summary><span>Cancelar chat</span></summary><div className="cancel-booking-confirmation"><h3>Mudou de ideia?</h3><p className="muted">Enquanto o consultor não responde, você pode cancelar e recebe o valor integral de volta. Depois da primeira resposta, não dá mais para cancelar: se algo não for respondido, você contesta quando o chat fechar.</p><form action={customerCancelBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={here}/><label className="field"><span>Motivo (opcional)</span><textarea className="textarea" name="reason" maxLength={300} placeholder="Ex.: Já encontrei a resposta que precisava."/></label><button className="button button-danger button-sm">Cancelar e receber o valor de volta</button></form></div></details>}
+      {query.cancelamento === "ok" && <p className="form-feedback" role="status">Chat cancelado. Se você já tinha pago, o valor integral será devolvido.</p>}
+      {query.cancelamento === "respondido" && <p className="form-error" role="alert">O consultor já respondeu, então o chat não pode mais ser cancelado. Se suas dúvidas não forem respondidas, conteste quando o chat fechar.</p>}
+      {query.cancelamento === "erro" && <p className="form-error" role="alert">Não foi possível cancelar agora. Tente novamente ou fale com o suporte.</p>}
       {canContest && contestUntil && <section className="panel form-stack message-contest">
-        <div><strong>{unfinishedPastDeadline ? "O prazo de respostas terminou." : "O consultor finalizou o atendimento."} Suas perguntas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
+        <div><strong>O chat foi encerrado. Suas dúvidas foram respondidas?</strong><p className="muted">O valor fica retido pela Insidely até {shortDate(contestUntil)}. Sem resposta sua até lá, ele segue para o consultor.</p></div>
         {query.contestacao === "curta" && <p className="form-error" role="alert">Descreva o problema com pelo menos 20 caracteres.</p>}
         {query.contestacao === "erro" && <p className="form-error" role="alert">Não foi possível registrar a contestação. Tente de novo.</p>}
         <ChoiceWithReport confirm={<form action={confirmMessageAnswersAction.bind(null, id)}><button className="button button-accent button-sm">Sim, foram respondidas</button></form>} reportLabel="Não foram respondidas">
-            <form action={disputeBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={`/conversa/${id}`}/><p className="muted">O suporte analisa a conversa e decide: se as perguntas não foram respondidas, ou foram só em parte, você recebe o valor de volta, todo ou em parte.</p><textarea className="textarea" name="description" rows={3} aria-label="O que ficou sem resposta" minLength={20} maxLength={2000} required placeholder="Ex.: A pergunta 2 foi respondida só com “depende” e a 3 não foi respondida."/><button className="button button-dark button-sm">Enviar ao suporte</button></form>
+            <form action={disputeBookingAction.bind(null, id)} className="form-stack"><input type="hidden" name="returnTo" value={here}/><p className="muted">O suporte analisa a conversa e decide: se suas dúvidas não foram respondidas, ou foram só em parte, você recebe o valor de volta, todo ou em parte.</p><textarea className="textarea" name="description" rows={3} aria-label="O que ficou sem resposta" minLength={20} maxLength={2000} required placeholder="Ex.: Perguntei sobre o processo seletivo e o consultor parou de responder."/><button className="button button-dark button-sm">Enviar ao suporte</button></form>
         </ChoiceWithReport>
         <small className="muted">Confirmar encerra o pedido e libera o pagamento ao consultor. Não dá para desfazer.</small>
       </section>}
       {isMessage && query.contestacao === "ok" && <p className="form-feedback" role="status">Contestação enviada. O suporte vai analisar a conversa e você recebe o resultado por notificação.</p>}
       {isMessage && !consultantMode && conversation.status === "DISPUTED" && query.contestacao !== "ok" && <p className="form-feedback" role="status">Sua contestação está com o suporte. O valor continua retido até a análise, e você recebe o resultado por notificação.</p>}
       <section className="panel conversation-panel">
-        <RealtimeMessageThread key={conversation.conversationId} blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages} systemNotice={isMessage ? (consultantMode ? `Este é um pedido de “Perguntas por mensagem”, pago para ser respondido aqui no chat, não por vídeo. O cliente já escreveu ${conversation.questionsTotal > 1 ? `${conversation.questionsTotal} perguntas` : "a pergunta"}${conversation.questionsTotal > 1 ? ", e a Insidely envia uma de cada vez: responda à vontade e, quando terminar, clique em “Enviar próxima pergunta”" : ""}. O cliente não envia outras mensagens. Responda até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}; depois da última resposta, clique em “Concluir respostas” e finalize o atendimento. Sem nenhuma resposta no prazo, o valor volta para o cliente.` : `Este é um pedido de “Perguntas por mensagem”. A Insidely envia ${conversation.questionsTotal > 1 ? "suas perguntas ao consultor uma de cada vez: a próxima vai quando ele terminar de responder a anterior" : "sua pergunta ao consultor"}. Você só acompanha por aqui; as respostas chegam até ${shortDate(new Date(startsAt.getTime() + conversation.durationMinutes * 60_000))}.`) : conversation.goals ? `${consultantMode ? "O que o cliente quer conversar" : "O que você quer conversar"}: “${conversation.goals}”` : undefined} closingNotice={isMessage && conversation.status === "CONFIRMED" ? (consultantMode ? `Todas as perguntas foram respondidas. Se não tiver mais nada a acrescentar, clique em “Finalizar atendimento”: o chat é encerrado e o valor fica retido por 24 horas antes do repasse.` : `O consultor respondeu todas as suas perguntas. Quando ele finalizar o atendimento, você terá 24 horas para contestar se alguma resposta não tratou do que você perguntou.`) : undefined}/>
+        <RealtimeMessageThread key={conversation.conversationId} blocked={(blockedRows ?? []) as { id: string; reason: string; createdAt: string }[]} bookingId={id} conversationId={conversation.conversationId} currentUserId={user.id} consultantId={conversation.consultantId} otherName={conversation.otherName} initialMessages={conversation.messages} systemNotice={isMessage
+          ? (consultantMode ? `Chat pago pelo cliente. Responda em até ${CHAT_FIRST_ANSWER_HOURS} horas depois da primeira mensagem dele. Fale da sua vivência, sem informações confidenciais.` : "Converse por aqui com calma. Contatos e combinações por fora da Insidely são bloqueados, para proteger os dois lados.")
+          : "Conversa antiga, feita por vídeo. As conversas da Insidely agora são só por chat."}/>
         {query.mensagem && <p className={`${query.mensagem === "encerrada" || query.mensagem === "finalizada" ? "form-feedback" : "form-error"} chat-feedback`} role="alert">{chatFeedbackText(query.mensagem)}</p>}
+        {query.advertencia && <p className="form-error chat-feedback" role="alert">Você recebeu uma advertência automática por essa tentativa. Novas tentativas nas próximas 24 horas não geram outra advertência, mas continuam bloqueadas. Se achar que foi injusta, <a className="text-link" href="/dashboard/advertencias">recorra aqui</a>.</p>}
         {canSend
           ? <ChatMessageForm action={sendMessageAction.bind(null, conversation.conversationId)} returnTo={here} label={`Mensagem para ${conversation.otherName}`}/>
-          : questionsUsedUp && conversation.status === "CONFIRMED" && !deadlinePassed
-            ? <div className="chat-closed" role="status"><span>Suas perguntas foram enviadas</span><p>Agora é com o consultor: as respostas aparecem aqui. Depois que ele finalizar o atendimento, se alguma pergunta ficou sem resposta, você pode contestar.</p></div>
-          : notOpenYet
-            ? <div className="chat-closed" role="status"><span>Chat abre em {shortDate(chatOpensAt(startsAt))}</span><p>Para manter a conversa na Insidely, o chat abre 24 horas antes do horário marcado e fecha quando a conversa termina.</p></div>
-            : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}
+          : <div className="chat-closed" role="status"><span>{chatClosedReason(conversation.status)}</span><p>O chat foi encerrado e ninguém pode mais enviar mensagens. O histórico continua disponível aqui.</p></div>}
       </section>
-      {REPORTABLE.includes(conversation.status) && conversation.customerId !== conversation.consultantId && <div className="conversation-safety-row"><span className="conversation-safety-label">Algum problema com {conversation.otherName.split(" ")[0]}?</span><ConversationReportForm bookingId={id} otherName={conversation.otherName} returnTo={here}/><BlockUserForm bookingId={id} otherName={conversation.otherName} returnTo={here} blocked={blockedHere}/></div>}
+      {REPORTABLE.includes(conversation.status) && conversation.customerId !== conversation.consultantId && <div className="conversation-safety-row"><span className="conversation-safety-label">Algum problema com {otherFirstName}?</span><ConversationReportForm bookingId={id} otherName={conversation.otherName} returnTo={here}/><BlockUserForm bookingId={id} otherName={conversation.otherName} returnTo={here} blocked={blockedHere}/></div>}
     </div>
   </DashboardShell>;
 }

@@ -1,7 +1,7 @@
 import { getProfileStories } from "@/lib/decision-stories";
 import { experiencePeriod } from "@/lib/experience-period";
-import { isSlotStillBookable } from "@/lib/booking-policy";
-import { AvailabilityWatchButton } from "@/components/availability-watch-button";
+import { describeChatHours, isAvailableNow, parseChatHours } from "@/lib/chat-hours";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getVerifiedExperienceId } from "@/lib/verification-experience";
 import Image from "next/image";
 import Link from "next/link";
@@ -12,13 +12,13 @@ import { CalendarDays, Check, ChevronDown, Clock, Flag, MapPin, MessageSquareTex
 import { reportProfileAction } from "@/app/actions";
 import { FavoriteButton } from "@/components/favorite-button";
 import { isNewProfile } from "@/lib/profile-age";
-import { getIdentityVerifiedProfileIds, getProfileSignals, isWatchingAvailability } from "@/lib/profile-signals";
+import { getIdentityVerifiedProfileIds, getProfileSignals } from "@/lib/profile-signals";
 import { getAlsoTalkedWith } from "@/lib/area-insights";
 import { ProfessionalCard } from "@/components/cards";
 import { getReviewReplies, reviewFeedback, viewerOwnsProfile } from "@/lib/review-replies";
 import { replyToReviewAction, reportReviewAction } from "@/app/actions";
 import { PublicShell } from "@/components/public-shell";
-import { dateTimeInBrazil, initials, money, parseDbDate, publicName, shortDate, reviewerName } from "@/lib/format";
+import { initials, money, parseDbDate, publicName, shortDate, reviewerName } from "@/lib/format";
 import { getFavoriteState, getProfessional, recordProfileView } from "@/lib/queries";
 import { headers } from "next/headers";
 import { getAuthenticatedUser } from "@/lib/session";
@@ -48,9 +48,12 @@ export default async function ProfessionalPage({ params, searchParams }: { param
   const replies = await getReviewReplies(reviews.map((review) => review.id));
   const query = await searchParams;
   const feedback = reviewFeedback(query.avaliacao, query.resposta);
-  const availability = (profile.availability ?? []).filter((slot) => isSlotStillBookable(slot));
-  const now = new Date();
-  const immediateCutoff = now.getTime() + 15 * 60_000;
+  // Weekly answer hours (ProfessionalProfile."chatHours", migration 20261110100000): public information.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: hoursRow } = await (createSupabaseServiceClient() as any).from("ProfessionalProfile").select("chatHours").eq("id", profile.id).maybeSingle();
+  const chatWindows = parseChatHours(hoursRow?.chatHours);
+  const availableNow = isAvailableNow(chatWindows);
+  const chatPrice = profile.messagePriceCents ?? profile.price30Cents;
   const average = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
   const photo = profile.privacy?.showPhoto ? profile.user.image : null;
   const cover = profile.privacy?.showPhoto ? profile.coverImage : null;
@@ -60,11 +63,10 @@ export default async function ProfessionalPage({ params, searchParams }: { param
       ? { label: "Verificação em análise", detail: "Esta pessoa enviou um comprovante, que ainda está em análise. Até a conclusão, a Insidely não confirma que ela trabalha ou trabalhou na empresa indicada." }
       : profile.verificationStatus === "REJECTED"
         ? { label: "Comprovante não aprovado", detail: "O comprovante enviado por esta pessoa não foi aprovado pela Insidely. Por isso, não há confirmação de que ela trabalha ou trabalhou na empresa indicada; as informações foram declaradas por ela e podem não ser verdadeiras." }
-        : { label: "Comprovante não enviado", detail: "Esta pessoa ainda não enviou nenhum comprovante de que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de agendar." };
+        : { label: "Comprovante não enviado", detail: "Esta pessoa ainda não enviou nenhum comprovante de que trabalha ou trabalhou na empresa indicada. As informações foram declaradas por ela e podem não ser verdadeiras; leve isso em conta antes de abrir um chat." };
   const isNew = await isNewProfile(profile.id);
   const [verifiedIdentities, signals] = await Promise.all([getIdentityVerifiedProfileIds(), getProfileSignals(profile.id)]);
   const identityVerified = verifiedIdentities.has(profile.id);
-  const watching = viewer ? await isWatchingAvailability(viewer.id, profile.id) : false;
   const alsoTalked = (await Promise.all((await getAlsoTalkedWith(profile.id)).map((otherId) => getProfessional(otherId).catch(() => null)))).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return <PublicShell><div className="professional-public-page">
@@ -107,21 +109,15 @@ export default async function ProfessionalPage({ params, searchParams }: { param
         </div>
 
         <aside className="booking-box">
-          <span className="eyebrow">Conversa individual</span>
-          <h2>{money(profile.price30Cents)} <small>/ 30 min</small></h2>
-          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Sem avaliações"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>{signals.medianResponseHours !== null ? `costuma responder em ${signals.medianResponseHours < 1 ? "menos de 1h" : `${Math.round(signals.medianResponseHours)}h`}` : `em até ${profile.responseHours}h`}</strong></li>{signals.attendanceRate !== null && <li><span><CalendarDays size={15}/> Comparecimento</span><strong>{signals.attendanceRate}% das conversas</strong></li>}<li><span><CalendarDays size={15}/> Próximo horário</span><strong>{availability[0] ? shortDate(availability[0].startsAt) : "A definir"}</strong></li></ul>
-
-          <div className="availability-preview">
-            <span className="eyebrow">Horários disponíveis · Brasília</span>
-            {availability.length ? <div className="availability-preview-list">{availability.slice(0, 3).map(slot => { const availableNow = !slot.isBooked && slot.endsAt > now && slot.startsAt.getTime() <= immediateCutoff; const when = <span className="availability-when">{dateTimeInBrazil(slot.startsAt)}{availableNow && <strong className="status">Disponível agora</strong>}</span>; return isOwner ? <div className="availability-preview-item" key={slot.id}>{when}</div> : <Link className="availability-preview-item" href={`/agendar/${profile.id}?slot=${encodeURIComponent(slot.id)}`} key={slot.id}>{when}<span>Escolher</span></Link>; })}</div> : <div className="form-stack"><p className="muted">Este perfil ainda não abriu horários para conversa.</p><AvailabilityWatchButton profileId={profile.id} watching={watching}/></div>}
+          <span className="eyebrow">Chat individual</span>
+          <h2>{money(chatPrice)} <small>/ chat</small></h2>
+          {availableNow && <span className="available-now">Disponível agora</span>}
+          <ul className="detail-list"><li><span><Star size={15}/> Avaliação</span><strong>{average ? average.toFixed(1) : "Sem avaliações"}</strong></li><li><span><Clock size={15}/> Resposta</span><strong>{signals.medianResponseHours !== null ? `costuma responder em ${signals.medianResponseHours < 1 ? "menos de 1h" : `${Math.round(signals.medianResponseHours)}h`}` : "em até 24h"}</strong></li>{chatWindows.length > 0 && <li><span><CalendarDays size={15}/> Costuma estar online</span><strong>{describeChatHours(chatWindows)}</strong></li>}</ul>
+          <div className="message-offer">
+            <div><strong><MessageSquareText size={16} aria-hidden="true"/> Como funciona</strong><p className="muted">Você paga e o chat abre na hora. Depois da sua primeira mensagem, o profissional tem 24h para responder ou o valor volta. O pagamento só vai para o profissional quando suas dúvidas forem respondidas.</p></div>
           </div>
-
-          {/* The owner sees the profile as customers do, without booking it. */}
-          {isOwner ? <p className="muted">Este é o seu perfil público: é assim que os clientes veem seus horários. Para mudar, use a sua agenda.</p> : availability.length > 0 && <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Ver todos os horários</Link>}
-          {profile.messagePriceCents ? <div className="message-offer">
-            <div><strong><MessageSquareText size={16} aria-hidden="true"/> Prefere por mensagem?</strong><p className="muted">{money(profile.messagePriceCents)} · até 5 perguntas, respostas em até 48h ou o valor volta, sem horário marcado.</p></div>
-            {!isOwner && <Link className="button button-ghost button-block" href={`/agendar/${profile.id}?formato=mensagem`}>Enviar perguntas</Link>}
-          </div> : null}
+          {/* The owner sees the profile as customers do, without opening a chat with it. */}
+          {isOwner ? <p className="muted">Este é o seu perfil público: é assim que os clientes veem você. Para mudar seus horários, use Horários no painel.</p> : <Link className="button button-dark button-block" href={`/agendar/${profile.id}`}>Abrir chat</Link>}
           {!isOwner && <FavoriteButton profileId={profile.id} initialSaved={isFavorite}/>}
           <p className="muted" style={{fontSize:12}}>A plataforma protege dados privados e libera a conversa somente após a confirmação do pagamento.</p>
 
