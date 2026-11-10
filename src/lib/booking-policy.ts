@@ -81,6 +81,13 @@ export function rescheduleDifferenceCents(newPriceCents: number, paidSubtotalCen
 // The chat (the only conversation format): opens when paid. The consultant has 24 hours for the
 // first answer, or the customer is refunded; afterwards it closes after 24 hours with nobody writing,
 // or 72 hours after opening (close_idle_message_chats, migration 20261110100000).
+// Platform fee on top of the consultant's price: 20%, at least R$ 5,00 (public.chat_fee_cents, migration
+// 20261110130000). The consultant receives the full price; the customer pays price + fee.
+export const CHAT_FEE_RATE = 0.2;
+export const CHAT_FEE_MIN_CENTS = 500;
+export function chatFeeCents(priceCents: number) {
+  return Math.max(CHAT_FEE_MIN_CENTS, Math.round(priceCents * CHAT_FEE_RATE));
+}
 export const CHAT_FIRST_ANSWER_HOURS = 24;
 export const CHAT_IDLE_HOURS = 24;
 export const CHAT_MAX_HOURS = 72;

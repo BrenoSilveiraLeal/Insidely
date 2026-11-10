@@ -159,7 +159,7 @@ export function ConsultantProfileFields({companies,professions,jobTitles=[],part
       <div className="field"><label htmlFor="location">Cidade</label><CityInput id="location" name="location" required/></div>
       <div className="field"><label htmlFor="price30">Valor do chat (R$)</label><input className="input" id="price30" name="price30" type="number" min="10" max="1000" step="1" defaultValue="50" required/></div>
     </div>
-    <small className="muted">O valor é o que você recebe por chat; a taxa da Insidely é somada ao preço do cliente.</small>
+    <small className="muted">O valor é o que você recebe por chat; a taxa da Insidely (20%, no mínimo R$ 5,00) é somada ao preço que o cliente paga.</small>
     <div className="anonymity-warning" role="note"><strong>Pense na sua privacidade.</strong><p>Se usar seu nome e sua foto, seu chefe ou ex-chefe pode descobrir que você fala da empresa, mesmo que fale bem. Depois do cadastro, em Editar perfil, você pode ativar o modo anônimo: o perfil mostra só um apelido, a empresa e o cargo.</p></div>
     <label className="check-row"><input name="confidentiality" type="checkbox" required/><span>Não vou revelar segredos da empresa, dados internos ou informações de clientes e colegas. Falo só da minha experiência.</span></label>
   </div>;

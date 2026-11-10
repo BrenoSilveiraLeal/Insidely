@@ -55,5 +55,6 @@ Atualização (mesmo dia): o cliente paga primeiro e só depois escreve no chat.
 - Banco: reaproveita o formato `MESSAGE` existente (janela de 72h = `durationMinutes` 4320) e as
   colunas de privacidade; vídeo antigo fica só como histórico; novas reservas de horário bloqueadas.
 - Fechamento automático por `pg_cron` a cada 10 min (pagamentos simulados); reembolsos Stripe pelo job diário.
+- Taxa da plataforma: 20% do preço do consultor, mínimo R$ 5,00, somada ao que o cliente paga (decidido em 10/11/2026 para cobrir o provedor de pagamento e dar margem em chats de ~R$ 30).
 - `price30Cents` passa a espelhar o preço do chat para busca/ordenação continuarem funcionando.
 - Horários de atendimento: janelas semanais simples (dias + hora início/fim) no perfil.

@@ -10,6 +10,7 @@ Marketplace de conversas profissionais para conhecer empresas e profissões ante
 
 - **Busca de profissionais:** página responsiva com palavra-chave, empresa, profissão e modalidade, além de filtros por preço, avaliação, senioridade, vínculo e ordenação. Resultados e contadores vêm do banco de dados.
 - **Chat pago, sem horário marcado:** o cliente paga para liberar o chat, que abre na hora. O consultor tem 24 horas para responder depois da primeira mensagem do cliente e pode atender vários chats ao mesmo tempo. O chat fecha quando o cliente confirma que as dúvidas foram respondidas, quando o consultor encerra, após 24 horas sem mensagens ou em 72 horas.
+- **Preço e taxa:** o consultor define o valor do chat. A Insidely soma uma taxa de **20% sobre esse valor, com mínimo de R$ 5,00**, que cobre as tarifas do provedor de pagamento (por exemplo, o Stripe) e deixa a margem da plataforma. O cliente paga valor + taxa; o consultor recebe o valor cheio. Exemplo: chat de R$ 30, cliente paga R$ 36, consultor recebe R$ 30. A regra fica em `chatFeeCents` (`src/lib/booking-policy.ts`) e em `chat_fee_cents` no banco.
 - **Pagamento protegido:** o valor fica retido até o chat terminar. Sem resposta do consultor, o cliente recebe 100% de volta. Antes da primeira resposta, o cliente pode cancelar com reembolso integral; depois, pode contestar, e o suporte decide entre reembolso total, parcial ou nenhum.
 - **Modo anônimo:** o consultor pode aparecer só com um apelido, a empresa e o cargo, para que o empregador ou ex-empregador não descubra quem fala da empresa. A verificação de vínculo continua, visível só para a equipe.
 - **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat com advertência automática (no máximo uma a cada 24 horas), suspensões progressivas, recurso contra advertências e suspensões, bloqueios, denúncias, contestações e histórico preservado.
@@ -49,7 +50,7 @@ npx supabase db query --linked -f supabase/migrations/<arquivo>.sql
 npx supabase migration repair --status applied <versao> --linked
 ```
 
-As migrations do formato só por chat são `20261110100000_chat_only.sql`, `20261110110000_chat_pay_first.sql` e `20261110120000_auto_warnings_and_appeals.sql`, aplicadas nessa ordem. Elas agendam o fechamento automático dos chats com `pg_cron`, quando a extensão existe.
+As migrations do formato só por chat são `20261110100000_chat_only.sql`, `20261110110000_chat_pay_first.sql`, `20261110120000_auto_warnings_and_appeals.sql` e `20261110130000_chat_platform_fee.sql`, aplicadas nessa ordem. Elas agendam o fechamento automático dos chats com `pg_cron`, quando a extensão existe.
 
 Consulte [docs/DEPLOY.md](docs/DEPLOY.md) e o histórico em `supabase/migrations`. A Edge Function de exclusão de conta fica em `supabase/functions/delete-account` e é publicada com:
 
@@ -60,7 +61,7 @@ npx supabase functions deploy delete-account
 ## Integrações opcionais
 
 - **E-mail:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, ou Resend com `RESEND_API_KEY` e `RESEND_FROM_EMAIL`. Veja [docs/EMAIL-SETUP.md](docs/EMAIL-SETUP.md).
-- **Stripe:** `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. O checkout atual permanece demonstrativo. Veja [docs/STRIPE-SETUP.md](docs/STRIPE-SETUP.md) e [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md).
+- **Stripe:** `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. O checkout atual permanece demonstrativo. A taxa de 20% foi pensada para cobrir as tarifas do Stripe (cartão e Pix) e ainda deixar lucro; se o provedor mudar no futuro, a porcentagem pode ser reavaliada com os custos reais. Veja [docs/STRIPE-SETUP.md](docs/STRIPE-SETUP.md) e [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md).
 - **Web push:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` habilitam notificações push no navegador.
 - **Moderação avançada de imagem:** `OPENAI_API_KEY`; as validações locais continuam ativas sem ela.
 - **Tarefas agendadas:** `/api/cron/*` usa `CRON_SECRET` quando configurado. Consulte [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).

@@ -6,7 +6,7 @@ O motivo é proteger quem fala da empresa: por vídeo a pessoa é reconhecida pe
 
 ## Ciclo do chat
 
-1. No perfil, o cliente clica em **Abrir chat** e vai direto ao pagamento (preço do consultor + taxa da plataforma). Não escreve nada antes de pagar. O pedido expira sem cobrança se não for pago em 30 minutos.
+1. No perfil, o cliente clica em **Abrir chat** e vai direto ao pagamento: preço do consultor + taxa da plataforma (**20% do preço, mínimo R$ 5,00**; o consultor recebe o preço cheio, e a taxa cobre as tarifas do provedor de pagamento e a margem da Insidely). Não escreve nada antes de pagar. O pedido expira sem cobrança se não for pago em 30 minutos.
 2. Pago, o chat abre na hora (`Booking.startsAt` passa a ser o momento do pagamento; `durationMinutes = 4320`, ou seja, 72 horas). O cliente escreve a primeira mensagem e, a partir daí, os dois conversam livremente.
 3. O consultor tem **24 horas, contadas da primeira mensagem do cliente**, para responder. Ele pode atender vários chats ao mesmo tempo.
 4. O chat é encerrado quando:
@@ -56,4 +56,4 @@ Em **Editar perfil**, o consultor pode ativar o modo anônimo (`ProfessionalProf
 - Interface e ações: `src/app/conversa/[id]/page.tsx`, `src/app/agendar/[id]/page.tsx`, `src/app/actions.ts`.
 - Regras e prazos: `src/lib/booking-policy.ts`, `src/lib/chat-hours.ts`, `src/lib/stripe-payments.ts`.
 - Realtime e recibos: `src/components/realtime-message-thread.tsx`, `src/lib/conversations.ts`.
-- Migrations: `20261110100000_chat_only.sql`, `20261110110000_chat_pay_first.sql` e `20261110120000_auto_warnings_and_appeals.sql`.
+- Migrations: `20261110100000_chat_only.sql`, `20261110110000_chat_pay_first.sql`, `20261110120000_auto_warnings_and_appeals.sql` e `20261110130000_chat_platform_fee.sql`.

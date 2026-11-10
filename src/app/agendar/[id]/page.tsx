@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { viewerOwnsProfile } from "@/lib/review-replies";
 import { PublicShell } from "@/components/public-shell";
 import { money, publicName } from "@/lib/format";
+import { chatFeeCents } from "@/lib/booking-policy";
 import { getProfessional } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { getCustomerIdentity } from "@/lib/customer-identity";
@@ -25,7 +26,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   </div></section></PublicShell>;
   const price = profile.messagePriceCents ?? profile.price30Cents;
   return <PublicShell><section className="page-hero" data-mark="?"><div className="container page-hero-inner"><span className="eyebrow">Chat</span><h1>Converse por escrito.</h1><p>Com {publicName(profile)} · pague e o chat abre na hora.</p></div></section><section className="section"><div className="container profile-layout">
-    <MessageRequestForm profileId={profile.id} price={money(price + 500)}/>
+    <MessageRequestForm profileId={profile.id} price={money(price + chatFeeCents(price))}/>
     <aside className="booking-box"><span className="eyebrow">Acordo da conversa</span><h2>Experiência, não garantia.</h2><p>O consultor fala da própria vivência. Não representa a empresa, não promete contratação e não compartilha informação confidencial.</p><p className="muted">O pagamento fica retido pela Insidely e só vai para o consultor depois que a conversa termina.</p></aside>
   </div></section></PublicShell>;
 }
