@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 type Request = { kind: "COMPANY" | "PROFESSION"; name: string; normalizedName: string; userId: string; createdAt: string };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; tipo?: string; page?: string }> }) {
-  await requireUser([Role.ADMIN]);
+  const staff = await requireUser([Role.ADMIN, Role.SUPPORT]);
   const query = await searchParams;
   // CatalogRequest is added by a migration beyond the generated legacy types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
   const tab: Request["kind"] = query.tipo === "areas" ? "PROFESSION" : query.tipo === "empresas" ? "COMPANY" : pendingCompanies || !pendingProfessions ? "COMPANY" : "PROFESSION";
   const shown = paginate([...groups.values()].filter((group) => group.kind === tab), query.page, 20);
   const visible = shown.items;
-  return <DashboardShell mode="admin" title="Empresas e áreas">
+  return <DashboardShell mode={staff.role === Role.ADMIN ? "admin" : "support"} title="Empresas e áreas">
     {query.ok && <p className="form-feedback" role="status">{query.ok === "aprovado" ? "Pedido aprovado. Os perfis que aguardavam já foram atualizados e os consultores, avisados." : "Pedido recusado. Os consultores foram avisados."}</p>}
     {query.erro && <p className="form-error" role="alert">{query.erro}</p>}
     <div className="catalog-admin">

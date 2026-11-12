@@ -10,7 +10,7 @@ const menus = {
   user: [["/dashboard", "Visão geral"], ["/dashboard/favoritos", "Favoritos"], ["/dashboard/mensagens", "Mensagens"], ["/dashboard/avaliacoes", "Avaliações"], ["/dashboard/configuracoes", "Configurações"]],
   consultant: [["/consultor", "Visão geral"], ["/consultor/agenda", "Horários"], ["/consultor/consultas", "Chats"], ["/consultor/ganhos", "Ganhos"], ["/consultor/privacidade", "Privacidade"], ["/consultor/perfil", "Editar perfil"], ["/dashboard/configuracoes?context=consultant", "Conta e segurança"]],
   admin: [["/admin", "Visão geral"], ["/admin/casos", "Casos"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/historias", "Histórias"], ["/admin/usuarios", "Usuários"], ["/admin/denuncias", "Denúncias"], ["/admin/suporte", "Chamados de suporte"], ["/admin/registro", "Registro de ações"], ["/admin/status", "Status do sistema"], ["/dashboard/configuracoes", "Conta e segurança"]],
-  support: [["/admin/casos", "Casos"], ["/admin/sancoes", "Advertências e suspensões"],["/dashboard/configuracoes", "Conta e segurança"]],
+  support: [["/admin/casos", "Casos"], ["/admin/verificacoes", "Verificações"], ["/admin/catalogo", "Empresas e áreas"], ["/admin/sancoes", "Advertências e suspensões"],["/dashboard/configuracoes", "Conta e segurança"]],
 } as const;
 
 // The bell and the menu counts are read here, so every page of the panel shows the same ones.

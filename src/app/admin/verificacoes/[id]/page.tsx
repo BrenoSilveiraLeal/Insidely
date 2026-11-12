@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // One proof of employment: what the consultant said it is, the company on the profile and the file
 // itself (served through /api/verificacao/documento as a short-lived signed URL).
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  await requireUser([Role.ADMIN]);
+  const staff = await requireUser([Role.ADMIN, Role.SUPPORT]);
   const { id } = await params;
   const { data: verification } = await createSupabaseServiceClient().from("Verification")
     .select("id, method, status, createdAt, documents:VerificationDocument(id, originalName, mimeType), professionalProfile:ProfessionalProfile(id, headline, user:User(name), experiences:EmploymentExperience(id, title, isCurrent, startedAt, endedAt, company:Company(name)))")
@@ -34,7 +34,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const href = document ? `/api/verificacao/documento/${document.id}` : null;
   const image = document?.mimeType?.startsWith("image/");
   const hint = VERIFICATION_METHODS.find((item) => item.value === verification.method)?.hint;
-  return <DashboardShell mode="admin" title="Comprovante">
+  return <DashboardShell mode={staff.role === Role.ADMIN ? "admin" : "support"} title="Comprovante">
     <div className="verification-detail">
       <Link className="text-link" href="/admin/verificacoes">← Voltar para verificações</Link>
       <section className="panel verification-facts">

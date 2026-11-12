@@ -712,7 +712,7 @@ export async function archiveCustomerBookingAction(id: string) { await requireUs
 export async function openNotificationAction(id: string, href: string) { const user = await requireUser(); await markNotificationRead(id, user.id); revalidatePath("/dashboard"); revalidatePath("/consultor"); redirect(safeInternalPath(href)); }
 export async function reportProfileAction(profileId: string, formData: FormData) { const reporter = await requireUser(); if (await viewerOwnsProfile(reporter.id, profileId)) redirect(`/profissional/${profileId}`); const category = String(formData.get("category") || ""); const description = String(formData.get("description") || "").trim(); if (description.length < 20 || description.length > 2000) redirect(`/profissional/${profileId}?denuncia=erro`); await rpc("create_profile_report", { p_profile_id: profileId, p_category: category, p_description: description }); redirect(`/profissional/${profileId}?denuncia=enviada`); }
 export async function reviewVerificationAction(id: string, decision: "VERIFIED" | "REJECTED", formData?: FormData) {
-  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "review_verification", null, `${decision} ${id}`));
+  const actor = await requireUser([Role.ADMIN, Role.SUPPORT]); after(() => logAdminAction(actor.id, "review_verification", null, `${decision} ${id}`));
   await adminAction(decision === "VERIFIED" ? "verify_verification" : "reject_verification", id);
   // admin_review_verification already notified the consultant; a rejection reason is added to it.
   const reason = String(formData?.get("reason") || "").trim().slice(0, 400);
@@ -754,7 +754,7 @@ export async function customerCancelBookingAction(id: string, formData: FormData
 // Admin catalog queue: a typed company/area becomes a new entry (or is matched to an existing one),
 // and every experience waiting on that name moves from the placeholder to it.
 export async function resolveCatalogRequestAction(formData: FormData) {
-  const actor = await requireUser([Role.ADMIN]); after(() => logAdminAction(actor.id, "resolve_catalog", null, `${String(formData.get("decision"))} ${String(formData.get("kind"))}: ${String(formData.get("key"))}`));
+  const actor = await requireUser([Role.ADMIN, Role.SUPPORT]); after(() => logAdminAction(actor.id, "resolve_catalog", null, `${String(formData.get("decision"))} ${String(formData.get("kind"))}: ${String(formData.get("key"))}`));
   const kind = formData.get("kind") === "PROFESSION" ? "PROFESSION" : "COMPANY";
   const key = String(formData.get("key") || "");
   const decision = String(formData.get("decision") || "");

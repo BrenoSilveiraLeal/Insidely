@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAuthenticatedUser } from "@/lib/session";
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthenticatedUser(); if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  if (user.role !== "ADMIN" && user.role !== "SUPPORT") return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   const { id } = await params; const supabase = await createSupabaseServerClient();
   const { data: doc, error } = await supabase.from("VerificationDocument").select("storageKey").eq("id", id).maybeSingle();
   if (error || !doc) return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 });
