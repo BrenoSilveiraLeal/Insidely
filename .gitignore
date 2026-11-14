@@ -41,6 +41,18 @@ yarn-error.log*
 /.tmp/
 /test-results/
 /playwright-report/
+/output/playwright/
+/.playwright-cli/
+
+# Internal security and operational reports kept local
+/insidely-threat-model.md
+/docs/BLOCKERS.md
+/docs/INFRASTRUCTURE_AUDIT.md
+/docs/PLAYWRIGHT_AUTH_DIAGNOSTIC.md
+/docs/PRODUCTION_READINESS_CURRENT.md
+/docs/QA_BASELINE.md
+/docs/QA_RUNTIME_AUDIT.md
+/docs/SUPABASE_SECURITY_REVIEW.md
 
 # vercel
 .vercel

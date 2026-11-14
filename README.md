@@ -16,8 +16,6 @@ Marketplace de conversas profissionais para conhecer empresas e profissões ante
 - **Confiança e suporte:** identificação por CPF e idade mínima, moderação do chat com advertência automática (no máximo uma a cada 24 horas), suspensões progressivas, recurso contra advertências e suspensões, bloqueios, denúncias, contestações e histórico preservado.
 - **Painéis separados:** áreas para clientes, consultores, suporte e administração, com notificações, horários de atendimento e controles de privacidade.
 
-> Até novembro de 2026 a plataforma também tinha conversas por vídeo (Google Meet) e um formato de "5 perguntas por mensagem". Os dois foram removidos depois da apresentação do TCC: por vídeo o consultor é reconhecido pelo rosto e pela voz, o que o expõe a retaliação. Conversas antigas continuam no histórico.
-
 Veja o ciclo completo do chat, os prazos e as regras de reembolso, anonimato e advertências em [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md).
 
 ## Começar localmente
@@ -36,7 +34,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Preencha no mínimo `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SERVICE_ROLE_KEY`. O arquivo `.env.example` lista as integrações opcionais. Nunca coloque a chave `service_role` em uma variável `NEXT_PUBLIC_*`.
+Preencha no mínimo `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SERVICE_ROLE_KEY`. O arquivo `.env.example` lista as integrações opcionais. Use credenciais próprias do seu projeto Supabase e nunca coloque a chave `service_role` em uma variável `NEXT_PUBLIC_*`.
+
+O arquivo `.env.local` é ignorado pelo Git. Mantenha nele as credenciais locais; não versione chaves, tokens, estados de sessão ou dados pessoais.
 
 ## Banco de dados e migrations
 
@@ -77,7 +77,7 @@ O login social usa Supabase Auth. Opcionalmente, `GOOGLE_LOGIN_CLIENT_ID` e `GOO
 | `src/lib` | Políticas de domínio, sessão, consultas e integrações. |
 | `supabase/migrations` | Evolução incremental do banco, RPCs, triggers e RLS. |
 | `supabase/functions` | Edge Functions. |
-| `docs` | Guias operacionais, segurança, pagamentos, QA e arquitetura. |
+| `docs` | Guias de produto, instalação, integrações e operação. |
 | `e2e` | Cenários automatizados com Playwright. |
 
 A visão das fronteiras e do fluxo de dados fica em [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -101,19 +101,14 @@ Os testes autenticados usam duas contas configuradas no ambiente E2E. Consulte [
 | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Camadas, autorização, dados e rotas principais. |
 | [docs/CONVERSATIONS.md](docs/CONVERSATIONS.md) | Ciclo do chat, prazos, reembolsos, modo anônimo, advertências e recursos. |
-| [ROADMAP.md](ROADMAP.md) | Entregas atuais e próximos pontos operacionais. |
+| [ROADMAP.md](ROADMAP.md) | Escopo atual do produto e direção de evolução. |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Ordem de publicação e verificação de deployment. |
 | [docs/PAYMENTS_AND_TRANSFERS.md](docs/PAYMENTS_AND_TRANSFERS.md) | Simulação atual e integração financeira prevista. |
-| [docs/SUPABASE_SECURITY_REVIEW.md](docs/SUPABASE_SECURITY_REVIEW.md) | RLS, RPCs, views e dados sensíveis. |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | Crons, alertas e monitoramento. |
 | [docs/E2E_TESTS.md](docs/E2E_TESTS.md) | Preparação e execução dos fluxos E2E. |
-| `docs/QA_*.md` | Relatórios de QA feitos em datas específicas; leia a data antes de tratar um resultado como atual. |
 
 ## Segurança
 
-- RLS permanece habilitado; identidade e papel são resolvidos no servidor a partir da sessão autenticada.
-- Dados de identidade e documentos de verificação não são expostos em views públicas.
-- RPCs privilegiadas validam autorização e revogam execução de `PUBLIC` e `anon`.
-- Views públicas devem expor somente os campos aprovados para o perfil público. Revise privacidade antes de acrescentar colunas.
-- O login limita tentativas por e-mail (8) e por IP (30) a cada 15 minutos, usando a cota `consume_auth_email_quota` (`src/lib/auth-email-throttle.ts`). Recuperação de senha, cadastro e verificação de CPF têm limites próprios na mesma tabela.
-- Nunca execute pagamentos, reembolsos ou alterações financeiras no navegador.
+- Segredos devem ficar em variáveis de ambiente locais ou no gerenciador de segredos do ambiente de publicação; nunca em arquivos versionados ou variáveis `NEXT_PUBLIC_*`.
+- Não publique dados pessoais, documentos, tokens ou capturas de telas autenticadas em issues, logs ou exemplos.
+- O checkout deste repositório é demonstrativo e não deve ser usado para cobrar ou transferir dinheiro real.
